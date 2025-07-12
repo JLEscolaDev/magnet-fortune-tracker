@@ -6,10 +6,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, startOfDay, endOfDay } from 'date-fns';
 
 interface HomeTabProps {
-  onRefresh: () => void;
+  refreshTrigger: number;
 }
 
-export const HomeTab = ({ onRefresh }: HomeTabProps) => {
+export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [todaysFortunes, setTodaysFortunes] = useState<Fortune[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,12 +20,26 @@ export const HomeTab = ({ onRefresh }: HomeTabProps) => {
       
       if (!user) return;
 
-      // Fetch profile
-      const { data: profileData } = await supabase
+      // Fetch or create profile
+      let { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (!profileData) {
+        // Create profile if it doesn't exist
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .insert([{ 
+            user_id: user.id, 
+            display_name: user.email?.split('@')[0] || 'Fortune Seeker'
+          }])
+          .select()
+          .single();
+        
+        profileData = newProfile;
+      }
 
       if (profileData) {
         setProfile(profileData);
@@ -56,7 +70,7 @@ export const HomeTab = ({ onRefresh }: HomeTabProps) => {
 
   useEffect(() => {
     fetchData();
-  }, [onRefresh]);
+  }, [refreshTrigger]);
 
   if (loading) {
     return (

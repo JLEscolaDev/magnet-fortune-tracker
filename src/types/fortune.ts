@@ -2,8 +2,8 @@ export interface Fortune {
   id: string;
   user_id: string;
   text: string;
-  category: FortuneCategory;
-  fortune_level?: number;
+  category: string; // Changed from FortuneCategory to string to match DB
+  fortune_level?: number | null;
   created_at: string;
 }
 
