@@ -19,6 +19,13 @@ export default {
 		},
 		extend: {
 			colors: {
+				// Luxury Fortune Magnet Colors
+				'rich-black': 'hsl(var(--rich-black))',
+				'emerald': 'hsl(var(--emerald))',
+				'gold': 'hsl(var(--gold))',
+				'ivory': 'hsl(var(--ivory))',
+				
+				// Design System
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
@@ -62,6 +69,10 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				}
+			},
+			fontFamily: {
+				'heading': ['Playfair Display', 'serif'],
+				'body': ['Inter', 'sans-serif'],
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

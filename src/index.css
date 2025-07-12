@@ -8,35 +8,47 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Fortune Magnet Luxury Color Palette */
+    --rich-black: 22 6% 5%;        /* #0C0C0C */
+    --emerald: 162 89% 22%;        /* #046B4A */
+    --gold: 46 60% 56%;            /* #D6B94C */
+    --ivory: 48 44% 93%;           /* #F2F0E8*/
+    
+    /* Design System Colors */
+    --background: var(--rich-black);
+    --foreground: var(--ivory);
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: var(--rich-black);
+    --card-foreground: var(--ivory);
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: var(--rich-black);
+    --popover-foreground: var(--ivory);
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: var(--emerald);
+    --primary-foreground: var(--ivory);
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 22 6% 12%;
+    --secondary-foreground: var(--ivory);
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 22 6% 8%;
+    --muted-foreground: 22 6% 70%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: var(--gold);
+    --accent-foreground: var(--rich-black);
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: var(--ivory);
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: var(--gold);
+    --input: 22 6% 8%;
+    --ring: var(--gold);
 
-    --radius: 0.5rem;
+    --radius: 1.125rem;             /* 18px border radius */
+    
+    /* Luxury Effects */
+    --gold-glow: 0 0 8px hsl(var(--gold) / 0.2);
+    --gold-border: 1px solid hsl(var(--gold) / 0.3);
+    --transition-smooth: all 200ms ease-out;
 
     --sidebar-background: 0 0% 98%;
 
@@ -100,6 +112,31 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer components {
+  .luxury-card {
+    @apply rounded-[18px] border border-gold/30 bg-card transition-all duration-200 ease-out;
+    box-shadow: var(--gold-glow);
+  }
+  
+  .luxury-button {
+    @apply bg-gradient-to-r from-emerald to-emerald/80 hover:from-emerald/90 hover:to-emerald/70 text-primary-foreground font-medium rounded-[18px] px-6 py-3 transition-all duration-200 ease-out;
+    box-shadow: var(--gold-glow);
+  }
+  
+  .gold-accent {
+    @apply text-accent;
+  }
+  
+  .emerald-glow {
+    box-shadow: 0 0 12px hsl(var(--emerald) / 0.3);
   }
 }
