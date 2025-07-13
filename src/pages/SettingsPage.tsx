@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Moon, Sun, Bell, SpeakerHigh, SpeakerX, Upload, Camera, SignOut } from '@phosphor-icons/react';
+import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, Upload, Camera, SignOut } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -117,7 +117,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  {soundEnabled ? <SpeakerHigh size={20} /> : <SpeakerX size={20} />}
+                  {soundEnabled ? <SpeakerSimpleHigh size={20} /> : <SpeakerSimpleSlash size={20} />}
                   <div>
                     <p className="font-medium">Sound Effects</p>
                     <p className="text-sm text-muted-foreground">Play audio feedback</p>
