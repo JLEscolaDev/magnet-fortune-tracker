@@ -17,16 +17,50 @@ interface AddFortuneModalProps {
 const categories: FortuneCategory[] = ['Wealth', 'Health', 'Love', 'Opportunity', 'Other'];
 
 const shootCoins = () => {
-  const colors = ['#D6B94C', '#046B4A', '#F2F0E8'];
+  const colors = ['#D6B94C', '#FFD700', '#F2F0E8'];
   
+  // Gold coin animation for wealth
   confetti({
-    particleCount: 100,
-    spread: 70,
-    origin: { y: 0.6 },
+    particleCount: 150,
+    spread: 90,
+    origin: { y: 0.5 },
     colors,
     shapes: ['circle'],
-    gravity: 0.9,
-    scalar: 1.2,
+    gravity: 1.2,
+    scalar: 1.5,
+    drift: 0.1,
+    ticks: 300,
+  });
+  
+  // Additional gold sparkles
+  setTimeout(() => {
+    confetti({
+      particleCount: 50,
+      spread: 40,
+      origin: { y: 0.4 },
+      colors: ['#FFD700', '#D6B94C'],
+      shapes: ['circle'],
+      gravity: 0.6,
+      scalar: 0.8,
+    });
+  }, 200);
+  
+  // Vibrate if supported
+  if ('vibrate' in navigator) {
+    navigator.vibrate([50, 50, 100]);
+  }
+};
+
+const shootConfetti = () => {
+  const colors = ['#046B4A', '#F2F0E8', '#D6B94C'];
+  
+  confetti({
+    particleCount: 80,
+    spread: 60,
+    origin: { y: 0.6 },
+    colors,
+    gravity: 0.8,
+    scalar: 1.0,
   });
   
   // Vibrate if supported
@@ -50,6 +84,12 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
         description: "Please enter your fortune",
         variant: "destructive",
       });
+      
+      // Error feedback
+      if ('vibrate' in navigator) {
+        navigator.vibrate([100, 50, 100]);
+      }
+      
       return;
     }
 
@@ -79,8 +119,12 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
 
       if (error) throw error;
 
-      // Success animations and feedback
-      shootCoins();
+      // Success animations and feedback - conditional based on category
+      if (category === 'Wealth') {
+        shootCoins();
+      } else {
+        shootConfetti();
+      }
       
       toast({
         title: "Fortune Tracked! ✨",
@@ -114,7 +158,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md luxury-card p-6 transform transition-transform duration-200 hover:scale-[1.02]">
+      <div className="relative w-full max-w-md luxury-card p-6 transform transition-transform duration-200">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-heading font-semibold flex items-center gap-2">
             <Sparkle size={24} className="text-gold" />

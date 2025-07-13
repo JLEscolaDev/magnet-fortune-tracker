@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
+import { DateDetailsModal } from '@/components/DateDetailsModal';
 import { Fortune, Achievement } from '@/types/fortune';
 import { AchievementCard } from '@/components/AchievementCard';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,6 +62,8 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedDateFortunes, setSelectedDateFortunes] = useState<Fortune[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [modalDate, setModalDate] = useState<Date | null>(null);
 
   const fetchFortunes = async () => {
     try {
@@ -106,6 +109,19 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
 
   const getDaysWithFortunes = () => {
     return fortunes.map(fortune => new Date(fortune.created_at));
+  };
+
+  const handleDateClick = (date: Date | undefined) => {
+    if (date) {
+      const dateFortunes = fortunes.filter(fortune =>
+        isSameDay(new Date(fortune.created_at), date)
+      );
+      if (dateFortunes.length > 0) {
+        setModalDate(date);
+        setShowDateModal(true);
+      }
+      setSelectedDate(date);
+    }
   };
 
   const calculateAchievements = () => {
@@ -161,17 +177,26 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
           <CalendarDots size={24} className="text-gold" />
           Fortune Calendar
         </h3>
-        <div className="w-full overflow-x-auto">
+        <div className="w-full">
           <Calendar
             mode="single"
             selected={selectedDate}
-            onSelect={setSelectedDate}
-            className="rounded-md border-0 w-full mx-auto"
+            onSelect={handleDateClick}
+            className="rounded-md border-0 w-full mx-auto pointer-events-auto"
             modifiers={{
               fortuneDay: getDaysWithFortunes()
             }}
             modifiersStyles={{
-              fortuneDay: { backgroundColor: 'hsl(var(--emerald))', color: 'hsl(var(--ivory))', borderRadius: '6px' }
+              fortuneDay: { 
+                backgroundColor: 'hsl(var(--emerald))', 
+                color: 'hsl(var(--ivory))', 
+                borderRadius: '6px',
+                fontWeight: 'bold',
+                position: 'relative'
+              }
+            }}
+            modifiersClassNames={{
+              fortuneDay: 'fortune-day-marker cursor-pointer hover:scale-105 transition-transform'
             }}
           />
         </div>
@@ -245,6 +270,16 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
           ))}
         </div>
       </div>
+
+      {/* Date Details Modal */}
+      <DateDetailsModal
+        isOpen={showDateModal}
+        onClose={() => setShowDateModal(false)}
+        date={modalDate}
+        fortunes={modalDate ? fortunes.filter(fortune =>
+          isSameDay(new Date(fortune.created_at), modalDate)
+        ) : []}
+      />
     </div>
   );
 };
