@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Fortune, Achievement } from '@/types/fortune';
+import { AchievementCard } from '@/components/AchievementCard';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   CalendarDots, 
@@ -107,6 +108,40 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
     return fortunes.map(fortune => new Date(fortune.created_at));
   };
 
+  const calculateAchievements = () => {
+    return mockAchievements.map(achievement => {
+      let progress = 0;
+      let isEarned = false;
+
+      switch (achievement.id) {
+        case '1': // First Fortune
+          progress = fortunes.length > 0 ? 1 : 0;
+          isEarned = fortunes.length >= 1;
+          break;
+        case '2': // Fortune Seeker (10 fortunes)
+          progress = fortunes.length;
+          isEarned = fortunes.length >= 10;
+          break;
+        case '3': // Wealth Magnet (5 wealth fortunes)
+          progress = fortunes.filter(f => f.category === 'Wealth').length;
+          isEarned = progress >= 5;
+          break;
+        case '4': // Love Attractor (3 love fortunes)
+          progress = fortunes.filter(f => f.category === 'Love').length;
+          isEarned = progress >= 3;
+          break;
+        default:
+          break;
+      }
+
+      return {
+        ...achievement,
+        state: isEarned ? 'earned' as const : 'locked' as const,
+        progress
+      };
+    });
+  };
+
   if (loading) {
     return (
       <div className="space-y-6 p-6">
@@ -126,18 +161,20 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
           <CalendarDots size={24} className="text-gold" />
           Fortune Calendar
         </h3>
-        <Calendar
-          mode="single"
-          selected={selectedDate}
-          onSelect={setSelectedDate}
-          className="rounded-md border-0"
-          modifiers={{
-            fortuneDay: getDaysWithFortunes()
-          }}
-          modifiersStyles={{
-            fortuneDay: { backgroundColor: 'hsl(var(--emerald))', color: 'hsl(var(--ivory))' }
-          }}
-        />
+        <div className="w-full overflow-x-auto">
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            className="rounded-md border-0 w-full mx-auto"
+            modifiers={{
+              fortuneDay: getDaysWithFortunes()
+            }}
+            modifiersStyles={{
+              fortuneDay: { backgroundColor: 'hsl(var(--emerald))', color: 'hsl(var(--ivory))', borderRadius: '6px' }
+            }}
+          />
+        </div>
         
         {selectedDate && selectedDateFortunes.length > 0 && (
           <div className="mt-4 pt-4 border-t border-border">
@@ -198,27 +235,13 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
           Achievements
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {mockAchievements.map((achievement) => (
-            <div
+          {calculateAchievements().map((achievement) => (
+            <AchievementCard
               key={achievement.id}
-              className={`
-                p-4 rounded-lg text-center transition-all
-                ${achievement.state === 'earned' 
-                  ? 'bg-emerald/20 border border-emerald/30' 
-                  : 'bg-muted/20 border border-muted/30'
-                }
-              `}
-            >
-              <div className="text-2xl mb-2">
-                {achievement.state === 'earned' ? achievement.icon : <Lock size={24} className="mx-auto text-muted-foreground" />}
-              </div>
-              <h4 className={`font-medium text-sm mb-1 ${achievement.state === 'earned' ? 'text-emerald' : 'text-muted-foreground'}`}>
-                {achievement.title}
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                {achievement.description}
-              </p>
-            </div>
+              achievement={achievement}
+              isEarned={achievement.state === 'earned'}
+              progress={achievement.progress}
+            />
           ))}
         </div>
       </div>

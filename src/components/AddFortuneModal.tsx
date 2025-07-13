@@ -114,7 +114,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md luxury-card p-6">
+      <div className="relative w-full max-w-md luxury-card p-6 transform transition-transform duration-200 hover:scale-[1.02]">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-heading font-semibold flex items-center gap-2">
             <Sparkle size={24} className="text-gold" />

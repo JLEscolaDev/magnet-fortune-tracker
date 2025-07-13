@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { TopBar } from '@/components/TopBar';
 import { SettingsDrawer } from '@/components/SettingsDrawer';
+import { SettingsPage } from '@/pages/SettingsPage';
 import { HomeTab } from '@/components/HomeTab';
 import { InsightsTab } from '@/components/InsightsTab';
 import { TabBar } from '@/components/TabBar';
@@ -17,6 +18,7 @@ const FortuneApp = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'home' | 'insights'>('home');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showSettingsPage, setShowSettingsPage] = useState(false);
   const [addFortuneOpen, setAddFortuneOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -59,10 +61,14 @@ const FortuneApp = () => {
     return <AuthPage />;
   }
 
+  if (showSettingsPage) {
+    return <SettingsPage onBack={() => setShowSettingsPage(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-6xl mx-auto">
-        <TopBar onSettingsClick={() => setSettingsOpen(true)} />
+        <TopBar onSettingsClick={() => setShowSettingsPage(true)} />
         
         <DesktopTabs
           activeTab={activeTab}

@@ -26,6 +26,7 @@ export interface Achievement {
   description: string;
   icon: string;
   state: 'locked' | 'earned';
-  requiredCount?: number;
+  requiredCount: number;
   category?: FortuneCategory;
+  progress?: number;
 }
