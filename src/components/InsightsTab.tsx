@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CustomCalendar } from '@/components/CustomCalendar';
-import { DateDetailsModal } from '@/components/DateDetailsModal';
+import { StatisticsDetailModal } from '@/components/StatisticsDetailModal';
+import { AchievementsDetailModal } from '@/components/AchievementsDetailModal';
 import { Fortune, Achievement } from '@/types/fortune';
 import { AchievementCard } from '@/components/AchievementCard';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +15,7 @@ import {
   HeartStraight,
   Sparkle
 } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
 import { format, isSameDay } from 'date-fns';
 
 interface InsightsTabProps {
@@ -62,8 +64,8 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedDateFortunes, setSelectedDateFortunes] = useState<Fortune[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showDateModal, setShowDateModal] = useState(false);
-  const [modalDate, setModalDate] = useState<Date | null>(null);
+  const [showStatisticsModal, setShowStatisticsModal] = useState(false);
+  const [showAchievementsModal, setShowAchievementsModal] = useState(false);
 
   const fetchFortunes = async () => {
     try {
@@ -114,10 +116,6 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
   const handleDateClick = (date: Date, dateFortunes: Fortune[]) => {
     setSelectedDate(date);
     setSelectedDateFortunes(dateFortunes);
-    if (dateFortunes.length > 0) {
-      setModalDate(date);
-      setShowDateModal(true);
-    }
   };
 
   const calculateAchievements = () => {
@@ -199,10 +197,20 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
 
       {/* Statistics */}
       <div className="luxury-card p-6">
-        <h3 className="text-lg font-heading font-medium mb-4 flex items-center gap-2">
-          <ChartBar size={24} className="text-gold" />
-          Statistics
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-heading font-medium flex items-center gap-2">
+            <ChartBar size={24} className="text-gold" />
+            Statistics
+          </h3>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => setShowStatisticsModal(true)}
+            className="text-gold hover:text-gold/80 hover:bg-gold/10"
+          >
+            View Details
+          </Button>
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="text-center p-4 bg-muted/30 rounded-lg">
             <div className="text-2xl font-bold text-emerald">{fortunes.length}</div>
@@ -234,10 +242,20 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
 
       {/* Achievements */}
       <div className="luxury-card p-6">
-        <h3 className="text-lg font-heading font-medium mb-4 flex items-center gap-2">
-          <Trophy size={24} className="text-gold" />
-          Achievements
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-heading font-medium flex items-center gap-2">
+            <Trophy size={24} className="text-gold" />
+            Achievements
+          </h3>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => setShowAchievementsModal(true)}
+            className="text-gold hover:text-gold/80 hover:bg-gold/10"
+          >
+            View All
+          </Button>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {calculateAchievements().map((achievement) => (
             <AchievementCard
@@ -250,14 +268,17 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
         </div>
       </div>
 
-      {/* Date Details Modal */}
-      <DateDetailsModal
-        isOpen={showDateModal}
-        onClose={() => setShowDateModal(false)}
-        date={modalDate}
-        fortunes={modalDate ? fortunes.filter(fortune =>
-          isSameDay(new Date(fortune.created_at), modalDate)
-        ) : []}
+      {/* Detail Modals */}
+      <StatisticsDetailModal
+        isOpen={showStatisticsModal}
+        onClose={() => setShowStatisticsModal(false)}
+        fortunes={fortunes}
+      />
+      
+      <AchievementsDetailModal
+        isOpen={showAchievementsModal}
+        onClose={() => setShowAchievementsModal(false)}
+        achievements={calculateAchievements()}
       />
     </div>
   );

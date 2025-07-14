@@ -88,7 +88,7 @@ export const CustomCalendar = ({ fortunes, onDateClick }: CustomCalendarProps) =
 
         {/* Empty cells for padding */}
         {emptyCells.map((_, index) => (
-          <div key={`empty-${index}`} className="h-10" />
+          <div key={`empty-${index}`} className="h-12" />
         ))}
 
         {/* Calendar Days */}
@@ -102,7 +102,7 @@ export const CustomCalendar = ({ fortunes, onDateClick }: CustomCalendarProps) =
               key={date.toISOString()}
               onClick={() => handleDateClick(date)}
               className={`
-                relative h-10 w-full flex items-center justify-center text-sm font-medium
+                relative h-12 w-full flex flex-col items-center justify-center text-sm font-medium
                 rounded-lg transition-all duration-200 hover:scale-105 hover:shadow-md
                 ${isToday 
                   ? 'bg-primary text-primary-foreground shadow-glow' 
@@ -118,19 +118,19 @@ export const CustomCalendar = ({ fortunes, onDateClick }: CustomCalendarProps) =
                 }
               `}
             >
-              <span className="relative z-10">
+              <span className="relative z-10 leading-none">
                 {format(date, 'd')}
               </span>
               
-              {/* Fortune indicator dot */}
+              {/* Fortune count badge */}
               {hasfortunes && (
-                <div className="absolute top-1 right-1 w-2 h-2 bg-gold rounded-full shadow-gold-glow animate-pulse" />
-              )}
-              
-              {/* Multiple fortunes indicator */}
-              {dateFortunes.length > 1 && (
-                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 text-xs font-bold text-gold">
-                  {dateFortunes.length}
+                <div className="mt-1 px-1.5 py-0.5 bg-gold/20 border border-gold/40 rounded-full flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 bg-gold rounded-full animate-pulse" />
+                  {dateFortunes.length > 1 && (
+                    <span className="text-xs font-bold text-gold leading-none">
+                      {dateFortunes.length}
+                    </span>
+                  )}
                 </div>
               )}
             </button>
