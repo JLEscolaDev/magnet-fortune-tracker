@@ -100,6 +100,9 @@ export default {
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out'
+			},
+			boxShadow: {
+				'gold-glow': '0 0 4px 2px rgba(214, 185, 76, 0.6)',
 			}
 		}
 	},

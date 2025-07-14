@@ -182,7 +182,7 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
             mode="single"
             selected={selectedDate}
             onSelect={handleDateClick}
-            className="rounded-md border-0 w-full mx-auto pointer-events-auto"
+            className="rounded-md border-0 w-full mx-auto pointer-events-auto ring-2 ring-gold shadow-gold-glow"
             modifiers={{
               fortuneDay: getDaysWithFortunes()
             }}
@@ -196,7 +196,7 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
               }
             }}
             modifiersClassNames={{
-              fortuneDay: 'fortune-day-marker cursor-pointer hover:scale-105 transition-transform'
+              fortuneDay: 'fortune-day-marker cursor-pointer hover:scale-105 transition-transform ring-2 ring-gold shadow-gold-glow'
             }}
           />
         </div>

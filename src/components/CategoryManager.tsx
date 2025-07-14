@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, X, Edit, CurrencyDollar } from '@phosphor-icons/react';
+/*import { useState, useEffect } from 'react';
+import { Plus, X, Pencil, CurrencyDollar } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -131,7 +131,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
         </Button>
       </div>
 
-      {/* Default Categories */}
+      {}
       <div className="space-y-2">
         <h5 className="text-sm font-medium text-muted-foreground">Default Categories</h5>
         <div className="flex flex-wrap gap-2">
@@ -147,7 +147,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
         </div>
       </div>
 
-      {/* Custom Categories */}
+      {}
       {categories.length > 0 && (
         <div className="space-y-2">
           <h5 className="text-sm font-medium text-muted-foreground">Your Custom Categories</h5>
@@ -183,7 +183,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
         </div>
       )}
 
-      {/* Add New Category Form */}
+      {}
       {isAddingNew && (
         <div className="luxury-card p-4 space-y-4">
           <div>
@@ -226,4 +226,4 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
       )}
     </div>
   );
-};
+};*/

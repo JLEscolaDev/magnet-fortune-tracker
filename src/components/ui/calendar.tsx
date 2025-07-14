@@ -10,6 +10,9 @@ export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 function Calendar({
   className,
   classNames,
+  modifiers,
+  modifiersStyles,
+  modifiersClassNames,
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
@@ -18,7 +21,7 @@ function Calendar({
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+        months: "flex flex-col",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
         caption_label: "text-sm font-medium",
@@ -29,12 +32,11 @@ function Calendar({
         ),
         nav_button_previous: "absolute left-1",
         nav_button_next: "absolute right-1",
-        table: "w-full border-collapse space-y-1",
-        head_row: "flex",
-        head_cell:
-          "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
-        row: "flex w-full mt-2",
-        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        table: "w-full border-collapse",
+        head_row: "flex justify-between px-2",
+        head_cell: "grid grid-cols-7 gap-[2px] mt-2 px-[6px]",
+        row: "grid grid-cols-7 gap-[2px] mt-2 px-[6px]",
+        cell: "h-9 w-9 text-center text-sm p-0 relative ring-gold shadow-gold-glow [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
           "h-9 w-9 p-0 font-normal aria-selected:opacity-100"
@@ -51,6 +53,9 @@ function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
+      modifiers={modifiers}
+      modifiersStyles={modifiersStyles}
+      modifiersClassNames={modifiersClassNames}
       components={{
         Chevron: ({ orientation, ...props }) => {
           const Component = orientation === 'left' ? ChevronLeft : ChevronRight;
