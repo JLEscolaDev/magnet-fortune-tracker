@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      custom_categories: {
+        Row: {
+          color: string
+          has_numeric_value: boolean
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color: string
+          has_numeric_value?: boolean
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          has_numeric_value?: boolean
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fortunes: {
         Row: {
           category: string

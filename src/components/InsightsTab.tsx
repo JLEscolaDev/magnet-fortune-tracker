@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar } from '@/components/ui/calendar';
+import { CustomCalendar } from '@/components/CustomCalendar';
 import { DateDetailsModal } from '@/components/DateDetailsModal';
 import { Fortune, Achievement } from '@/types/fortune';
 import { AchievementCard } from '@/components/AchievementCard';
@@ -111,16 +111,12 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
     return fortunes.map(fortune => new Date(fortune.created_at));
   };
 
-  const handleDateClick = (date: Date | undefined) => {
-    if (date) {
-      const dateFortunes = fortunes.filter(fortune =>
-        isSameDay(new Date(fortune.created_at), date)
-      );
-      if (dateFortunes.length > 0) {
-        setModalDate(date);
-        setShowDateModal(true);
-      }
-      setSelectedDate(date);
+  const handleDateClick = (date: Date, dateFortunes: Fortune[]) => {
+    setSelectedDate(date);
+    setSelectedDateFortunes(dateFortunes);
+    if (dateFortunes.length > 0) {
+      setModalDate(date);
+      setShowDateModal(true);
     }
   };
 
@@ -178,26 +174,9 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
           Fortune Calendar
         </h3>
         <div className="w-full">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={handleDateClick}
-            className="rounded-md border-0 w-full mx-auto pointer-events-auto ring-2 ring-gold shadow-gold-glow"
-            modifiers={{
-              fortuneDay: getDaysWithFortunes()
-            }}
-            modifiersStyles={{
-              fortuneDay: { 
-                backgroundColor: 'hsl(var(--emerald))', 
-                color: 'hsl(var(--ivory))', 
-                borderRadius: '6px',
-                fontWeight: 'bold',
-                position: 'relative'
-              }
-            }}
-            modifiersClassNames={{
-              fortuneDay: 'fortune-day-marker cursor-pointer hover:scale-105 transition-transform ring-2 ring-gold shadow-gold-glow'
-            }}
+          <CustomCalendar
+            fortunes={fortunes}
+            onDateClick={handleDateClick}
           />
         </div>
         
