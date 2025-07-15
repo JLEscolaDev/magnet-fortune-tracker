@@ -96,14 +96,6 @@ export const StatisticsDetailModal = ({ isOpen, onClose, fortunes }: StatisticsD
             <h2 className="text-2xl font-heading font-semibold text-foreground mb-2">Personal Growth Dashboard</h2>
             <p className="text-sm text-muted-foreground">Track your fortune journey and celebrate your progress</p>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={onClose}
-            className="absolute top-4 right-4 h-8 w-8 p-0 hover:bg-gold/10"
-          >
-            <X className="h-4 w-4 text-gold" />
-          </Button>
         </div>
 
         <div className="p-6 space-y-8">

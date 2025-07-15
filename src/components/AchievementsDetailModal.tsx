@@ -36,9 +36,6 @@ export const AchievementsDetailModal = ({ isOpen, onClose, achievements }: Achie
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-background/95 backdrop-blur-md border border-gold/20">
         <div className="flex items-center justify-between p-6 border-b border-border/50">
           <h2 className="text-xl font-heading font-semibold text-foreground">Achievement Gallery</h2>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
         </div>
 
         <div className="p-6 space-y-6">
