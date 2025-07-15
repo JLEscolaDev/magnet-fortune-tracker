@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { HeroCard } from './HeroCard';
+import { LuxuryAvatarSection } from './LuxuryAvatarSection';
 import { FortuneList } from './FortuneList';
 import { Fortune, Profile } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ interface HomeTabProps {
 export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [todaysFortunes, setTodaysFortunes] = useState<Fortune[]>([]);
+  const [totalFortuneCount, setTotalFortuneCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
@@ -61,6 +62,16 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
       if (fortunesData) {
         setTodaysFortunes(fortunesData);
       }
+
+      // Fetch total fortune count for level progression
+      const { count: totalCount } = await supabase
+        .from('fortunes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (totalCount !== null) {
+        setTotalFortuneCount(totalCount);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -109,11 +120,17 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
     );
   }
 
+  const handleLevelUp = () => {
+    // Refetch data to get updated profile
+    fetchData();
+  };
+
   return (
     <div className="space-y-6 p-6 pb-24 md:pb-6">
-      <HeroCard 
+      <LuxuryAvatarSection 
         profile={profile} 
-        recentAchievements={[]} // TODO: Implement achievements logic
+        fortuneCount={totalFortuneCount}
+        onLevelUp={handleLevelUp}
       />
       <FortuneList fortunes={todaysFortunes} />
     </div>

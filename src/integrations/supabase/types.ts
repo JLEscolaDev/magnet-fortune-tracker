@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      avatars: {
+        Row: {
+          created_at: string
+          id: string
+          level: number
+          title: string | null
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level: number
+          title?: string | null
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: number
+          title?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
       custom_categories: {
         Row: {
           color: string
