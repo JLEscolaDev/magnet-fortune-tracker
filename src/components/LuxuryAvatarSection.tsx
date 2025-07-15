@@ -70,92 +70,84 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
 
   if (loading) {
     return (
-      <div className="luxury-avatar-section">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-24 h-24 rounded-full bg-muted/30 animate-pulse" />
-          <div className="h-4 bg-muted/30 rounded w-32 animate-pulse" />
-          <div className="h-2 bg-muted/30 rounded w-48 animate-pulse" />
+      <div className="relative w-full aspect-square rounded-2xl bg-muted/30 animate-pulse overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        <div className="absolute bottom-4 left-4 right-4 space-y-2">
+          <div className="h-4 bg-muted/50 rounded w-32" />
+          <div className="h-3 bg-muted/50 rounded w-24" />
+          <div className="h-2 bg-muted/50 rounded w-full" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="luxury-avatar-section">
-      <div className="flex flex-col items-center space-y-4">
-        {/* Avatar Circle */}
-        <div className="relative">
-          <div className={`
-            relative w-24 h-24 rounded-full overflow-hidden
-            border-2 border-emerald/30
-            shadow-[0_0_20px_hsl(var(--emerald)/0.3)]
-            transition-all duration-500 ease-out
-            ${isLevelingUp ? 'animate-pulse' : ''}
-          `}>
-            {/* Gold ring that pulses on level up */}
-            <div className={`
-              absolute inset-0 rounded-full
-              border-2 border-gold/60
-              transition-all duration-1000 ease-out
-              ${isLevelingUp ? 'animate-[pulse_1s_ease-in-out_2] scale-110' : 'scale-100'}
-            `} />
-            
-            {/* Avatar Image */}
-            <div className="relative w-full h-full">
-              {avatar?.url ? (
-                <img
-                  src={avatar.url}
-                  alt={avatar.title || 'Avatar'}
-                  className="w-full h-full object-cover rounded-full"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-emerald to-gold flex items-center justify-center rounded-full">
-                  <Crown size={28} weight="fill" className="text-ivory" />
-                </div>
-              )}
-            </div>
+    <div className="relative w-full aspect-square rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+      {/* Background Avatar Image */}
+      <div className="absolute inset-0">
+        {avatar?.url ? (
+          <img
+            src={avatar.url}
+            alt={avatar.title || 'Avatar'}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-emerald via-emerald/80 to-gold flex items-center justify-center">
+            <Crown size={64} weight="fill" className="text-ivory opacity-80" />
           </div>
-        </div>
+        )}
+      </div>
 
+      {/* Gold ring that pulses on level up */}
+      <div className={`
+        absolute inset-0 rounded-2xl
+        border-2 border-gold/40
+        transition-all duration-1000 ease-out
+        ${isLevelingUp ? 'animate-[pulse_1s_ease-in-out_2] scale-[1.02] border-gold/80' : ''}
+      `} />
+
+      {/* Dark gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+      {/* Content overlay */}
+      <div className="absolute bottom-0 left-0 right-0 p-6 text-center">
         {/* Avatar Title */}
-        <div className="text-center">
-          <h3 className="font-heading text-lg font-semibold text-primary mb-1">
-            {avatar?.title || 'Fortune Seeker'}
-          </h3>
-          <p className="text-sm text-muted-foreground flex items-center gap-1">
-            <Trophy size={14} className="text-gold" />
-            Level {currentLevel}
-          </p>
+        <h3 className="font-heading text-xl font-semibold text-white mb-2 drop-shadow-lg">
+          {avatar?.title || 'Fortune Seeker'}
+        </h3>
+        
+        {/* Level with Trophy */}
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <Trophy size={16} className="text-gold drop-shadow-lg" />
+          <span className="text-gold font-semibold text-sm drop-shadow-lg">Level {currentLevel}</span>
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full max-w-xs space-y-2">
-          <div className="flex justify-between text-xs text-muted-foreground">
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs text-white/80">
             <span>{progressInCurrentLevel} / {fortunesPerLevel}</span>
             <span>Next Level</span>
           </div>
           <div className="relative">
-            <Progress 
-              value={progressPercentage} 
-              className="h-2 bg-muted/30 rounded-full overflow-hidden shadow-inner"
-            />
-            <div className="absolute inset-0 rounded-full shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]" />
+            <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-gold to-emerald rounded-full transition-all duration-500 ease-out shadow-lg"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+            <div className="absolute inset-0 rounded-full shadow-[0_0_8px_hsl(var(--gold)/0.5)]" />
           </div>
         </div>
-
-        {/* Level Up Notification */}
-        {isLevelingUp && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="
-              bg-gold/90 text-rich-black px-4 py-2 rounded-full
-              font-heading font-semibold text-sm
-              animate-[scale-in_0.5s_ease-out] shadow-lg
-            ">
-              Level Up! 🎉
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Level Up Notification */}
+      {isLevelingUp && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="bg-gold/95 text-rich-black px-6 py-3 rounded-full font-heading font-semibold text-lg animate-[scale-in_0.5s_ease-out] shadow-xl border-2 border-gold">
+            Level Up! 🎉
+          </div>
+        </div>
+      )}
     </div>
   );
 };
