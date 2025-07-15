@@ -82,7 +82,7 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
   }
 
   return (
-    <div className="relative w-full aspect-square rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+    <div className="relative h-[40vh] w-[40vh] mx-auto rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
       {/* Background Avatar Image */}
       <div className="absolute inset-0">
         {avatar?.url ? (
