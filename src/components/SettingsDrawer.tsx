@@ -1,7 +1,9 @@
-import { X, Moon, Download, Upload, SignOut } from '@phosphor-icons/react';
+import { useState } from 'react';
+import { X, Moon, Download, Upload, SignOut, Tag } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { CategoryManagerModal } from './CategoryManagerModal';
 
 interface SettingsDrawerProps {
   isOpen: boolean;
@@ -10,6 +12,7 @@ interface SettingsDrawerProps {
 
 export const SettingsDrawer = ({ isOpen, onClose }: SettingsDrawerProps) => {
   const { toast } = useToast();
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -80,6 +83,18 @@ export const SettingsDrawer = ({ isOpen, onClose }: SettingsDrawerProps) => {
             </div>
 
             <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Categories</h3>
+              <Button
+                variant="outline"
+                onClick={() => setShowCategoryManager(true)}
+                className="w-full justify-start"
+              >
+                <Tag size={18} className="mr-2" />
+                Manage Categories
+              </Button>
+            </div>
+
+            <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Data</h3>
               <div className="space-y-2">
                 <Button
@@ -114,6 +129,12 @@ export const SettingsDrawer = ({ isOpen, onClose }: SettingsDrawerProps) => {
           </div>
         </div>
       </div>
+
+      {/* Category Manager Modal */}
+      <CategoryManagerModal 
+        isOpen={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+      />
     </>
   );
 };
