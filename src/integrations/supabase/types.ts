@@ -67,6 +67,7 @@ export type Database = {
           category: string
           created_at: string
           fortune_level: number | null
+          fortune_value: number | null
           id: string
           text: string
           user_id: string
@@ -75,6 +76,7 @@ export type Database = {
           category: string
           created_at?: string
           fortune_level?: number | null
+          fortune_value?: number | null
           id?: string
           text: string
           user_id: string
@@ -83,6 +85,7 @@ export type Database = {
           category?: string
           created_at?: string
           fortune_level?: number | null
+          fortune_value?: number | null
           id?: string
           text?: string
           user_id?: string

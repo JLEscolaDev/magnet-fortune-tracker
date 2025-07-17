@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { X, Plus, Sparkle } from '@phosphor-icons/react';
+import { useState, useEffect } from 'react';
+import { X, Plus, Sparkle, CurrencyDollar } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FortuneCategory } from '@/types/fortune';
+import { FortuneCategory, CategoryData } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
@@ -14,7 +15,13 @@ interface AddFortuneModalProps {
   onFortuneAdded: () => void;
 }
 
-const categories: FortuneCategory[] = ['Wealth', 'Health', 'Love', 'Opportunity', 'Other'];
+const defaultCategories: CategoryData[] = [
+  { name: 'Wealth', hasNumericValue: true },
+  { name: 'Health', hasNumericValue: false },
+  { name: 'Love', hasNumericValue: false },
+  { name: 'Opportunity', hasNumericValue: false },
+  { name: 'Other', hasNumericValue: false }
+];
 
 const shootCoins = () => {
   const colors = ['#D6B94C', '#FFD700', '#F2F0E8'];
@@ -72,8 +79,41 @@ const shootConfetti = () => {
 export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneModalProps) => {
   const [text, setText] = useState('');
   const [category, setCategory] = useState<FortuneCategory>('Wealth');
+  const [fortuneValue, setFortuneValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [categories, setCategories] = useState<CategoryData[]>(defaultCategories);
   const { toast } = useToast();
+
+  // Load custom categories on mount
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('custom_categories')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (data) {
+        const customCats = data.map(cat => ({ 
+          name: cat.name, 
+          hasNumericValue: cat.has_numeric_value 
+        }));
+        setCategories([...defaultCategories, ...customCats]);
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
+
+  const getCurrentCategory = () => {
+    return categories.find(cat => cat.name === category) || defaultCategories[0];
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,6 +154,9 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
             user_id: user.id,
             text: text.trim(),
             category,
+            fortune_value: getCurrentCategory().hasNumericValue && fortuneValue 
+              ? parseFloat(fortuneValue) 
+              : null
           }
         ]);
 
@@ -133,6 +176,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
 
       setText('');
       setCategory('Wealth');
+      setFortuneValue('');
       onFortuneAdded();
       onClose();
     } catch (error) {
@@ -197,15 +241,47 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
               <SelectTrigger className="focus:border-gold focus:ring-gold/20">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-card border-border z-50">
                 {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                  <SelectItem key={cat.name} value={cat.name}>
+                    <div className="flex items-center gap-2">
+                      {cat.name === 'Wealth' && <CurrencyDollar size={14} className="text-gold" />}
+                      <span>{cat.name}</span>
+                      {cat.hasNumericValue && (
+                        <span className="text-xs bg-gold/20 text-gold px-1.5 py-0.5 rounded">
+                          $
+                        </span>
+                      )}
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Numeric Value Input - Show only if category has numeric value */}
+          {getCurrentCategory().hasNumericValue && (
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Value (Optional)
+              </label>
+              <div className="relative">
+                <CurrencyDollar size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gold" />
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={fortuneValue}
+                  onChange={(e) => setFortuneValue(e.target.value)}
+                  placeholder="0.00"
+                  className="pl-10 focus:border-gold focus:ring-gold/20"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Track the monetary value associated with this fortune
+              </p>
+            </div>
+          )}
 
           <Button
             type="submit"

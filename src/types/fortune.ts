@@ -7,7 +7,12 @@ export interface Fortune {
   created_at: string;
 }
 
-export type FortuneCategory = 'Wealth' | 'Health' | 'Love' | 'Opportunity' | 'Other';
+export type FortuneCategory = 'Wealth' | 'Health' | 'Love' | 'Opportunity' | 'Other' | string;
+
+export interface CategoryData {
+  name: string;
+  hasNumericValue: boolean;
+}
 
 export interface Profile {
   id: string;
