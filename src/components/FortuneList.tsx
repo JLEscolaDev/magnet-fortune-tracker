@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { Fortune } from '@/types/fortune';
 import { 
@@ -5,12 +6,20 @@ import {
   Heart, 
   HeartStraight, 
   Sparkle, 
-  Question 
+  Question,
+  PencilSimple,
+  Trash
 } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
+import { EditFortuneModal } from '@/components/EditFortuneModal';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 interface FortuneListProps {
   fortunes: Fortune[];
   title?: string;
+  onFortunesUpdated?: () => void;
 }
 
 const getCategoryIcon = (category: string) => {
@@ -43,7 +52,44 @@ const getCategoryColor = (category: string) => {
   }
 };
 
-export const FortuneList = ({ fortunes, title = "Today's Fortunes" }: FortuneListProps) => {
+export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUpdated }: FortuneListProps) => {
+  const [editingFortune, setEditingFortune] = useState<Fortune | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const { toast } = useToast();
+
+  const handleEditFortune = (fortune: Fortune) => {
+    setEditingFortune(fortune);
+    setIsEditModalOpen(true);
+  };
+
+  const handleDeleteFortune = async (fortuneId: string) => {
+    try {
+      const { error } = await supabase
+        .from('fortunes')
+        .delete()
+        .eq('id', fortuneId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Fortune deleted",
+        description: "Your fortune has been removed.",
+      });
+
+      onFortunesUpdated?.();
+    } catch (error) {
+      console.error('Error deleting fortune:', error);
+      toast({
+        title: "Error deleting fortune",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFortuneUpdated = () => {
+    onFortunesUpdated?.();
+  };
   if (fortunes.length === 0) {
     return (
       <div className="luxury-card p-6">
@@ -64,25 +110,113 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes" }: FortuneLis
         {fortunes.map((fortune) => (
           <div
             key={fortune.id}
-            className="p-4 rounded-lg bg-muted/30 border border-muted/20 hover:border-gold/30 transition-colors"
+            className="group p-4 rounded-lg bg-muted/30 border border-muted/20 hover:border-gold/30 transition-colors relative"
           >
             <div className="flex items-start justify-between gap-3 mb-2">
               <p className="text-sm leading-relaxed flex-1">{fortune.text}</p>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {format(new Date(fortune.created_at), 'HH:mm')}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {format(new Date(fortune.created_at), 'HH:mm')}
+                </span>
+                {/* Edit/Delete buttons - visible on hover on desktop */}
+                <div className="hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleEditFortune(fortune)}
+                    className="h-6 w-6 p-0 hover:bg-gold/20"
+                  >
+                    <PencilSimple size={12} className="text-gold" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 hover:bg-red-500/20"
+                      >
+                        <Trash size={12} className="text-red-400" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Fortune</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete this fortune? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDeleteFortune(fortune.id)}>
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border ${getCategoryColor(fortune.category)}`}
-              >
-                {getCategoryIcon(fortune.category)}
-                {fortune.category}
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border ${getCategoryColor(fortune.category)}`}
+                >
+                  {getCategoryIcon(fortune.category)}
+                  {fortune.category}
+                </span>
+                {fortune.fortune_value && (
+                  <span className="text-xs text-gold font-medium">
+                    ${fortune.fortune_value}
+                  </span>
+                )}
+              </div>
+              {/* Mobile edit/delete buttons - always visible */}
+              <div className="flex md:hidden gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleEditFortune(fortune)}
+                  className="h-6 w-6 p-0 hover:bg-gold/20"
+                >
+                  <PencilSimple size={12} className="text-gold" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 hover:bg-red-500/20"
+                    >
+                      <Trash size={12} className="text-red-400" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Fortune</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this fortune? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDeleteFortune(fortune.id)}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      <EditFortuneModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        fortune={editingFortune}
+        onFortuneUpdated={handleFortuneUpdated}
+      />
     </div>
   );
 };

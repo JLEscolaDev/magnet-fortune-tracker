@@ -189,7 +189,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
             </Button>
             {showCategoryManager && (
               <div className="mt-4 transition-all duration-300">
-                <CategoryManager onClose={() => setShowCategoryManager(false)} />
+                <CategoryManager onCategoriesChange={() => setShowCategoryManager(false)} />
               </div>
             )}
           </div>

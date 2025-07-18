@@ -33,7 +33,7 @@ export const CategoryManagerModal = ({ isOpen, onClose }: CategoryManagerModalPr
         </div>
         
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-          <CategoryManager />
+          <CategoryManager onCategoriesChange={() => {}} />
         </div>
       </div>
     </div>

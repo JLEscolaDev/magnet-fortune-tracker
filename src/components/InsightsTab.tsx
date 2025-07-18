@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { CustomCalendar } from '@/components/CustomCalendar';
 import { StatisticsDetailModal } from '@/components/StatisticsDetailModal';
 import { AchievementsDetailModal } from '@/components/AchievementsDetailModal';
+import { DateDetailsModal } from '@/components/DateDetailsModal';
+import { ImprovedStatistics } from '@/components/ImprovedStatistics';
 import { Fortune, Achievement } from '@/types/fortune';
 import { AchievementCard } from '@/components/AchievementCard';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,6 +68,7 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
   const [loading, setLoading] = useState(true);
   const [showStatisticsModal, setShowStatisticsModal] = useState(false);
   const [showAchievementsModal, setShowAchievementsModal] = useState(false);
+  const [showDateModal, setShowDateModal] = useState(false);
 
   const fetchFortunes = async () => {
     try {
@@ -116,6 +119,9 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
   const handleDateClick = (date: Date, dateFortunes: Fortune[]) => {
     setSelectedDate(date);
     setSelectedDateFortunes(dateFortunes);
+    if (dateFortunes.length > 0) {
+      setShowDateModal(true);
+    }
   };
 
   const calculateAchievements = () => {
@@ -177,22 +183,6 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
             onDateClick={handleDateClick}
           />
         </div>
-        
-        {selectedDate && selectedDateFortunes.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <h4 className="font-medium mb-2">
-              {format(selectedDate, 'MMMM d, yyyy')} - {selectedDateFortunes.length} fortune(s)
-            </h4>
-            <div className="space-y-2">
-              {selectedDateFortunes.map(fortune => (
-                <div key={fortune.id} className="text-sm p-2 bg-muted/30 rounded">
-                  <span className="text-xs text-gold">{fortune.category}</span>
-                  <p className="mt-1">{fortune.text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Statistics */}
@@ -200,7 +190,7 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-heading font-medium flex items-center gap-2">
             <ChartBar size={24} className="text-gold" />
-            Statistics
+            Statistics & Insights
           </h3>
           <Button 
             variant="ghost" 
@@ -211,33 +201,7 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
             View Details
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="text-center p-4 bg-muted/30 rounded-lg">
-            <div className="text-2xl font-bold text-emerald">{fortunes.length}</div>
-            <div className="text-sm text-muted-foreground">Total Fortunes</div>
-          </div>
-          <div className="text-center p-4 bg-muted/30 rounded-lg">
-            <div className="text-2xl font-bold text-gold">
-              {new Set(getDaysWithFortunes().map(d => d.toDateString())).size}
-            </div>
-            <div className="text-sm text-muted-foreground">Active Days</div>
-          </div>
-        </div>
-        
-        <div className="mt-6 space-y-3">
-          {getFortunesByCategory().map(({ category, count }) => (
-            <div key={category} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {category === 'Wealth' && <CurrencyDollar size={16} className="text-gold" />}
-                {category === 'Health' && <HeartStraight size={16} className="text-red-400" />}
-                {category === 'Love' && <Heart size={16} className="text-pink-400" />}
-                {category === 'Opportunity' && <Sparkle size={16} className="text-emerald" />}
-                <span className="text-sm">{category}</span>
-              </div>
-              <span className="text-sm font-medium">{count}</span>
-            </div>
-          ))}
-        </div>
+        <ImprovedStatistics fortunes={fortunes} />
       </div>
 
       {/* Achievements */}
@@ -279,6 +243,14 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
         isOpen={showAchievementsModal}
         onClose={() => setShowAchievementsModal(false)}
         achievements={calculateAchievements()}
+      />
+
+      <DateDetailsModal
+        isOpen={showDateModal}
+        onClose={() => setShowDateModal(false)}
+        date={selectedDate}
+        fortunes={selectedDateFortunes}
+        onFortunesUpdated={fetchFortunes}
       />
     </div>
   );

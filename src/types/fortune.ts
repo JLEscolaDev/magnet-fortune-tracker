@@ -4,6 +4,7 @@ export interface Fortune {
   text: string;
   category: string; // Changed from FortuneCategory to string to match DB
   fortune_level?: number | null;
+  fortune_value?: number | null;
   created_at: string;
 }
 
@@ -12,6 +13,7 @@ export type FortuneCategory = 'Wealth' | 'Health' | 'Love' | 'Opportunity' | 'Ot
 export interface CategoryData {
   name: string;
   hasNumericValue: boolean;
+  color: string;
 }
 
 export interface Profile {
