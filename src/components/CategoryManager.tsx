@@ -43,8 +43,13 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
         .eq('user_id', user.id);
 
       if (data) {
-        setCategories(data);
-        const allCategories = [...defaultCategories, ...data.map(cat => cat.name)];
+        const transformedCategories = data.map(cat => ({
+          ...cat,
+          hasNumericValue: cat.has_numeric_value
+        }));
+        setCategories(transformedCategories);
+        
+        const allCategories = [...defaultCategories, ...transformedCategories.map(cat => cat.name)];
         onCategoriesChange(allCategories);
       }
     } catch (error) {

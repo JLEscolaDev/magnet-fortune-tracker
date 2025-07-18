@@ -15,13 +15,13 @@ interface AddFortuneModalProps {
   onFortuneAdded: () => void;
 }
 
-const defaultCategories: CategoryData[] = [
-  { name: 'Wealth', hasNumericValue: true, color: '#FFD700' },
-  { name: 'Health', hasNumericValue: false, color: '#56CC9D' },
-  { name: 'Love', hasNumericValue: false, color: '#F67280' },
-  { name: 'Opportunity', hasNumericValue: false, color: '#45A29E' },
-  { name: 'Other', hasNumericValue: false, color: '#CCCCCC' }
-];
+  const defaultCategories: CategoryData[] = [
+    { name: 'Wealth', hasNumericValue: true, color: 'hsl(var(--gold))' },
+    { name: 'Health', hasNumericValue: false, color: 'hsl(var(--health))' },
+    { name: 'Love', hasNumericValue: false, color: 'hsl(var(--love))' },
+    { name: 'Opportunity', hasNumericValue: false, color: 'hsl(var(--opportunity))' },
+    { name: 'Other', hasNumericValue: false, color: 'hsl(var(--muted-foreground))' }
+  ];
 
 const shootCoins = () => {
   const colors = ['#D6B94C', '#FFD700', '#F2F0E8'];
@@ -100,12 +100,12 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
         .eq('user_id', user.id);
 
       if (data) {
-        const customCats = data.map(cat => ({ 
-          name: cat.name, 
+        const customCatsData = data.map(cat => ({
+          name: cat.name,
           hasNumericValue: cat.has_numeric_value,
-          color: cat.color || '#999999' // fallback por si falta
+          color: cat.color
         }));
-        setCategories([...defaultCategories, ...customCats]);
+        setCategories([...defaultCategories, ...customCatsData]);
       }
     } catch (error) {
       console.error('Error loading categories:', error);

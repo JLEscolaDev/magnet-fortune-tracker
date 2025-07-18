@@ -15,6 +15,7 @@ import { EditFortuneModal } from '@/components/EditFortuneModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { TransitionGroup, CSSTransition } from 'react-transition-group';
 
 const ConfirmDeleteDialog = ({
   onConfirm,
@@ -141,20 +142,63 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
   return (
     <div className="luxury-card p-6">
       <h3 className="text-lg font-heading font-medium mb-4">{title}</h3>
-      <div className="space-y-3">
+      <TransitionGroup component="div" className="space-y-3">
         {fortunes.map((fortune) => (
-          <div
+          <CSSTransition
             key={fortune.id}
-            className="group p-4 rounded-lg bg-muted/30 border border-muted/20 hover:border-gold/30 transition-colors relative"
+            timeout={300}
+            classNames="fortune"
           >
-            <div className="flex items-start justify-between gap-3 mb-2">
-              <p className="text-sm leading-relaxed flex-1">{fortune.text}</p>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {format(new Date(fortune.created_at), 'HH:mm')}
-                </span>
-                {/* Edit/Delete buttons - visible on hover on desktop */}
-                <div className="hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+            <div
+              className="group p-4 rounded-lg bg-muted/30 border border-muted/20 hover:border-gold/30 transition-colors relative"
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <p className="text-sm leading-relaxed flex-1">{fortune.text}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {format(new Date(fortune.created_at), 'HH:mm')}
+                  </span>
+                  {/* Edit/Delete buttons - visible on hover on desktop */}
+                  <div className="hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleEditFortune(fortune)}
+                      className="h-6 w-6 p-0 hover:bg-gold/20"
+                    >
+                      <PencilSimple size={12} className="text-gold" />
+                    </Button>
+                    <ConfirmDeleteDialog
+                      onConfirm={() => handleDeleteFortune(fortune.id)}
+                      trigger={
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 hover:bg-red-500/20"
+                        >
+                          <Trash size={12} className="text-red-400" />
+                        </Button>
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border ${getCategoryColor(fortune.category)}`}
+                  >
+                    {getCategoryIcon(fortune.category)}
+                    {fortune.category}
+                  </span>
+                  {fortune.fortune_value && (
+                    <span className="text-xs text-gold font-medium">
+                      ${fortune.fortune_value}
+                    </span>
+                  )}
+                </div>
+                {/* Mobile edit/delete buttons - always visible */}
+                <div className="flex md:hidden gap-1">
                   <Button
                     size="sm"
                     variant="ghost"
@@ -178,47 +222,9 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border ${getCategoryColor(fortune.category)}`}
-                >
-                  {getCategoryIcon(fortune.category)}
-                  {fortune.category}
-                </span>
-                {fortune.fortune_value && (
-                  <span className="text-xs text-gold font-medium">
-                    ${fortune.fortune_value}
-                  </span>
-                )}
-              </div>
-              {/* Mobile edit/delete buttons - always visible */}
-              <div className="flex md:hidden gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleEditFortune(fortune)}
-                  className="h-6 w-6 p-0 hover:bg-gold/20"
-                >
-                  <PencilSimple size={12} className="text-gold" />
-                </Button>
-                <ConfirmDeleteDialog
-                  onConfirm={() => handleDeleteFortune(fortune.id)}
-                  trigger={
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 w-6 p-0 hover:bg-red-500/20"
-                    >
-                      <Trash size={12} className="text-red-400" />
-                    </Button>
-                  }
-                />
-              </div>
-            </div>
-          </div>
+          </CSSTransition>
         ))}
-      </div>
+      </TransitionGroup>
 
       <EditFortuneModal
         isOpen={isEditModalOpen}

@@ -22,6 +22,7 @@ import { format, isSameDay } from 'date-fns';
 
 interface InsightsTabProps {
   refreshTrigger: number;
+  onGlobalRefresh?: () => void;
 }
 
 const mockAchievements: Achievement[] = [
@@ -61,7 +62,7 @@ const mockAchievements: Achievement[] = [
   },
 ];
 
-export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
+export const InsightsTab = ({ refreshTrigger, onGlobalRefresh }: InsightsTabProps) => {
   const [fortunes, setFortunes] = useState<Fortune[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedDateFortunes, setSelectedDateFortunes] = useState<Fortune[]>([]);
@@ -250,7 +251,10 @@ export const InsightsTab = ({ refreshTrigger }: InsightsTabProps) => {
         onClose={() => setShowDateModal(false)}
         date={selectedDate}
         fortunes={selectedDateFortunes}
-        onFortunesUpdated={fetchFortunes}
+        onFortunesUpdated={() => {
+          fetchFortunes();
+          onGlobalRefresh?.();
+        }}
       />
     </div>
   );

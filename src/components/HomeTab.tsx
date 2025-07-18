@@ -132,7 +132,10 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
         fortuneCount={totalFortuneCount}
         onLevelUp={handleLevelUp}
       />
-      <FortuneList fortunes={todaysFortunes} />
+      <FortuneList 
+        fortunes={todaysFortunes} 
+        onFortunesUpdated={fetchData}
+      />
     </div>
   );
 };

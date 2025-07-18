@@ -81,7 +81,10 @@ const FortuneApp = () => {
             <HomeTab refreshTrigger={refreshTrigger} />
           )}
           {activeTab === 'insights' && (
-            <InsightsTab refreshTrigger={refreshTrigger} />
+            <InsightsTab 
+              refreshTrigger={refreshTrigger} 
+              onGlobalRefresh={handleFortuneAdded}
+            />
           )}
         </main>
 
