@@ -43,6 +43,7 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
       });
 
       onFortunesUpdated?.();
+      window.dispatchEvent(new Event("fortunesUpdated"));
       onClose(); // Close modal after deletion
     } catch (error) {
       console.error('Error deleting fortune:', error);

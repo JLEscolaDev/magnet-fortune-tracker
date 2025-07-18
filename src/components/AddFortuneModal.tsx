@@ -16,11 +16,11 @@ interface AddFortuneModalProps {
 }
 
 const defaultCategories: CategoryData[] = [
-  { name: 'Wealth', hasNumericValue: true },
-  { name: 'Health', hasNumericValue: false },
-  { name: 'Love', hasNumericValue: false },
-  { name: 'Opportunity', hasNumericValue: false },
-  { name: 'Other', hasNumericValue: false }
+  { name: 'Wealth', hasNumericValue: true, color: '#FFD700' },
+  { name: 'Health', hasNumericValue: false, color: '#56CC9D' },
+  { name: 'Love', hasNumericValue: false, color: '#F67280' },
+  { name: 'Opportunity', hasNumericValue: false, color: '#45A29E' },
+  { name: 'Other', hasNumericValue: false, color: '#CCCCCC' }
 ];
 
 const shootCoins = () => {
@@ -102,7 +102,8 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
       if (data) {
         const customCats = data.map(cat => ({ 
           name: cat.name, 
-          hasNumericValue: cat.has_numeric_value 
+          hasNumericValue: cat.has_numeric_value,
+          color: cat.color || '#999999' // fallback por si falta
         }));
         setCategories([...defaultCategories, ...customCats]);
       }

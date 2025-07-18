@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Fortune } from '@/types/fortune';
 import { 
@@ -15,6 +15,30 @@ import { EditFortuneModal } from '@/components/EditFortuneModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
+const ConfirmDeleteDialog = ({
+  onConfirm,
+  trigger,
+}: {
+  onConfirm: () => void;
+  trigger: React.ReactNode;
+}) => (
+  <AlertDialog>
+    <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Delete Fortune</AlertDialogTitle>
+        <AlertDialogDescription>
+          Are you sure you want to delete this fortune? This action cannot be undone.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogAction onClick={onConfirm}>Delete</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
+);
 
 interface FortuneListProps {
   fortunes: Fortune[];
@@ -57,6 +81,16 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    const handleUpdate = () => {
+      onFortunesUpdated?.();
+    };
+    window.addEventListener("fortunesUpdated", handleUpdate);
+    return () => {
+      window.removeEventListener("fortunesUpdated", handleUpdate);
+    };
+  }, []);
+
   const handleEditFortune = (fortune: Fortune) => {
     setEditingFortune(fortune);
     setIsEditModalOpen(true);
@@ -77,6 +111,7 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
       });
 
       onFortunesUpdated?.();
+      window.dispatchEvent(new Event("fortunesUpdated"));
     } catch (error) {
       console.error('Error deleting fortune:', error);
       toast({
@@ -128,8 +163,9 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                   >
                     <PencilSimple size={12} className="text-gold" />
                   </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
+                  <ConfirmDeleteDialog
+                    onConfirm={() => handleDeleteFortune(fortune.id)}
+                    trigger={
                       <Button
                         size="sm"
                         variant="ghost"
@@ -137,22 +173,8 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                       >
                         <Trash size={12} className="text-red-400" />
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Fortune</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete this fortune? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDeleteFortune(fortune.id)}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                    }
+                  />
                 </div>
               </div>
             </div>
@@ -180,8 +202,9 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                 >
                   <PencilSimple size={12} className="text-gold" />
                 </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
+                <ConfirmDeleteDialog
+                  onConfirm={() => handleDeleteFortune(fortune.id)}
+                  trigger={
                     <Button
                       size="sm"
                       variant="ghost"
@@ -189,22 +212,8 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                     >
                       <Trash size={12} className="text-red-400" />
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Fortune</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete this fortune? This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDeleteFortune(fortune.id)}>
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                  }
+                />
               </div>
             </div>
           </div>
