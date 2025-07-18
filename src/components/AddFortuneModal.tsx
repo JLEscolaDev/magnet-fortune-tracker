@@ -15,13 +15,13 @@ interface AddFortuneModalProps {
   onFortuneAdded: () => void;
 }
 
-const defaultCategories: CategoryData[] = [
-  { name: 'Wealth', hasNumericValue: true },
-  { name: 'Health', hasNumericValue: false },
-  { name: 'Love', hasNumericValue: false },
-  { name: 'Opportunity', hasNumericValue: false },
-  { name: 'Other', hasNumericValue: false }
-];
+  const defaultCategories: CategoryData[] = [
+    { name: 'Wealth', hasNumericValue: true, color: 'hsl(var(--gold))' },
+    { name: 'Health', hasNumericValue: false, color: 'hsl(var(--health))' },
+    { name: 'Love', hasNumericValue: false, color: 'hsl(var(--love))' },
+    { name: 'Opportunity', hasNumericValue: false, color: 'hsl(var(--opportunity))' },
+    { name: 'Other', hasNumericValue: false, color: 'hsl(var(--muted-foreground))' }
+  ];
 
 const shootCoins = () => {
   const colors = ['#D6B94C', '#FFD700', '#F2F0E8'];
@@ -100,11 +100,12 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
         .eq('user_id', user.id);
 
       if (data) {
-        const customCats = data.map(cat => ({ 
-          name: cat.name, 
-          hasNumericValue: cat.has_numeric_value 
+        const customCatsData = data.map(cat => ({
+          name: cat.name,
+          hasNumericValue: cat.has_numeric_value,
+          color: cat.color
         }));
-        setCategories([...defaultCategories, ...customCats]);
+        setCategories([...defaultCategories, ...customCatsData]);
       }
     } catch (error) {
       console.error('Error loading categories:', error);
