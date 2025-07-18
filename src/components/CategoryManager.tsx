@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, CurrencyDollar } from '@phosphor-icons/react';
+import { Plus, X, Pencil, CurrencyDollar } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -9,13 +9,13 @@ import { useToast } from '@/hooks/use-toast';
 interface CustomCategory {
   id: string;
   name: string;
-  has_numeric_value: boolean;
+  hasNumericValue: boolean;
   color: string;
   user_id: string;
 }
 
 interface CategoryManagerProps {
-  onCategoriesChange?: (categories: { name: string; hasNumericValue: boolean }[]) => void;
+  onCategoriesChange: (categories: string[]) => void;
 }
 
 export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) => {
@@ -23,15 +23,10 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryHasValue, setNewCategoryHasValue] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const defaultCategories = [
-    { name: 'Wealth', hasNumericValue: true },
-    { name: 'Health', hasNumericValue: false },
-    { name: 'Love', hasNumericValue: false },
-    { name: 'Opportunity', hasNumericValue: false },
-    { name: 'Other', hasNumericValue: false }
-  ];
+  const defaultCategories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Other'];
 
   useEffect(() => {
     fetchCategories();
@@ -49,9 +44,8 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
 
       if (data) {
         setCategories(data);
-        const customCats = data.map(cat => ({ name: cat.name, hasNumericValue: cat.has_numeric_value }));
-        const allCategories = [...defaultCategories, ...customCats];
-        onCategoriesChange?.(allCategories);
+        const allCategories = [...defaultCategories, ...data.map(cat => cat.name)];
+        onCategoriesChange(allCategories);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -60,19 +54,6 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
-
-    // Check if category already exists
-    const exists = categories.some(cat => cat.name.toLowerCase() === newCategoryName.trim().toLowerCase()) ||
-                   defaultCategories.some(cat => cat.name.toLowerCase() === newCategoryName.trim().toLowerCase());
-    
-    if (exists) {
-      toast({
-        title: "Category Exists",
-        description: "A category with this name already exists",
-        variant: "destructive",
-      });
-      return;
-    }
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -136,9 +117,9 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h4 className="font-heading font-semibold">Manage Categories</h4>
+        <h4 className="font-medium">Custom Categories</h4>
         <Button
           variant="outline"
           size="sm"
@@ -151,21 +132,16 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
       </div>
 
       {/* Default Categories */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <h5 className="text-sm font-medium text-muted-foreground">Default Categories</h5>
         <div className="flex flex-wrap gap-2">
           {defaultCategories.map((category) => (
             <div
-              key={category.name}
-              className="px-3 py-2 bg-muted/30 rounded-lg text-sm flex items-center gap-2"
+              key={category}
+              className="px-3 py-1 bg-muted/30 rounded-full text-sm flex items-center gap-2"
             >
-              {category.name === 'Wealth' && <CurrencyDollar size={14} className="text-gold" />}
-              <span>{category.name}</span>
-              {category.hasNumericValue && (
-                <span className="text-xs bg-gold/20 text-gold px-2 py-1 rounded">
-                  $
-                </span>
-              )}
+              {category === 'Wealth' && <CurrencyDollar size={14} className="text-gold" />}
+              {category}
             </div>
           ))}
         </div>
@@ -173,7 +149,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
 
       {/* Custom Categories */}
       {categories.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <h5 className="text-sm font-medium text-muted-foreground">Your Custom Categories</h5>
           <div className="space-y-2">
             {categories.map((category) => (
@@ -181,15 +157,15 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
                 key={category.id}
                 className="flex items-center justify-between p-3 bg-muted/20 rounded-lg"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <div
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: category.color }}
                   />
                   <span className="font-medium">{category.name}</span>
-                  {category.has_numeric_value && (
+                  {category.hasNumericValue && (
                     <span className="text-xs bg-gold/20 text-gold px-2 py-1 rounded">
-                      $
+                      Numeric
                     </span>
                   )}
                 </div>
@@ -197,7 +173,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
                   variant="ghost"
                   size="sm"
                   onClick={() => handleDeleteCategory(category.id, category.name)}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="text-destructive hover:text-destructive"
                 >
                   <X size={16} />
                 </Button>
@@ -211,32 +187,27 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
       {isAddingNew && (
         <div className="luxury-card p-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Category Name</label>
             <Input
-              placeholder="Enter category name..."
+              placeholder="Category name"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               className="focus:border-gold focus:ring-gold/20"
-              onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
             />
           </div>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Switch
                 checked={newCategoryHasValue}
                 onCheckedChange={setNewCategoryHasValue}
               />
-              <div>
-                <span className="text-sm font-medium">Track monetary values</span>
-                <p className="text-xs text-muted-foreground">Allow entering dollar amounts for this category</p>
-              </div>
+              <span className="text-sm">Has numeric value</span>
             </div>
           </div>
           <div className="flex gap-2">
             <Button
               onClick={handleAddCategory}
               disabled={!newCategoryName.trim()}
-              className="flex-1 luxury-button"
+              className="flex-1"
             >
               Add Category
             </Button>

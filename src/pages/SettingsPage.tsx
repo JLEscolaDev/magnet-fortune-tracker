@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { CategoryManager } from '@/components/CategoryManager';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -16,6 +17,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [currency, setCurrency] = useState('USD');
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const { toast } = useToast();
 
   const handleLogout = async () => {
@@ -173,6 +175,23 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
                 <SelectItem value="JPY">JPY (¥)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Category Manager */}
+          <div className="luxury-card p-6">
+            <h3 className="text-lg font-heading font-medium mb-4">Categories</h3>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowCategoryManager(prev => !prev)}
+              className="w-full justify-start"
+            >
+              {showCategoryManager ? 'Hide Categories' : 'Manage Categories'}
+            </Button>
+            {showCategoryManager && (
+              <div className="mt-4 transition-all duration-300">
+                <CategoryManager onClose={() => setShowCategoryManager(false)} />
+              </div>
+            )}
           </div>
 
           {/* Account */}
