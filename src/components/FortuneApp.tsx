@@ -21,6 +21,7 @@ const FortuneApp = () => {
   const [showSettingsPage, setShowSettingsPage] = useState(false);
   const [addFortuneOpen, setAddFortuneOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [selectedFortuneDate, setSelectedFortuneDate] = useState<Date | null>(null);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -44,6 +45,11 @@ const FortuneApp = () => {
 
   const handleFortuneAdded = () => {
     setRefreshTrigger(prev => prev + 1);
+    setSelectedFortuneDate(null); // Reset selection after adding
+  };
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedFortuneDate(date);
   };
 
   if (loading) {
@@ -74,6 +80,7 @@ const FortuneApp = () => {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onAddFortuneClick={() => setAddFortuneOpen(true)}
+          selectedDate={selectedFortuneDate}
         />
 
         <main className="relative">
@@ -84,6 +91,8 @@ const FortuneApp = () => {
             <InsightsTab 
               refreshTrigger={refreshTrigger} 
               onGlobalRefresh={handleFortuneAdded}
+              selectedFortuneDate={selectedFortuneDate}
+              onDateSelect={handleDateSelect}
             />
           )}
         </main>
@@ -93,7 +102,10 @@ const FortuneApp = () => {
           onTabChange={setActiveTab}
         />
 
-        <FloatingActionButton onClick={() => setAddFortuneOpen(true)} />
+        <FloatingActionButton 
+          onClick={() => setAddFortuneOpen(true)} 
+          selectedDate={selectedFortuneDate}
+        />
 
         <SettingsDrawer
           isOpen={settingsOpen}
@@ -104,6 +116,7 @@ const FortuneApp = () => {
           isOpen={addFortuneOpen}
           onClose={() => setAddFortuneOpen(false)}
           onFortuneAdded={handleFortuneAdded}
+          selectedDate={selectedFortuneDate}
         />
       </div>
     </div>

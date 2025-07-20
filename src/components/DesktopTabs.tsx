@@ -5,9 +5,10 @@ interface DesktopTabsProps {
   activeTab: 'home' | 'insights';
   onTabChange: (tab: 'home' | 'insights') => void;
   onAddFortuneClick: () => void;
+  selectedDate?: Date | null;
 }
 
-export const DesktopTabs = ({ activeTab, onTabChange, onAddFortuneClick }: DesktopTabsProps) => {
+export const DesktopTabs = ({ activeTab, onTabChange, onAddFortuneClick, selectedDate }: DesktopTabsProps) => {
   return (
     <div className="hidden md:flex items-center justify-between border-b border-gold/30 px-6 py-4">
       <div className="flex space-x-1">
@@ -40,9 +41,12 @@ export const DesktopTabs = ({ activeTab, onTabChange, onAddFortuneClick }: Deskt
         </button>
       </div>
 
-      <Button onClick={onAddFortuneClick} className="luxury-button">
+      <Button 
+        onClick={onAddFortuneClick} 
+        className={`luxury-button ${selectedDate ? 'bg-emerald hover:bg-emerald/90 text-emerald-foreground' : ''}`}
+      >
         <Plus size={18} className="mr-2" />
-        Track Fortune
+        {selectedDate ? `Track Fortune for ${selectedDate.toLocaleDateString()}` : 'Track Fortune'}
       </Button>
     </div>
   );

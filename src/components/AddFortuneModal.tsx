@@ -13,6 +13,7 @@ interface AddFortuneModalProps {
   isOpen: boolean;
   onClose: () => void;
   onFortuneAdded: () => void;
+  selectedDate?: Date | null;
 }
 
   const defaultCategories: CategoryData[] = [
@@ -76,7 +77,7 @@ const shootConfetti = () => {
   }
 };
 
-export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneModalProps) => {
+export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate }: AddFortuneModalProps) => {
   const [text, setText] = useState('');
   const [category, setCategory] = useState<FortuneCategory>('Wealth');
   const [fortuneValue, setFortuneValue] = useState('');
@@ -148,18 +149,23 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
         return;
       }
 
+      const insertData: any = {
+        user_id: user.id,
+        text: text.trim(),
+        category,
+        fortune_value: getCurrentCategory().hasNumericValue && fortuneValue 
+          ? parseFloat(fortuneValue) 
+          : null
+      };
+
+      // If a specific date is selected, set it as the created_at timestamp
+      if (selectedDate) {
+        insertData.created_at = selectedDate.toISOString();
+      }
+
       const { error } = await supabase
         .from('fortunes')
-        .insert([
-          {
-            user_id: user.id,
-            text: text.trim(),
-            category,
-            fortune_value: getCurrentCategory().hasNumericValue && fortuneValue 
-              ? parseFloat(fortuneValue) 
-              : null
-          }
-        ]);
+        .insert([insertData]);
 
       if (error) throw error;
 
@@ -207,7 +213,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded }: AddFortuneM
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-heading font-semibold flex items-center gap-2">
             <Sparkle size={24} className="text-gold" />
-            Track Fortune
+            {selectedDate ? `Track Fortune for ${selectedDate.toLocaleDateString()}` : 'Track Fortune'}
           </h2>
           <button
             onClick={onClose}

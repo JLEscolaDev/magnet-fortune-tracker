@@ -23,6 +23,8 @@ import { format, isSameDay } from 'date-fns';
 interface InsightsTabProps {
   refreshTrigger: number;
   onGlobalRefresh?: () => void;
+  selectedFortuneDate?: Date | null;
+  onDateSelect?: (date: Date) => void;
 }
 
 const mockAchievements: Achievement[] = [
@@ -62,7 +64,7 @@ const mockAchievements: Achievement[] = [
   },
 ];
 
-export const InsightsTab = ({ refreshTrigger, onGlobalRefresh }: InsightsTabProps) => {
+export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDate, onDateSelect }: InsightsTabProps) => {
   const [fortunes, setFortunes] = useState<Fortune[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedDateFortunes, setSelectedDateFortunes] = useState<Fortune[]>([]);
@@ -179,10 +181,12 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh }: InsightsTabProp
           Fortune Calendar
         </h3>
         <div className="w-full">
-          <CustomCalendar
-            fortunes={fortunes}
-            onDateClick={handleDateClick}
-          />
+        <CustomCalendar
+          fortunes={fortunes}
+          onDateClick={handleDateClick}
+          selectedDate={selectedFortuneDate}
+          onDateSelect={onDateSelect}
+        />
         </div>
       </div>
 

@@ -15,9 +15,11 @@ interface Fortune {
 interface CustomCalendarProps {
   fortunes: Fortune[];
   onDateClick: (date: Date, fortunes: Fortune[]) => void;
+  selectedDate?: Date | null;
+  onDateSelect?: (date: Date) => void;
 }
 
-export const CustomCalendar = ({ fortunes, onDateClick }: CustomCalendarProps) => {
+export const CustomCalendar = ({ fortunes, onDateClick, selectedDate, onDateSelect }: CustomCalendarProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const monthStart = startOfMonth(currentDate);
@@ -44,6 +46,13 @@ export const CustomCalendar = ({ fortunes, onDateClick }: CustomCalendarProps) =
 
   const handleDateClick = (date: Date) => {
     const dateFortunes = getFortunesForDate(date);
+    
+    // If onDateSelect is provided, handle date selection
+    if (onDateSelect) {
+      onDateSelect(date);
+    }
+    
+    // Always trigger the detail modal
     onDateClick(date, dateFortunes);
   };
 
@@ -96,6 +105,7 @@ export const CustomCalendar = ({ fortunes, onDateClick }: CustomCalendarProps) =
           const dateFortunes = getFortunesForDate(date);
           const hasfortunes = dateFortunes.length > 0;
           const isToday = isSameDay(date, new Date());
+          const isSelected = selectedDate && isSameDay(date, selectedDate);
           
           return (
             <button
@@ -106,6 +116,8 @@ export const CustomCalendar = ({ fortunes, onDateClick }: CustomCalendarProps) =
                 rounded-lg transition-all duration-200 hover:scale-105 hover:shadow-md
                 ${isToday 
                   ? 'bg-primary text-primary-foreground shadow-glow' 
+                  : isSelected
+                  ? 'bg-emerald text-emerald-foreground shadow-emerald-glow'
                   : 'hover:bg-primary/10 text-foreground'
                 }
                 ${!isSameMonth(date, currentDate) 
@@ -149,6 +161,12 @@ export const CustomCalendar = ({ fortunes, onDateClick }: CustomCalendarProps) =
             <div className="w-2 h-2 bg-primary rounded-full" />
             <span>Today</span>
           </div>
+          {selectedDate && (
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-emerald rounded-full" />
+              <span>Selected</span>
+            </div>
+          )}
         </div>
       </div>
     </Card>

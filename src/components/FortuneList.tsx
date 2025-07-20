@@ -80,6 +80,7 @@ const getCategoryColor = (category: string) => {
 export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUpdated }: FortuneListProps) => {
   const [editingFortune, setEditingFortune] = useState<Fortune | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [deletingFortunes, setDeletingFortunes] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -98,29 +99,49 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
   };
 
   const handleDeleteFortune = async (fortuneId: string) => {
-    try {
-      const { error } = await supabase
-        .from('fortunes')
-        .delete()
-        .eq('id', fortuneId);
+    // Start fade out animation
+    setDeletingFortunes(prev => new Set(prev).add(fortuneId));
+    
+    // Wait for animation to complete
+    setTimeout(async () => {
+      try {
+        const { error } = await supabase
+          .from('fortunes')
+          .delete()
+          .eq('id', fortuneId);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: "Fortune deleted",
-        description: "Your fortune has been removed.",
-      });
+        toast({
+          title: "Fortune deleted",
+          description: "Your fortune has been removed.",
+        });
 
-      onFortunesUpdated?.();
-      window.dispatchEvent(new Event("fortunesUpdated"));
-    } catch (error) {
-      console.error('Error deleting fortune:', error);
-      toast({
-        title: "Error deleting fortune",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    }
+        onFortunesUpdated?.();
+        window.dispatchEvent(new Event("fortunesUpdated"));
+        
+        // Remove from deleting set
+        setDeletingFortunes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(fortuneId);
+          return newSet;
+        });
+      } catch (error) {
+        console.error('Error deleting fortune:', error);
+        toast({
+          title: "Error deleting fortune",
+          description: "Please try again.",
+          variant: "destructive",
+        });
+        
+        // Remove from deleting set on error
+        setDeletingFortunes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(fortuneId);
+          return newSet;
+        });
+      }
+    }, 300); // Match the fade-out animation duration
   };
 
   const handleFortuneUpdated = () => {
@@ -143,14 +164,18 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
     <div className="luxury-card p-6">
       <h3 className="text-lg font-heading font-medium mb-4">{title}</h3>
       <TransitionGroup component="div" className="space-y-3">
-        {fortunes.map((fortune) => (
+        {fortunes.filter(fortune => !deletingFortunes.has(fortune.id)).map((fortune) => (
           <CSSTransition
             key={fortune.id}
             timeout={300}
             classNames="fortune"
           >
             <div
-              className="group p-4 rounded-lg bg-muted/30 border border-muted/20 hover:border-gold/30 transition-colors relative"
+              className={`group p-4 rounded-lg bg-muted/30 border border-muted/20 hover:border-gold/30 transition-all duration-300 relative ${
+                deletingFortunes.has(fortune.id) 
+                  ? 'opacity-0 scale-95 translate-x-4' 
+                  : 'opacity-100 scale-100 translate-x-0'
+              }`}
             >
               <div className="flex items-start justify-between gap-3 mb-2">
                 <p className="text-sm leading-relaxed flex-1">{fortune.text}</p>

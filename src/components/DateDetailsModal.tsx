@@ -19,6 +19,7 @@ interface DateDetailsModalProps {
 export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUpdated }: DateDetailsModalProps) => {
   const [editingFortune, setEditingFortune] = useState<Fortune | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [deletingFortunes, setDeletingFortunes] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   if (!isOpen || !date) return null;
@@ -29,30 +30,55 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
   };
 
   const handleDeleteFortune = async (fortuneId: string) => {
-    try {
-      const { error } = await supabase
-        .from('fortunes')
-        .delete()
-        .eq('id', fortuneId);
+    // Start fade out animation
+    setDeletingFortunes(prev => new Set(prev).add(fortuneId));
+    
+    // Wait for animation to complete
+    setTimeout(async () => {
+      try {
+        const { error } = await supabase
+          .from('fortunes')
+          .delete()
+          .eq('id', fortuneId);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: "Fortune deleted",
-        description: "Your fortune has been removed.",
-      });
+        toast({
+          title: "Fortune deleted",
+          description: "Your fortune has been removed.",
+        });
 
-      onFortunesUpdated?.();
-      window.dispatchEvent(new Event("fortunesUpdated"));
-      onClose(); // Close modal after deletion
-    } catch (error) {
-      console.error('Error deleting fortune:', error);
-      toast({
-        title: "Error deleting fortune",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    }
+        onFortunesUpdated?.();
+        window.dispatchEvent(new Event("fortunesUpdated"));
+        
+        // Remove from deleting set
+        setDeletingFortunes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(fortuneId);
+          return newSet;
+        });
+        
+        // Close modal if no more fortunes
+        const remainingFortunes = fortunes.filter(f => f.id !== fortuneId);
+        if (remainingFortunes.length === 0) {
+          onClose();
+        }
+      } catch (error) {
+        console.error('Error deleting fortune:', error);
+        toast({
+          title: "Error deleting fortune",
+          description: "Please try again.",
+          variant: "destructive",
+        });
+        
+        // Remove from deleting set on error
+        setDeletingFortunes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(fortuneId);
+          return newSet;
+        });
+      }
+    }, 300); // Match the fade-out animation duration
   };
 
   const handleFortuneUpdated = () => {
@@ -102,8 +128,15 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
               No fortunes recorded for this day
             </p>
           ) : (
-            fortunes.map((fortune) => (
-              <div key={fortune.id} className="group luxury-card p-4 bg-muted/20 relative">
+            fortunes.filter(fortune => !deletingFortunes.has(fortune.id)).map((fortune) => (
+              <div 
+                key={fortune.id} 
+                className={`group luxury-card p-4 bg-muted/20 relative transition-all duration-300 transform ${
+                  deletingFortunes.has(fortune.id) 
+                    ? 'opacity-0 scale-95 translate-x-4' 
+                    : 'opacity-100 scale-100 translate-x-0'
+                }`}
+              >
                 <div className="flex items-center gap-2 mb-2">
                   {getCategoryIcon(fortune.category)}
                   <span className="text-sm font-medium text-gold">
