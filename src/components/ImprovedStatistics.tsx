@@ -74,9 +74,9 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
 
     // Get category colors (including custom ones with their colors from DB)
     const getCategoryColor = (category: string) => {
-      // For fortunes with custom categories, use their stored color
-      const fortuneWithCategory = fortunes.find(f => f.category === category && f.category_color);
-      if (fortuneWithCategory?.category_color) {
+      // For fortunes with custom categories, use their stored color if available
+      const fortuneWithCategory = fortunes.find(f => f.category === category);
+      if (fortuneWithCategory && 'category_color' in fortuneWithCategory && fortuneWithCategory.category_color) {
         return fortuneWithCategory.category_color;
       }
       // Fall back to default colors
