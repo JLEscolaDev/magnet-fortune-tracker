@@ -3,6 +3,7 @@ export interface Fortune {
   user_id: string;
   text: string;
   category: string; // Changed from FortuneCategory to string to match DB
+  category_color?: string; // Color for custom categories
   fortune_level?: number | null;
   fortune_value?: number | null;
   created_at: string;

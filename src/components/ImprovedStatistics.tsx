@@ -63,19 +63,6 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
       return isAfter(fortuneDate, sevenDaysAgo) || isSameDay(fortuneDate, now);
     }).length;
 
-    // Daily data for chart with category breakdown
-    const dailyData = [];
-    const categoryColors = {
-      'Health': '#50C878',
-      'Money': '#FFD700', 
-      'Work': '#FF6B6B',
-      'Love': '#FF69B4',
-      'Family': '#9B59B6',
-      'Friends': '#00CED1',
-      'Personal Growth': '#FFA500',
-      'Travel': '#32CD32'
-    };
-
     // Get unique categories from filtered fortunes
     const filteredFortunes = fortunes.filter(fortune => {
       const fortuneDate = new Date(fortune.created_at);
@@ -85,36 +72,97 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
 
     const uniqueCategories = [...new Set(filteredFortunes.map(f => f.category))];
 
-    for (let i = daysToShow - 1; i >= 0; i--) {
-      const date = subDays(startOfDay(now), i);
-      const dayFortunes = fortunes.filter(fortune => 
-        isSameDay(new Date(fortune.created_at), date)
-      );
-      
-      const categoryBreakdown = uniqueCategories.reduce((acc, category) => {
-        acc[category] = dayFortunes.filter(f => f.category === category).length;
-        return acc;
-      }, {} as Record<string, number>);
-
-      // Format date based on timeFilter for better readability
-      let dateLabel;
-      if (timeFilter === '6m') {
-        // Show only every 15th day approximately
-        dateLabel = i % 15 === 0 ? format(date, 'MMM dd') : '';
-      } else if (timeFilter === '1y') {
-        // Show only every 30th day approximately  
-        dateLabel = i % 30 === 0 ? format(date, 'MMM yyyy') : '';
-      } else {
-        dateLabel = format(date, 'MMM dd');
+    // Get category colors (including custom ones with their colors from DB)
+    const getCategoryColor = (category: string) => {
+      // For fortunes with custom categories, use their stored color
+      const fortuneWithCategory = fortunes.find(f => f.category === category && f.category_color);
+      if (fortuneWithCategory?.category_color) {
+        return fortuneWithCategory.category_color;
       }
+      // Fall back to default colors
+      return DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280';
+    };
 
-      dailyData.push({
-        date: dateLabel,
-        fullDate: format(date, 'MMM dd, yyyy'),
-        count: dayFortunes.length,
-        value: dayFortunes.reduce((sum, f) => sum + (Number(f.fortune_value) || 0), 0),
-        ...categoryBreakdown
-      });
+    // Aggregate data based on time filter for better readability
+    const shouldAggregate = timeFilter === '6m' || timeFilter === '1y';
+    const aggregationUnit = timeFilter === '6m' ? 'week' : timeFilter === '1y' ? 'month' : 'day';
+    
+    let dailyData = [];
+
+    if (shouldAggregate) {
+      // Group data by weeks (6m) or months (1y) to reduce visual clutter
+      const groupedData = new Map();
+      
+      for (let i = daysToShow - 1; i >= 0; i--) {
+        const date = subDays(startOfDay(now), i);
+        const dayFortunes = fortunes.filter(fortune => 
+          isSameDay(new Date(fortune.created_at), date)
+        );
+        
+        // Create grouping key
+        let groupKey;
+        if (timeFilter === '6m') {
+          // Group by week
+          const weekStart = new Date(date);
+          weekStart.setDate(date.getDate() - date.getDay()); // Start of week
+          groupKey = format(weekStart, 'MMM dd');
+        } else {
+          // Group by month
+          groupKey = format(date, 'MMM yyyy');
+        }
+        
+        if (!groupedData.has(groupKey)) {
+          groupedData.set(groupKey, {
+            date: groupKey,
+            fullDate: groupKey,
+            count: 0,
+            value: 0,
+            categoryData: uniqueCategories.reduce((acc, cat) => ({ ...acc, [cat]: 0 }), {})
+          });
+        }
+        
+        const group = groupedData.get(groupKey);
+        group.count += dayFortunes.length;
+        group.value += dayFortunes.reduce((sum, f) => sum + (Number(f.fortune_value) || 0), 0);
+        
+        dayFortunes.forEach(fortune => {
+          group.categoryData[fortune.category] += 1;
+        });
+      }
+      
+      // Convert to array and limit to max 12 data points
+      const allGrouped = Array.from(groupedData.values()).reverse();
+      const maxPoints = 12;
+      const step = Math.ceil(allGrouped.length / maxPoints);
+      
+      dailyData = allGrouped.filter((_, index) => index % step === 0).map(group => ({
+        date: group.date,
+        fullDate: group.fullDate,
+        count: group.count,
+        value: group.value,
+        ...group.categoryData
+      }));
+    } else {
+      // Daily data for shorter periods
+      for (let i = daysToShow - 1; i >= 0; i--) {
+        const date = subDays(startOfDay(now), i);
+        const dayFortunes = fortunes.filter(fortune => 
+          isSameDay(new Date(fortune.created_at), date)
+        );
+        
+        const categoryBreakdown = uniqueCategories.reduce((acc, category) => {
+          acc[category] = dayFortunes.filter(f => f.category === category).length;
+          return acc;
+        }, {} as Record<string, number>);
+
+        dailyData.push({
+          date: format(date, 'MMM dd'),
+          fullDate: format(date, 'MMM dd, yyyy'),
+          count: dayFortunes.length,
+          value: dayFortunes.reduce((sum, f) => sum + (Number(f.fortune_value) || 0), 0),
+          ...categoryBreakdown
+        });
+      }
     }
 
     // Progress Lines data - one line per category
@@ -131,7 +179,7 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
       return result;
     });
 
-    // Category breakdown
+    // Category breakdown with consistent colors
     const categoryData = fortunes.reduce((acc, fortune) => {
       acc[fortune.category] = (acc[fortune.category] || 0) + 1;
       return acc;
@@ -139,7 +187,8 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
 
     const categoryChartData = Object.entries(categoryData).map(([category, count]) => ({
       name: category,
-      value: count
+      value: count,
+      color: getCategoryColor(category)
     }));
 
     // Total monetary value
@@ -162,7 +211,8 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
       totalValue,
       activeDays: uniqueDates.size,
       totalFortunes: fortunes.length,
-      uniqueCategories
+      uniqueCategories,
+      getCategoryColor
     };
   }, [fortunes, timeFilter]);
 
@@ -271,121 +321,135 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
              'Progress Tracking'}
           </h3>
         </div>
-        <div className="h-48 sm:h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            {chartView === 'daily' ? (
-              <BarChart data={statisticsData.dailyData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={10}
-                  interval={timeFilter === '6m' ? 'preserveStartEnd' : timeFilter === '1y' ? 'preserveStartEnd' : 'preserveStartEnd'}
-                  tick={{ fontSize: 10 }}
-                />
-                <YAxis 
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={10}
-                  width={30}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--background))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: '12px'
-                  }}
-                  labelStyle={{ color: 'hsl(var(--foreground))' }}
-                />
-                <Bar 
-                  dataKey="count" 
-                  fill="hsl(var(--primary))" 
-                  radius={[4, 4, 0, 0]}
-                  name="Fortunes"
-                />
-              </BarChart>
-            ) : chartView === 'category' ? (
-              <BarChart data={statisticsData.dailyData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={10}
-                  interval={timeFilter === '6m' ? 'preserveStartEnd' : timeFilter === '1y' ? 'preserveStartEnd' : 'preserveStartEnd'}
-                  tick={{ fontSize: 10 }}
-                />
-                <YAxis 
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={10}
-                  width={30}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--background))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: '12px'
-                  }}
-                  labelStyle={{ color: 'hsl(var(--foreground))' }}
-                  labelFormatter={(label, payload) => {
-                    const data = payload?.[0]?.payload;
-                    return data?.fullDate || label;
-                  }}
-                />
-                <Legend />
-                {statisticsData.uniqueCategories.slice(0, 6).map((category, index) => (
+        <div className="h-48 sm:h-64 overflow-x-auto">
+          <div className={`${timeFilter === '6m' || timeFilter === '1y' ? 'min-w-[600px]' : ''}`}>
+            <ResponsiveContainer width="100%" height="100%">
+              {chartView === 'daily' ? (
+                <BarChart data={statisticsData.dailyData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={10}
+                    interval={0}
+                    tick={{ fontSize: 10 }}
+                    angle={timeFilter === '6m' || timeFilter === '1y' ? -45 : 0}
+                    textAnchor={timeFilter === '6m' || timeFilter === '1y' ? 'end' : 'middle'}
+                    height={timeFilter === '6m' || timeFilter === '1y' ? 60 : 30}
+                  />
+                  <YAxis 
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={10}
+                    width={40}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
                   <Bar 
-                    key={category}
-                    dataKey={category} 
-                    stackId="categories"
-                    fill={DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280'}
-                    name={category}
+                    dataKey="count" 
+                    fill="hsl(var(--primary))" 
+                    radius={[4, 4, 0, 0]}
+                    name="Fortunes"
+                    maxBarSize={timeFilter === '6m' || timeFilter === '1y' ? 40 : 60}
                   />
-                ))}
-              </BarChart>
-            ) : (
-              <LineChart data={statisticsData.progressData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={10}
-                  interval={timeFilter === '6m' ? 'preserveStartEnd' : timeFilter === '1y' ? 'preserveStartEnd' : 'preserveStartEnd'}
-                  tick={{ fontSize: 10 }}
-                />
-                <YAxis 
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={10}
-                  width={30}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--background))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: '12px'
-                  }}
-                  labelStyle={{ color: 'hsl(var(--foreground))' }}
-                  labelFormatter={(label, payload) => {
-                    const data = payload?.[0]?.payload;
-                    return data?.fullDate || label;
-                  }}
-                />
-                <Legend />
-                {statisticsData.uniqueCategories.slice(0, 6).map((category, index) => (
-                  <Line 
-                    key={category}
-                    type="monotone" 
-                    dataKey={category} 
-                    stroke={DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280'} 
-                    strokeWidth={2}
-                    name={category}
-                    dot={{ fill: DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280', strokeWidth: 2, r: 3 }}
+                </BarChart>
+              ) : chartView === 'category' ? (
+                <BarChart data={statisticsData.dailyData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={10}
+                    interval={0}
+                    tick={{ fontSize: 10 }}
+                    angle={timeFilter === '6m' || timeFilter === '1y' ? -45 : 0}
+                    textAnchor={timeFilter === '6m' || timeFilter === '1y' ? 'end' : 'middle'}
+                    height={timeFilter === '6m' || timeFilter === '1y' ? 60 : 30}
                   />
-                ))}
-              </LineChart>
-            )}
-          </ResponsiveContainer>
+                  <YAxis 
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={10}
+                    width={40}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    labelFormatter={(label, payload) => {
+                      const data = payload?.[0]?.payload;
+                      return data?.fullDate || label;
+                    }}
+                  />
+                  <Legend />
+                  {statisticsData.uniqueCategories.slice(0, 8).map((category) => (
+                    <Bar 
+                      key={category}
+                      dataKey={category} 
+                      stackId="categories"
+                      fill={statisticsData.getCategoryColor(category)}
+                      name={category}
+                      maxBarSize={timeFilter === '6m' || timeFilter === '1y' ? 40 : 60}
+                    />
+                  ))}
+                </BarChart>
+              ) : (
+                <LineChart data={statisticsData.progressData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={10}
+                    interval={0}
+                    tick={{ fontSize: 10 }}
+                    angle={timeFilter === '6m' || timeFilter === '1y' ? -45 : 0}
+                    textAnchor={timeFilter === '6m' || timeFilter === '1y' ? 'end' : 'middle'}
+                    height={timeFilter === '6m' || timeFilter === '1y' ? 60 : 30}
+                  />
+                  <YAxis 
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={10}
+                    width={40}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    labelFormatter={(label, payload) => {
+                      const data = payload?.[0]?.payload;
+                      return data?.fullDate || label;
+                    }}
+                  />
+                  <Legend />
+                  {statisticsData.uniqueCategories.slice(0, 8).map((category) => (
+                    <Line 
+                      key={category}
+                      type="monotone" 
+                      dataKey={category} 
+                      stroke={statisticsData.getCategoryColor(category)}
+                      strokeWidth={2}
+                      name={category}
+                      dot={{ fill: statisticsData.getCategoryColor(category), strokeWidth: 2, r: 3 }}
+                      connectNulls={false}
+                    />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
         </div>
       </Card>
 
@@ -409,7 +473,7 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                   dataKey="value"
                 >
                   {statisticsData.categoryChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={DEFAULT_CATEGORY_COLORS[entry.name as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280'} />
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip 
