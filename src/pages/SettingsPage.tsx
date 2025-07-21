@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from 'next-themes';
 import { CategoryManager } from '@/components/CategoryManager';
 
 interface SettingsPageProps {
@@ -12,13 +13,15 @@ interface SettingsPageProps {
 }
 
 export const SettingsPage = ({ onBack }: SettingsPageProps) => {
-  const [darkMode, setDarkMode] = useState(true);
+  const { theme, setTheme } = useTheme();
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [currency, setCurrency] = useState('USD');
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const { toast } = useToast();
+
+  const isDarkMode = theme === 'dark';
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -105,15 +108,15 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  {darkMode ? <Moon size={20} /> : <Sun size={20} />}
+                  {isDarkMode ? <Moon size={20} /> : <Sun size={20} />}
                   <div>
                     <p className="font-medium">Dark Mode</p>
                     <p className="text-sm text-muted-foreground">Use dark theme</p>
                   </div>
                 </div>
                 <Switch
-                  checked={darkMode}
-                  onCheckedChange={setDarkMode}
+                  checked={isDarkMode}
+                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
                 />
               </div>
 
@@ -189,7 +192,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
             </Button>
             {showCategoryManager && (
               <div className="mt-4 transition-all duration-300">
-                <CategoryManager onCategoriesChange={() => setShowCategoryManager(false)} />
+                <CategoryManager onCategoriesChange={() => {}} />
               </div>
             )}
           </div>

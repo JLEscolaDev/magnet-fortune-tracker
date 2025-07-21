@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { X, Moon, Download, Upload, SignOut, Tag } from '@phosphor-icons/react';
+import { X, Moon, Sun, Download, Upload, SignOut, Tag } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from 'next-themes';
 import { CategoryManagerModal } from './CategoryManagerModal';
 
 interface SettingsDrawerProps {
@@ -12,7 +14,10 @@ interface SettingsDrawerProps {
 
 export const SettingsDrawer = ({ isOpen, onClose }: SettingsDrawerProps) => {
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+
+  const isDarkMode = theme === 'dark';
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -76,9 +81,15 @@ export const SettingsDrawer = ({ isOpen, onClose }: SettingsDrawerProps) => {
           <div className="space-y-6">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Theme</h3>
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-                <Moon size={18} />
-                <span>Dark Mode (Auto)</span>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2">
+                  {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
+                  <span>Dark Mode</span>
+                </div>
+                <Switch
+                  checked={isDarkMode}
+                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                />
               </div>
             </div>
 
