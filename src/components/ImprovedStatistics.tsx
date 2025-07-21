@@ -13,7 +13,10 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  LineChart,
+  Line,
+  Legend
 } from 'recharts';
 import { 
   CalendarDays, 
@@ -34,12 +37,17 @@ interface ImprovedStatisticsProps {
 const COLORS = ['#FFD700', '#FF6B6B', '#FF69B4', '#50C878', '#9B59B6'];
 
 export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatisticsProps) => {
-  const [timeFilter, setTimeFilter] = useState<'7d' | '14d' | '30d'>('14d');
+  const [timeFilter, setTimeFilter] = useState<'7d' | '14d' | '30d' | '6m' | '1y'>('14d');
   const [showAchievementsModal, setShowAchievementsModal] = useState(false);
+  const [chartView, setChartView] = useState<'daily' | 'category' | 'progress'>('daily');
 
   const statisticsData = useMemo(() => {
     const now = new Date();
-    const daysToShow = timeFilter === '7d' ? 7 : timeFilter === '14d' ? 14 : 30;
+    const daysToShow = timeFilter === '7d' ? 7 : 
+                      timeFilter === '14d' ? 14 : 
+                      timeFilter === '30d' ? 30 :
+                      timeFilter === '6m' ? 180 :
+                      365;
     
     // Weekly counts (last 7 days including today)
     const weeklyCount = fortunes.filter(fortune => {
@@ -48,18 +56,35 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
       return isAfter(fortuneDate, sevenDaysAgo) || isSameDay(fortuneDate, now);
     }).length;
 
-    // Daily data for chart
+    // Daily data for chart with category breakdown
     const dailyData = [];
+    const categoryColors = {
+      'Health': '#50C878',
+      'Money': '#FFD700', 
+      'Work': '#FF6B6B',
+      'Love': '#FF69B4',
+      'Family': '#9B59B6',
+      'Friends': '#00CED1',
+      'Personal Growth': '#FFA500',
+      'Travel': '#32CD32'
+    };
+
     for (let i = daysToShow - 1; i >= 0; i--) {
       const date = subDays(startOfDay(now), i);
       const dayFortunes = fortunes.filter(fortune => 
         isSameDay(new Date(fortune.created_at), date)
       );
       
+      const categoryBreakdown = dayFortunes.reduce((acc, fortune) => {
+        acc[fortune.category] = (acc[fortune.category] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
       dailyData.push({
-        date: format(date, 'MMM dd'),
+        date: format(date, timeFilter === '6m' || timeFilter === '1y' ? 'MMM' : 'MMM dd'),
         count: dayFortunes.length,
-        value: dayFortunes.reduce((sum, f) => sum + (Number(f.fortune_value) || 0), 0)
+        value: dayFortunes.reduce((sum, f) => sum + (Number(f.fortune_value) || 0), 0),
+        ...categoryBreakdown
       });
     }
 
@@ -146,57 +171,162 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
       </div>
 
       {/* Time Filter */}
-      <div className="flex gap-2">
-        {(['7d', '14d', '30d'] as const).map((period) => (
+      <div className="flex flex-wrap gap-2">
+        {(['7d', '14d', '30d', '6m', '1y'] as const).map((period) => (
           <Button
             key={period}
             variant={timeFilter === period ? 'default' : 'outline'}
             size="sm"
             onClick={() => setTimeFilter(period)}
-            className="h-8"
+            className="h-8 text-xs"
           >
-            {period === '7d' ? '7 Days' : period === '14d' ? '14 Days' : '30 Days'}
+            {period === '7d' ? '7 Days' : 
+             period === '14d' ? '14 Days' : 
+             period === '30d' ? '30 Days' : 
+             period === '6m' ? '6 Months' : 
+             '1 Year'}
           </Button>
         ))}
       </div>
 
-      {/* Daily Activity Chart */}
+      {/* Chart View Toggle */}
+      <div className="flex gap-2">
+        {(['daily', 'category', 'progress'] as const).map((view) => (
+          <Button
+            key={view}
+            variant={chartView === view ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setChartView(view)}
+            className="h-8 text-xs"
+          >
+            {view === 'daily' ? 'Daily Activity' : 
+             view === 'category' ? 'Category View' : 
+             'Progress Lines'}
+          </Button>
+        ))}
+      </div>
+
+      {/* Dynamic Chart */}
       <Card className="p-6 bg-background/50 backdrop-blur-sm">
         <div className="flex items-center gap-2 mb-4">
           <BarChart3 className="h-5 w-5 text-gold" />
-          <h3 className="text-lg font-semibold">Daily Activity</h3>
+          <h3 className="text-lg font-semibold">
+            {chartView === 'daily' ? 'Daily Activity' : 
+             chartView === 'category' ? 'Category Breakdown' : 
+             'Progress Tracking'}
+          </h3>
         </div>
         <div className="h-48 sm:h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={statisticsData.dailyData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="date" 
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={10}
-                interval="preserveStartEnd"
-              />
-              <YAxis 
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={10}
-                width={30}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(var(--background))', 
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                  fontSize: '12px'
-                }}
-                labelStyle={{ color: 'hsl(var(--foreground))' }}
-              />
-              <Bar 
-                dataKey="count" 
-                fill="hsl(var(--primary))" 
-                radius={[4, 4, 0, 0]}
-                name="Fortunes"
-              />
-            </BarChart>
+            {chartView === 'daily' ? (
+              <BarChart data={statisticsData.dailyData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={10}
+                  interval="preserveStartEnd"
+                />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={10}
+                  width={30}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--background))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    fontSize: '12px'
+                  }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                />
+                <Bar 
+                  dataKey="count" 
+                  fill="hsl(var(--primary))" 
+                  radius={[4, 4, 0, 0]}
+                  name="Fortunes"
+                />
+              </BarChart>
+            ) : chartView === 'category' ? (
+              <BarChart data={statisticsData.dailyData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={10}
+                  interval="preserveStartEnd"
+                />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={10}
+                  width={30}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--background))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    fontSize: '12px'
+                  }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                />
+                <Legend />
+                {Object.keys(statisticsData.dailyData[0] || {})
+                  .filter(key => !['date', 'count', 'value'].includes(key))
+                  .slice(0, 5)
+                  .map((category, index) => (
+                    <Bar 
+                      key={category}
+                      dataKey={category} 
+                      stackId="categories"
+                      fill={COLORS[index % COLORS.length]}
+                      name={category}
+                    />
+                  ))}
+              </BarChart>
+            ) : (
+              <LineChart data={statisticsData.dailyData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={10}
+                  interval="preserveStartEnd"
+                />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={10}
+                  width={30}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--background))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    fontSize: '12px'
+                  }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="count" 
+                  stroke="hsl(var(--primary))" 
+                  strokeWidth={3}
+                  name="Daily Fortunes"
+                  dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="hsl(var(--gold))" 
+                  strokeWidth={3}
+                  name="Daily Value ($)"
+                  dot={{ fill: 'hsl(var(--gold))', strokeWidth: 2, r: 4 }}
+                />
+              </LineChart>
+            )}
           </ResponsiveContainer>
         </div>
       </Card>
