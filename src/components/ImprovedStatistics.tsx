@@ -34,7 +34,13 @@ interface ImprovedStatisticsProps {
   achievements: Achievement[];
 }
 
-const COLORS = ['#FFD700', '#FF6B6B', '#FF69B4', '#50C878', '#9B59B6'];
+const DEFAULT_CATEGORY_COLORS = {
+  'Wealth': '#D6B94C',
+  'Health': '#50C878', 
+  'Love': '#FF69B4',
+  'Opportunity': '#9B59B6',
+  'Other': '#6B7280'
+};
 
 export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatisticsProps) => {
   const [timeFilter, setTimeFilter] = useState<'7d' | '14d' | '30d' | '6m' | '1y'>('14d');
@@ -332,7 +338,7 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                     key={category}
                     dataKey={category} 
                     stackId="categories"
-                    fill={COLORS[index % COLORS.length]}
+                    fill={DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280'}
                     name={category}
                   />
                 ))}
@@ -371,10 +377,10 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                     key={category}
                     type="monotone" 
                     dataKey={category} 
-                    stroke={COLORS[index % COLORS.length]} 
+                    stroke={DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280'} 
                     strokeWidth={2}
                     name={category}
-                    dot={{ fill: COLORS[index % COLORS.length], strokeWidth: 2, r: 3 }}
+                    dot={{ fill: DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280', strokeWidth: 2, r: 3 }}
                   />
                 ))}
               </LineChart>
@@ -403,7 +409,7 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                   dataKey="value"
                 >
                   {statisticsData.categoryChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={DEFAULT_CATEGORY_COLORS[entry.name as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280'} />
                   ))}
                 </Pie>
                 <Tooltip 

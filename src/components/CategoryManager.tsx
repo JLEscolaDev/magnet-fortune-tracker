@@ -23,6 +23,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryHasValue, setNewCategoryHasValue] = useState(false);
+  const [newCategoryColor, setNewCategoryColor] = useState('#6B8F71');
   const [editingId, setEditingId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -70,7 +71,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
           {
             name: newCategoryName.trim(),
             has_numeric_value: newCategoryHasValue,
-            color: '#D6B94C',
+            color: newCategoryColor,
             user_id: user.id
           }
         ]);
@@ -84,6 +85,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
 
       setNewCategoryName('');
       setNewCategoryHasValue(false);
+      setNewCategoryColor('#6B8F71');
       setIsAddingNew(false);
       fetchCategories();
     } catch (error) {
@@ -208,6 +210,18 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
               <span className="text-sm">Has numeric value</span>
             </div>
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Category Color</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={newCategoryColor}
+                onChange={(e) => setNewCategoryColor(e.target.value)}
+                className="w-12 h-8 rounded border border-border cursor-pointer"
+              />
+              <span className="text-sm text-muted-foreground">{newCategoryColor}</span>
+            </div>
+          </div>
           <div className="flex gap-2">
             <Button
               onClick={handleAddCategory}
@@ -222,6 +236,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
                 setIsAddingNew(false);
                 setNewCategoryName('');
                 setNewCategoryHasValue(false);
+                setNewCategoryColor('#6B8F71');
               }}
             >
               Cancel

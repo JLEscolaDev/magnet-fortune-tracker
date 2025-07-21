@@ -393,33 +393,6 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
         <ImprovedStatistics fortunes={fortunes} achievements={calculateAchievements()} />
       </div>
 
-      {/* Achievements */}
-      <div className="luxury-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-heading font-medium flex items-center gap-2">
-            <Trophy size={24} className="text-gold" />
-            Achievements
-          </h3>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => setShowAchievementsModal(true)}
-            className="text-gold hover:text-gold/80 hover:bg-gold/10"
-          >
-            View All
-          </Button>
-        </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-            {calculateAchievements().map((achievement) => (
-              <AchievementCard
-                key={achievement.id}
-                achievement={achievement}
-                isEarned={achievement.state === 'earned'}
-                progress={achievement.progress}
-              />
-            ))}
-          </div>
-      </div>
 
       {/* Detail Modals */}
       <StatisticsDetailModal
