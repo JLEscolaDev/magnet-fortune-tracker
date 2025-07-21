@@ -114,10 +114,10 @@ export const CustomCalendar = ({ fortunes, onDateClick, selectedDate, onDateSele
               className={`
                 relative h-12 w-full flex flex-col items-center justify-center text-sm font-medium
                 rounded-lg transition-all duration-200 hover:scale-105 hover:shadow-md
-                ${isToday 
+                ${isSelected && !isToday
+                  ? 'bg-[hsl(var(--sapphire))] text-ivory shadow-sapphire-glow'
+                  : isToday 
                   ? 'bg-primary text-primary-foreground shadow-glow' 
-                  : isSelected
-                  ? 'bg-emerald text-emerald-foreground shadow-emerald-glow'
                   : 'hover:bg-primary/10 text-foreground'
                 }
                 ${!isSameMonth(date, currentDate) 
@@ -161,9 +161,9 @@ export const CustomCalendar = ({ fortunes, onDateClick, selectedDate, onDateSele
             <div className="w-2 h-2 bg-primary rounded-full" />
             <span>Today</span>
           </div>
-          {selectedDate && (
+          {selectedDate && !isSameDay(selectedDate, new Date()) && (
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-emerald rounded-full" />
+              <div className="w-2 h-2 bg-[hsl(var(--sapphire))] rounded-full" />
               <span>Selected</span>
             </div>
           )}

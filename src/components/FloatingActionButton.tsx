@@ -1,4 +1,5 @@
 import { Plus } from '@phosphor-icons/react';
+import { isSameDay } from 'date-fns';
 
 interface FloatingActionButtonProps {
   onClick: () => void;
@@ -17,8 +18,8 @@ export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionBu
         transition-all duration-200 ease-out
         hover:scale-110 active:scale-95
         z-40
-        ${selectedDate 
-          ? 'bg-gradient-to-r from-emerald to-emerald/80 emerald-glow' 
+        ${selectedDate && !isSameDay(selectedDate, new Date())
+          ? 'bg-[hsl(var(--sapphire))] sapphire-glow' 
           : 'bg-gradient-to-r from-emerald to-emerald/80 emerald-glow'
         }
       `}

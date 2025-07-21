@@ -13,6 +13,7 @@ All colors MUST be HSL.
     --emerald: 162 89% 22%;        /* #046B4A */
     --gold: 46 60% 56%;            /* #D6B94C */
     --ivory: 48 44% 93%;           /* #F2F0E8*/
+    --sapphire: 220 90% 40%;       /* #1E40AF - For selected dates */
     
     /* Design System Colors */
     --background: var(--rich-black);
@@ -138,6 +139,10 @@ All colors MUST be HSL.
   
   .emerald-glow {
     box-shadow: 0 0 12px hsl(var(--emerald) / 0.3);
+  }
+  
+  .sapphire-glow {
+    box-shadow: 0 0 12px hsl(var(--sapphire) / 0.4);
   }
   
   .luxury-avatar-section {

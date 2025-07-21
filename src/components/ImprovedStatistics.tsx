@@ -94,43 +94,43 @@ export const ImprovedStatistics = ({ fortunes }: ImprovedStatisticsProps) => {
   return (
     <div className="space-y-6">
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4 bg-background/50 backdrop-blur-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-3 sm:p-4 bg-background/50 backdrop-blur-sm">
           <div className="flex items-center gap-2 mb-2">
             <Target className="h-4 w-4 text-emerald" />
-            <span className="text-sm font-medium">Total Fortunes</span>
+            <span className="text-xs sm:text-sm font-medium">Total Fortunes</span>
           </div>
-          <div className="text-2xl font-bold text-emerald">
+          <div className="text-xl sm:text-2xl font-bold text-emerald">
             {statisticsData.totalFortunes}
           </div>
         </Card>
 
-        <Card className="p-4 bg-background/50 backdrop-blur-sm">
+        <Card className="p-3 sm:p-4 bg-background/50 backdrop-blur-sm">
           <div className="flex items-center gap-2 mb-2">
             <CalendarDays className="h-4 w-4 text-gold" />
-            <span className="text-sm font-medium">Active Days</span>
+            <span className="text-xs sm:text-sm font-medium">Active Days</span>
           </div>
-          <div className="text-2xl font-bold text-gold">
+          <div className="text-xl sm:text-2xl font-bold text-gold">
             {statisticsData.activeDays}
           </div>
         </Card>
 
-        <Card className="p-4 bg-background/50 backdrop-blur-sm">
+        <Card className="p-3 sm:p-4 bg-background/50 backdrop-blur-sm">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="h-4 w-4 text-blue-400" />
-            <span className="text-sm font-medium">Past 7 Days</span>
+            <span className="text-xs sm:text-sm font-medium">Past 7 Days</span>
           </div>
-          <div className="text-2xl font-bold text-blue-400">
+          <div className="text-xl sm:text-2xl font-bold text-blue-400">
             {statisticsData.weeklyCount}
           </div>
         </Card>
 
-        <Card className="p-4 bg-background/50 backdrop-blur-sm">
+        <Card className="p-3 sm:p-4 bg-background/50 backdrop-blur-sm">
           <div className="flex items-center gap-2 mb-2">
             <DollarSign className="h-4 w-4 text-gold" />
-            <span className="text-sm font-medium">Total Value</span>
+            <span className="text-xs sm:text-sm font-medium">Total Value</span>
           </div>
-          <div className="text-2xl font-bold text-gold">
+          <div className="text-xl sm:text-2xl font-bold text-gold">
             ${statisticsData.totalValue.toFixed(2)}
           </div>
         </Card>
@@ -157,24 +157,27 @@ export const ImprovedStatistics = ({ fortunes }: ImprovedStatisticsProps) => {
           <BarChart3 className="h-5 w-5 text-gold" />
           <h3 className="text-lg font-semibold">Daily Activity</h3>
         </div>
-        <div className="h-64">
+        <div className="h-48 sm:h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={statisticsData.dailyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <BarChart data={statisticsData.dailyData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis 
                 dataKey="date" 
                 stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
+                fontSize={10}
+                interval="preserveStartEnd"
               />
               <YAxis 
                 stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
+                fontSize={10}
+                width={30}
               />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: 'hsl(var(--background))', 
                   border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px'
+                  borderRadius: '8px',
+                  fontSize: '12px'
                 }}
                 labelStyle={{ color: 'hsl(var(--foreground))' }}
               />
@@ -193,7 +196,7 @@ export const ImprovedStatistics = ({ fortunes }: ImprovedStatisticsProps) => {
       {statisticsData.categoryChartData.length > 0 && (
         <Card className="p-6 bg-background/50 backdrop-blur-sm">
           <h3 className="text-lg font-semibold mb-4">Category Distribution</h3>
-          <div className="h-64">
+          <div className="h-48 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -201,8 +204,10 @@ export const ImprovedStatistics = ({ fortunes }: ImprovedStatisticsProps) => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
+                  label={({ name, percent }) => 
+                    window.innerWidth > 640 ? `${name} ${(percent * 100).toFixed(0)}%` : `${(percent * 100).toFixed(0)}%`
+                  }
+                  outerRadius={window.innerWidth > 640 ? 80 : 60}
                   fill="#8884d8"
                   dataKey="value"
                 >
@@ -214,7 +219,8 @@ export const ImprovedStatistics = ({ fortunes }: ImprovedStatisticsProps) => {
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--background))', 
                     border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px'
+                    borderRadius: '8px',
+                    fontSize: '12px'
                   }}
                 />
               </PieChart>
