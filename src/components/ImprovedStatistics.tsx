@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Fortune } from '@/types/fortune';
+import { Fortune, Achievement } from '@/types/fortune';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { AchievementsDetailModal } from '@/components/AchievementsDetailModal';
 import { 
   BarChart, 
   Bar, 
@@ -19,18 +20,22 @@ import {
   TrendingUp, 
   Target, 
   DollarSign,
-  BarChart3
+  BarChart3,
+  Trophy,
+  Eye
 } from 'lucide-react';
 import { format, subDays, startOfDay, isAfter, isSameDay } from 'date-fns';
 
 interface ImprovedStatisticsProps {
   fortunes: Fortune[];
+  achievements: Achievement[];
 }
 
 const COLORS = ['#FFD700', '#FF6B6B', '#FF69B4', '#50C878', '#9B59B6'];
 
-export const ImprovedStatistics = ({ fortunes }: ImprovedStatisticsProps) => {
+export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatisticsProps) => {
   const [timeFilter, setTimeFilter] = useState<'7d' | '14d' | '30d'>('14d');
+  const [showAchievementsModal, setShowAchievementsModal] = useState(false);
 
   const statisticsData = useMemo(() => {
     const now = new Date();
@@ -90,6 +95,10 @@ export const ImprovedStatistics = ({ fortunes }: ImprovedStatisticsProps) => {
       totalFortunes: fortunes.length
     };
   }, [fortunes, timeFilter]);
+
+  const earnedAchievements = achievements.filter(a => a.state === 'earned');
+  const recentAchievements = earnedAchievements.slice(-4); // Last 4 earned
+  const progressPercentage = (earnedAchievements.length / achievements.length) * 100;
 
   return (
     <div className="space-y-6">
@@ -228,6 +237,75 @@ export const ImprovedStatistics = ({ fortunes }: ImprovedStatisticsProps) => {
           </div>
         </Card>
       )}
+
+      {/* Achievements Section */}
+      <Card className="p-6 bg-background/50 backdrop-blur-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-gold" />
+            <h3 className="text-lg font-semibold">Recent Achievements</h3>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAchievementsModal(true)}
+            className="flex items-center gap-2"
+          >
+            <Eye className="h-4 w-4" />
+            View All
+          </Button>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="mb-6">
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-muted-foreground">Achievement Progress</span>
+            <span className="text-gold font-medium">
+              {earnedAchievements.length}/{achievements.length} ({progressPercentage.toFixed(0)}%)
+            </span>
+          </div>
+          <div className="w-full bg-muted/30 rounded-full h-3 shadow-inner">
+            <div 
+              className="bg-gradient-to-r from-gold to-emerald h-3 rounded-full transition-all duration-1000 shadow-md"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Recent Achievements */}
+        {recentAchievements.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {recentAchievements.map((achievement) => (
+              <div
+                key={achievement.id}
+                className="flex items-center gap-3 p-4 rounded-lg bg-gradient-to-r from-gold/10 to-emerald/10 border border-gold/20"
+              >
+                <div className="text-2xl">{achievement.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-gold text-sm truncate">
+                    {achievement.title}
+                  </h4>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {achievement.description}
+                  </p>
+                </div>
+                <Trophy className="h-4 w-4 text-emerald flex-shrink-0" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <Trophy className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p>Start tracking fortunes to unlock achievements!</p>
+          </div>
+        )}
+      </Card>
+
+      <AchievementsDetailModal
+        isOpen={showAchievementsModal}
+        onClose={() => setShowAchievementsModal(false)}
+        achievements={achievements}
+      />
     </div>
   );
 };

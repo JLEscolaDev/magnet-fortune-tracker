@@ -19,7 +19,7 @@ export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionBu
         hover:scale-110 active:scale-95
         z-40
         ${selectedDate && !isSameDay(selectedDate, new Date())
-          ? 'bg-[hsl(var(--sapphire))] sapphire-glow' 
+          ? 'bg-gradient-to-r from-[hsl(var(--mint))] to-[hsl(var(--mint-border))] shadow-lg shadow-[hsl(var(--mint-border))]/30' 
           : 'bg-gradient-to-r from-emerald to-emerald/80 emerald-glow'
         }
       `}

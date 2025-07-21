@@ -15,6 +15,10 @@ All colors MUST be HSL.
     --ivory: 48 44% 93%;           /* #F2F0E8*/
     --sapphire: 220 90% 40%;       /* #1E40AF - For selected dates */
     
+    /* Light Green for Selected Dates */
+    --mint: 150 60% 75%;           /* Light mint green */
+    --mint-border: 150 50% 45%;    /* Darker mint border */
+    
     /* Design System Colors */
     --background: var(--rich-black);
     --foreground: var(--ivory);

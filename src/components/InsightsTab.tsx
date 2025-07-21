@@ -390,7 +390,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
             View Details
           </Button>
         </div>
-        <ImprovedStatistics fortunes={fortunes} />
+        <ImprovedStatistics fortunes={fortunes} achievements={calculateAchievements()} />
       </div>
 
       {/* Achievements */}
