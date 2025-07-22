@@ -229,7 +229,7 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
       uniqueCategories,
       yearComparisonData
     };
-  }, [fortunes, timeFilter]);
+  }, [fortunes, timeFilter, selectedYears]);
 
   const earnedAchievements = achievements.filter(a => a.state === 'earned');
   const recentAchievements = earnedAchievements.slice(-4); // Last 4 earned
@@ -544,8 +544,10 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                     backgroundColor: 'hsl(var(--background))', 
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '8px',
-                    fontSize: '12px'
+                    fontSize: '12px',
+                    color: 'hsl(var(--foreground))'
                   }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
                 />
               </PieChart>
             </ResponsiveContainer>
