@@ -89,7 +89,7 @@ export const StatisticsDetailModal = ({ isOpen, onClose, fortunes }: StatisticsD
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto bg-gradient-to-br from-background via-background/98 to-background/95 backdrop-blur-xl border border-gold/30 shadow-2xl">
+      <DialogContent className="max-w-[90vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden bg-gradient-to-br from-background via-background/98 to-background/95 backdrop-blur-xl border border-gold/30 shadow-2xl">
         {/* Header with single close button */}
         <div className="relative p-6 border-b border-gold/20">
           <div className="text-center">
@@ -100,8 +100,8 @@ export const StatisticsDetailModal = ({ isOpen, onClose, fortunes }: StatisticsD
 
         <div className="p-3 sm:p-6 space-y-6 sm:space-y-8">
           {/* Filters */}
-          <div className="flex flex-wrap gap-4 items-center justify-between">
-            <div className="flex gap-2">
+          <div className="space-y-3 sm:space-y-0 sm:flex sm:flex-wrap gap-4 sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant={selectedCategory === null ? "default" : "outline"}
                 size="sm"
@@ -122,7 +122,7 @@ export const StatisticsDetailModal = ({ isOpen, onClose, fortunes }: StatisticsD
                 </Button>
               ))}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {(['week', 'month', 'all'] as const).map(filter => (
                 <Button
                   key={filter}

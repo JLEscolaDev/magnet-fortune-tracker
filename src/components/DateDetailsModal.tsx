@@ -180,7 +180,7 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
                           <Trash size={12} className="text-red-400" />
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
+                      <AlertDialogContent className="z-[9999]">
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Fortune</AlertDialogTitle>
                           <AlertDialogDescription>
