@@ -79,7 +79,7 @@ const shootConfetti = () => {
 
 export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate }: AddFortuneModalProps) => {
   const [text, setText] = useState('');
-  const [category, setCategory] = useState<FortuneCategory>('Wealth');
+  const [category, setCategory] = useState<FortuneCategory>('');
   const [fortuneValue, setFortuneValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryData[]>(defaultCategories);
@@ -120,10 +120,10 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!text.trim()) {
+    if (!text.trim() || !category) {
       toast({
         title: "Error",
-        description: "Please enter your fortune",
+        description: !text.trim() ? "Please enter your fortune" : "Please select a category",
         variant: "destructive",
       });
       
@@ -182,7 +182,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
       });
 
       setText('');
-      setCategory('Wealth');
+      setCategory('');
       setFortuneValue('');
       onFortuneAdded();
       onClose();
@@ -246,7 +246,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
             </label>
             <Select value={category} onValueChange={(value) => setCategory(value as FortuneCategory)}>
               <SelectTrigger className="focus:border-gold focus:ring-gold/20">
-                <SelectValue />
+                <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent className="bg-card border-border z-50">
                 {categories.map((cat) => (
@@ -264,6 +264,11 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
                 ))}
               </SelectContent>
             </Select>
+            {!category && (
+              <p className="text-xs text-destructive mt-1">
+                Please select a category to continue
+              </p>
+            )}
           </div>
 
           {/* Numeric Value Input - Show only if category has numeric value */}
@@ -292,7 +297,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
 
           <Button
             type="submit"
-            disabled={isLoading || !text.trim()}
+            disabled={isLoading || !text.trim() || !category}
             className="luxury-button w-full"
           >
             {isLoading ? (

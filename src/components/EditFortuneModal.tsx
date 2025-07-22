@@ -73,7 +73,7 @@ export const EditFortuneModal = ({ isOpen, onClose, fortune, onFortuneUpdated }:
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fortune) return;
+    if (!fortune || !fortuneText.trim() || !selectedCategory) return;
     
     setIsLoading(true);
     
@@ -189,7 +189,7 @@ export const EditFortuneModal = ({ isOpen, onClose, fortune, onFortuneUpdated }:
             <Button type="button" variant="outline" onClick={handleClose} className="flex-1">
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !fortuneText.trim()} className="flex-1">
+            <Button type="submit" disabled={isLoading || !fortuneText.trim() || !selectedCategory} className="flex-1">
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Update Fortune
             </Button>

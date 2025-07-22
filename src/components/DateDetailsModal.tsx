@@ -124,9 +124,24 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
 
         <div className="space-y-4 max-h-96 overflow-y-auto">
           {fortunes.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              No fortunes recorded for this day
-            </p>
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-4">
+                No fortunes recorded for this day
+              </p>
+              <Button 
+                onClick={() => {
+                  onClose();
+                  // Trigger the floating action button click
+                  setTimeout(() => {
+                    const fabButton = document.querySelector('[aria-label*="Add fortune"]') as HTMLButtonElement;
+                    if (fabButton) fabButton.click();
+                  }, 100);
+                }}
+                className="luxury-button"
+              >
+                Add Fortune
+              </Button>
+            </div>
           ) : (
             fortunes.filter(fortune => !deletingFortunes.has(fortune.id)).map((fortune) => (
               <div 
