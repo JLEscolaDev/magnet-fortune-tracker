@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Fortune, Achievement } from '@/types/fortune';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -27,7 +27,8 @@ import {
   Trophy,
   Eye
 } from 'lucide-react';
-import { format, subDays, startOfDay, isAfter, isSameDay } from 'date-fns';
+import { format, subDays, startOfDay, isAfter, isSameDay, startOfMonth, isSameMonth } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ImprovedStatisticsProps {
   fortunes: Fortune[];
@@ -47,6 +48,50 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
   const [showAchievementsModal, setShowAchievementsModal] = useState(false);
   const [chartView, setChartView] = useState<'daily' | 'category' | 'progress'>('daily');
   const [compareEnabled, setCompareEnabled] = useState(false);
+  const [customCategories, setCustomCategories] = useState<Record<string, string>>({});
+
+  // Fetch category colors from database
+  useEffect(() => {
+    const fetchCategoryColors = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data } = await supabase
+          .from('custom_categories')
+          .select('name, color')
+          .eq('user_id', user.id);
+
+        if (data) {
+          const colorMap = data.reduce((acc, cat) => {
+            acc[cat.name] = cat.color;
+            return acc;
+          }, {} as Record<string, string>);
+          setCustomCategories(colorMap);
+        }
+      } catch (error) {
+        console.error('Error fetching category colors:', error);
+      }
+    };
+
+    fetchCategoryColors();
+  }, []);
+
+  // Function to get category color with fallback
+  const getCategoryColor = (category: string): string => {
+    // First check custom categories from database
+    if (customCategories[category]) {
+      return customCategories[category];
+    }
+    
+    // Then check default categories
+    if (DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS]) {
+      return DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS];
+    }
+    
+    // Fallback color
+    return '#6B7280';
+  };
 
   const statisticsData = useMemo(() => {
     const now = new Date();
@@ -63,19 +108,6 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
       return isAfter(fortuneDate, sevenDaysAgo) || isSameDay(fortuneDate, now);
     }).length;
 
-    // Daily data for chart with category breakdown
-    const dailyData = [];
-    const categoryColors = {
-      'Health': '#50C878',
-      'Money': '#FFD700', 
-      'Work': '#FF6B6B',
-      'Love': '#FF69B4',
-      'Family': '#9B59B6',
-      'Friends': '#00CED1',
-      'Personal Growth': '#FFA500',
-      'Travel': '#32CD32'
-    };
-
     // Get unique categories from filtered fortunes
     const filteredFortunes = fortunes.filter(fortune => {
       const fortuneDate = new Date(fortune.created_at);
@@ -85,37 +117,58 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
 
     const uniqueCategories = [...new Set(filteredFortunes.map(f => f.category))];
 
-    for (let i = daysToShow - 1; i >= 0; i--) {
-      const date = subDays(startOfDay(now), i);
-      const dayFortunes = fortunes.filter(fortune => 
-        isSameDay(new Date(fortune.created_at), date)
-      );
+    // Determine aggregation level based on timeFilter
+    const shouldAggregateMonthly = timeFilter === '6m' || timeFilter === '1y';
+    
+    let chartData = [];
+    
+    if (shouldAggregateMonthly) {
+      // Monthly aggregation for 6m and 1y
+      const monthsToShow = timeFilter === '6m' ? 6 : 12;
       
-      const categoryBreakdown = uniqueCategories.reduce((acc, category) => {
-        acc[category] = dayFortunes.filter(f => f.category === category).length;
-        return acc;
-      }, {} as Record<string, number>);
+      for (let i = monthsToShow - 1; i >= 0; i--) {
+        const monthStart = startOfMonth(subDays(now, i * 30));
+        const monthFortunes = fortunes.filter(fortune => 
+          isSameMonth(new Date(fortune.created_at), monthStart)
+        );
+        
+        const categoryBreakdown = uniqueCategories.reduce((acc, category) => {
+          acc[category] = monthFortunes.filter(f => f.category === category).length;
+          return acc;
+        }, {} as Record<string, number>);
 
-      // Format date based on timeFilter for better readability
-      let dateLabel;
-      if (timeFilter === '6m') {
-        // Show only every 15th day approximately
-        dateLabel = i % 15 === 0 ? format(date, 'MMM dd') : '';
-      } else if (timeFilter === '1y') {
-        // Show only every 30th day approximately  
-        dateLabel = i % 30 === 0 ? format(date, 'MMM yyyy') : '';
-      } else {
-        dateLabel = format(date, 'MMM dd');
+        chartData.push({
+          date: format(monthStart, 'MMM'),
+          fullDate: format(monthStart, 'MMM yyyy'),
+          count: monthFortunes.length,
+          value: monthFortunes.reduce((sum, f) => sum + (Number(f.fortune_value) || 0), 0),
+          ...categoryBreakdown
+        });
       }
+    } else {
+      // Daily aggregation for shorter periods
+      for (let i = daysToShow - 1; i >= 0; i--) {
+        const date = subDays(startOfDay(now), i);
+        const dayFortunes = fortunes.filter(fortune => 
+          isSameDay(new Date(fortune.created_at), date)
+        );
+        
+        const categoryBreakdown = uniqueCategories.reduce((acc, category) => {
+          acc[category] = dayFortunes.filter(f => f.category === category).length;
+          return acc;
+        }, {} as Record<string, number>);
 
-      dailyData.push({
-        date: dateLabel,
-        fullDate: format(date, 'MMM dd, yyyy'),
-        count: dayFortunes.length,
-        value: dayFortunes.reduce((sum, f) => sum + (Number(f.fortune_value) || 0), 0),
-        ...categoryBreakdown
-      });
+        chartData.push({
+          date: format(date, 'MMM dd'),
+          fullDate: format(date, 'MMM dd, yyyy'),
+          count: dayFortunes.length,
+          value: dayFortunes.reduce((sum, f) => sum + (Number(f.fortune_value) || 0), 0),
+          ...categoryBreakdown
+        });
+      }
     }
+
+    const dailyData = chartData;
 
     // Progress Lines data - one line per category
     const progressData = dailyData.map(day => {
@@ -280,13 +333,15 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                   dataKey="date" 
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={10}
-                  interval={timeFilter === '6m' ? 'preserveStartEnd' : timeFilter === '1y' ? 'preserveStartEnd' : 'preserveStartEnd'}
+                  interval="preserveStartEnd"
                   tick={{ fontSize: 10 }}
                 />
                 <YAxis 
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={10}
                   width={30}
+                  domain={[0, 'dataMax']}
+                  tickCount={5}
                 />
                 <Tooltip 
                   contentStyle={{ 
@@ -311,13 +366,15 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                   dataKey="date" 
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={10}
-                  interval={timeFilter === '6m' ? 'preserveStartEnd' : timeFilter === '1y' ? 'preserveStartEnd' : 'preserveStartEnd'}
+                  interval="preserveStartEnd"
                   tick={{ fontSize: 10 }}
                 />
                 <YAxis 
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={10}
                   width={30}
+                  domain={[0, 'dataMax']}
+                  tickCount={5}
                 />
                 <Tooltip 
                   contentStyle={{ 
@@ -338,7 +395,7 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                     key={category}
                     dataKey={category} 
                     stackId="categories"
-                    fill={DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280'}
+                    fill={getCategoryColor(category)}
                     name={category}
                   />
                 ))}
@@ -350,13 +407,15 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                   dataKey="date" 
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={10}
-                  interval={timeFilter === '6m' ? 'preserveStartEnd' : timeFilter === '1y' ? 'preserveStartEnd' : 'preserveStartEnd'}
+                  interval="preserveStartEnd"
                   tick={{ fontSize: 10 }}
                 />
                 <YAxis 
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={10}
                   width={30}
+                  domain={[0, 'dataMax']}
+                  tickCount={5}
                 />
                 <Tooltip 
                   contentStyle={{ 
@@ -377,10 +436,10 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                     key={category}
                     type="monotone" 
                     dataKey={category} 
-                    stroke={DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280'} 
+                    stroke={getCategoryColor(category)} 
                     strokeWidth={2}
                     name={category}
-                    dot={{ fill: DEFAULT_CATEGORY_COLORS[category as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280', strokeWidth: 2, r: 3 }}
+                    dot={{ fill: getCategoryColor(category), strokeWidth: 2, r: 3 }}
                   />
                 ))}
               </LineChart>
@@ -396,22 +455,22 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
           <div className="h-48 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={statisticsData.categoryChartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => 
-                    window.innerWidth > 640 ? `${name} ${(percent * 100).toFixed(0)}%` : `${(percent * 100).toFixed(0)}%`
-                  }
-                  outerRadius={window.innerWidth > 640 ? 80 : 60}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {statisticsData.categoryChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={DEFAULT_CATEGORY_COLORS[entry.name as keyof typeof DEFAULT_CATEGORY_COLORS] || '#6B7280'} />
-                  ))}
-                </Pie>
+                  <Pie
+                    data={statisticsData.categoryChartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => 
+                      window.innerWidth > 640 ? `${name} ${(percent * 100).toFixed(0)}%` : `${name} ${(percent * 100).toFixed(0)}%`
+                    }
+                    outerRadius={window.innerWidth > 640 ? 80 : 60}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {statisticsData.categoryChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={getCategoryColor(entry.name)} />
+                    ))}
+                  </Pie>
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--background))', 
