@@ -157,25 +157,28 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
         });
       }
     } else {
-      // Daily aggregation for shorter periods
+      // Daily aggregation for shorter periods - only past and current dates
       for (let i = daysToShow - 1; i >= 0; i--) {
         const date = subDays(startOfDay(now), i);
-        const dayFortunes = fortunes.filter(fortune => 
-          isSameDay(new Date(fortune.created_at), date)
-        );
+        // Only include dates that are today or in the past
+        if (date <= now) {
+          const dayFortunes = fortunes.filter(fortune => 
+            isSameDay(new Date(fortune.created_at), date)
+          );
         
         const categoryBreakdown = uniqueCategories.reduce((acc, category) => {
           acc[category] = dayFortunes.filter(f => f.category === category).length;
           return acc;
         }, {} as Record<string, number>);
 
-        chartData.push({
-          date: format(date, 'MMM dd'),
-          fullDate: format(date, 'MMM dd, yyyy'),
-          count: dayFortunes.length,
-          value: dayFortunes.reduce((sum, f) => sum + (Number(f.fortune_value) || 0), 0),
-          ...categoryBreakdown
-        });
+          chartData.push({
+            date: format(date, 'MMM dd'),
+            fullDate: format(date, 'MMM dd, yyyy'),
+            count: dayFortunes.length,
+            value: dayFortunes.reduce((sum, f) => sum + (Number(f.fortune_value) || 0), 0),
+            ...categoryBreakdown
+          });
+        }
       }
     }
 

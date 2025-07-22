@@ -30,28 +30,27 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
   };
 
   const handleDeleteFortune = async (fortuneId: string) => {
-    // Start fade out animation
-    setDeletingFortunes(prev => new Set(prev).add(fortuneId));
-    
-    // Wait for animation to complete
-    setTimeout(async () => {
-      try {
-        const { error } = await supabase
-          .from('fortunes')
-          .delete()
-          .eq('id', fortuneId);
+    try {
+      // Immediately start deleting animation
+      setDeletingFortunes(prev => new Set(prev).add(fortuneId));
+      
+      const { error } = await supabase
+        .from('fortunes')
+        .delete()
+        .eq('id', fortuneId);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        toast({
-          title: "Fortune deleted",
-          description: "Your fortune has been removed.",
-        });
+      toast({
+        title: "Fortune deleted",
+        description: "Your fortune has been removed.",
+      });
 
-        onFortunesUpdated?.();
-        window.dispatchEvent(new Event("fortunesUpdated"));
-        
-        // Remove from deleting set
+      onFortunesUpdated?.();
+      window.dispatchEvent(new Event("fortunesUpdated"));
+      
+      // Wait for animation to complete then cleanup
+      setTimeout(() => {
         setDeletingFortunes(prev => {
           const newSet = new Set(prev);
           newSet.delete(fortuneId);
@@ -63,22 +62,23 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
         if (remainingFortunes.length === 0) {
           onClose();
         }
-      } catch (error) {
-        console.error('Error deleting fortune:', error);
-        toast({
-          title: "Error deleting fortune",
-          description: "Please try again.",
-          variant: "destructive",
-        });
-        
-        // Remove from deleting set on error
-        setDeletingFortunes(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(fortuneId);
-          return newSet;
-        });
-      }
-    }, 300); // Match the fade-out animation duration
+      }, 300);
+      
+    } catch (error) {
+      console.error('Error deleting fortune:', error);
+      toast({
+        title: "Error deleting fortune",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+      
+      // Remove from deleting set on error
+      setDeletingFortunes(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fortuneId);
+        return newSet;
+      });
+    }
   };
 
   const handleFortuneUpdated = () => {

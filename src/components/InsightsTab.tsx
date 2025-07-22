@@ -382,12 +382,12 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
             Statistics & Insights
           </h3>
           <Button 
-            variant="ghost" 
+            variant="outline" 
             size="sm"
             onClick={() => setShowStatisticsModal(true)}
-            className="text-gold hover:text-gold/80 hover:bg-gold/10"
+            className="h-8 w-8 p-0 rounded-full bg-gradient-to-r from-emerald to-emerald/80 border-emerald/30 text-ivory hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-emerald/30"
           >
-            View Details
+            <ChartBar size={16} />
           </Button>
         </div>
         <ImprovedStatistics fortunes={fortunes} achievements={calculateAchievements()} />
