@@ -49,6 +49,7 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
   const [chartView, setChartView] = useState<'daily' | 'category' | 'progress'>('daily');
   const [compareEnabled, setCompareEnabled] = useState(false);
   const [customCategories, setCustomCategories] = useState<Record<string, string>>({});
+  const [selectedYears, setSelectedYears] = useState<[number, number]>([2023, 2024]);
 
   // Fetch category colors from database
   useEffect(() => {
@@ -100,6 +101,16 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                       timeFilter === '30d' ? 30 :
                       timeFilter === '6m' ? 180 :
                       365;
+
+    // Year comparison data
+    const yearComparisonData = selectedYears.map(year => {
+      const yearFortunes = fortunes.filter(f => new Date(f.created_at).getFullYear() === year);
+      return {
+        year: year.toString(),
+        count: yearFortunes.length,
+        value: yearFortunes.reduce((sum, f) => sum + (Number(f.fortune_value) || 0), 0)
+      };
+    });
     
     // Weekly counts (last 7 days including today)
     const weeklyCount = fortunes.filter(fortune => {
@@ -215,7 +226,8 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
       totalValue,
       activeDays: uniqueDates.size,
       totalFortunes: fortunes.length,
-      uniqueCategories
+      uniqueCategories,
+      yearComparisonData
     };
   }, [fortunes, timeFilter]);
 
@@ -303,14 +315,39 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
           </Button>
         ))}
         {chartView === 'progress' && (
-          <Button
-            variant={compareEnabled ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setCompareEnabled(!compareEnabled)}
-            className="h-8 text-xs"
-          >
-            Compare Years
-          </Button>
+          <>
+            <Button
+              variant={compareEnabled ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCompareEnabled(!compareEnabled)}
+              className="h-8 text-xs"
+            >
+              Compare Years
+            </Button>
+            {compareEnabled && (
+              <div className="flex gap-2 items-center">
+                <select 
+                  value={selectedYears[0]} 
+                  onChange={(e) => setSelectedYears([parseInt(e.target.value), selectedYears[1]])}
+                  className="h-8 px-2 text-xs border rounded bg-background"
+                >
+                  {Array.from({length: 10}, (_, i) => new Date().getFullYear() - i).map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+                <span className="text-xs">vs</span>
+                <select 
+                  value={selectedYears[1]} 
+                  onChange={(e) => setSelectedYears([selectedYears[0], parseInt(e.target.value)])}
+                  className="h-8 px-2 text-xs border rounded bg-background"
+                >
+                  {Array.from({length: 10}, (_, i) => new Date().getFullYear() - i).map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -326,7 +363,38 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
         </div>
         <div className="h-48 sm:h-64">
           <ResponsiveContainer width="100%" height="100%">
-            {chartView === 'daily' ? (
+            {compareEnabled && chartView === 'progress' ? (
+              <BarChart data={statisticsData.yearComparisonData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="year" 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={10}
+                  width={40}
+                  domain={[0, 'dataMax']}
+                  tickCount={5}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--background))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    fontSize: '12px'
+                  }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                />
+                <Bar 
+                  dataKey="count" 
+                  fill="hsl(var(--primary))" 
+                  radius={[4, 4, 0, 0]}
+                  name="Total Fortunes"
+                />
+              </BarChart>
+            ) : chartView === 'daily' ? (
               <BarChart data={statisticsData.dailyData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis 
@@ -461,7 +529,7 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
                     cy="50%"
                     labelLine={false}
                     label={({ name, percent }) => 
-                      window.innerWidth > 640 ? `${name} ${(percent * 100).toFixed(0)}%` : `${name} ${(percent * 100).toFixed(0)}%`
+                      `${name} ${(percent * 100).toFixed(0)}%`
                     }
                     outerRadius={window.innerWidth > 640 ? 80 : 60}
                     fill="#8884d8"
