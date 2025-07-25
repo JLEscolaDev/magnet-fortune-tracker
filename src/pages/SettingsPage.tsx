@@ -7,6 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
 import { CategoryManager } from '@/components/CategoryManager';
+import { useSubscription } from '@/hooks/useSubscription';
+import { PricingDialog } from '@/components/billing/PricingDialog';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -19,7 +21,9 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [currency, setCurrency] = useState('USD');
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [showPricingDialog, setShowPricingDialog] = useState(false);
   const { toast } = useToast();
+  const { isActive, subscription } = useSubscription();
 
   const isDarkMode = theme === 'dark';
 
@@ -51,6 +55,29 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
       title: "Coming Soon",
       description: "AI avatar generation will be available soon",
     });
+  };
+
+  const handleManageBilling = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-portal-session', {
+        body: { returnUrl: window.location.origin + '/settings' },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No portal URL returned');
+      }
+    } catch (error) {
+      console.error('Portal error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to open billing portal',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -197,6 +224,46 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
             )}
           </div>
 
+          {/* Billing */}
+          <div className="luxury-card p-6">
+            <h3 className="text-lg font-heading font-medium mb-4">Billing & Subscription</h3>
+            {isActive ? (
+              <div className="space-y-3">
+                <div className="p-3 bg-emerald/10 border border-emerald/20 rounded-lg">
+                  <p className="font-medium text-emerald">Pro Plan Active</p>
+                  <p className="text-sm text-muted-foreground">
+                    Valid until {subscription?.current_period_end ? 
+                      new Date(subscription.current_period_end).toLocaleDateString() : 
+                      'Unknown'
+                    }
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleManageBilling}
+                  className="w-full justify-start"
+                >
+                  Manage Billing
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="p-3 bg-muted/50 border border-border rounded-lg">
+                  <p className="font-medium">Free Plan</p>
+                  <p className="text-sm text-muted-foreground">
+                    Limited features available
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowPricingDialog(true)}
+                  className="w-full justify-start"
+                >
+                  Upgrade to Pro
+                </Button>
+              </div>
+            )}
+          </div>
+
           {/* Account */}
           <div className="luxury-card p-6">
             <h3 className="text-lg font-heading font-medium mb-4">Account</h3>
@@ -211,6 +278,11 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
           </div>
         </div>
       </div>
+      
+      <PricingDialog 
+        open={showPricingDialog} 
+        onOpenChange={setShowPricingDialog} 
+      />
     </div>
   );
 };

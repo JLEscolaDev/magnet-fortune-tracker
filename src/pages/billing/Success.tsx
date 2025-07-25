@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useSubscription } from '@/hooks/useSubscription';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, ArrowLeft } from 'lucide-react';

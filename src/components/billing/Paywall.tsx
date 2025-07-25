@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallGuard } from '@/components/paywall/PaywallGuard';
 
 interface PaywallProps {

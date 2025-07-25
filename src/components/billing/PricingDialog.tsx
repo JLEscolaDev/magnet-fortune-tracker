@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useSubscription } from '@/hooks/useSubscription';
 import {
   Dialog,
   DialogContent,
