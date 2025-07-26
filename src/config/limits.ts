@@ -1,4 +1,10 @@
 export const SUBSCRIPTION_LIMITS = {
+  // Free plan conditions
+  FREE_TRIAL_DAYS: 60,
+  FREE_TRIAL_FORTUNE_LIMIT: 100,
+  FREE_RESTRICTED_DAILY_LIMIT: 1,
+  
+  // Legacy limits (kept for compatibility)
   FREE_DAILY_LIMIT: 5,
   FREE_MONTHLY_LIMIT: 50,
   FREE_CATEGORIES_LIMIT: 3,

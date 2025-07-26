@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Sparkle, CurrencyDollar } from '@phosphor-icons/react';
+import { X, Plus, Sparkle, CurrencyDollar, Crown, Lock } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { FortuneCategory, CategoryData } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { sanitizeText, validateNumericValue, validateCategory, formRateLimiter } from '@/lib/security';
+import { useFreePlanLimits } from '@/hooks/useFreePlanLimits';
+import { SUBSCRIPTION_LIMITS } from '@/config/limits';
 import confetti from 'canvas-confetti';
 
 interface AddFortuneModalProps {
@@ -85,6 +87,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
   const [isLoading, setIsLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryData[]>(defaultCategories);
   const { toast } = useToast();
+  const freePlanStatus = useFreePlanLimits();
 
   // Load custom categories on mount
   useEffect(() => {
@@ -126,6 +129,16 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
       toast({
         title: "Too many requests",
         description: "Please wait a moment before submitting again",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check free plan limits before submission
+    if (!freePlanStatus.canAddFortune) {
+      toast({
+        title: "Daily limit reached",
+        description: "You've reached your daily fortune limit. Upgrade to Pro for unlimited access!",
         variant: "destructive",
       });
       return;
@@ -219,6 +232,21 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
 
   if (!isOpen) return null;
 
+  const getRestrictionMessage = () => {
+    if (freePlanStatus.restrictionReason === 'trial_expired') {
+      return `Your ${SUBSCRIPTION_LIMITS.FREE_TRIAL_DAYS}-day trial has ended. Upgrade to Pro for unlimited fortunes!`;
+    }
+    if (freePlanStatus.restrictionReason === 'fortune_limit_reached') {
+      return `You've reached ${SUBSCRIPTION_LIMITS.FREE_TRIAL_FORTUNE_LIMIT} fortunes. Upgrade to Pro for unlimited access!`;
+    }
+    if (freePlanStatus.restrictionReason === 'daily_limit_reached') {
+      return `You've reached your daily limit of ${SUBSCRIPTION_LIMITS.FREE_RESTRICTED_DAILY_LIMIT} fortune. Upgrade to Pro or try again tomorrow!`;
+    }
+    return null;
+  };
+
+  const restrictionMessage = getRestrictionMessage();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -241,6 +269,30 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
             <X size={20} />
           </button>
         </div>
+
+        {/* Free Plan Status Banner */}
+        {!freePlanStatus.loading && freePlanStatus.isRestricted && (
+          <div className="bg-gradient-to-r from-warning/10 to-accent/10 border border-warning/20 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <div className="bg-gradient-to-r from-warning to-accent p-1.5 rounded-full flex-shrink-0">
+                <Lock size={16} className="text-white" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-medium text-foreground mb-1">Limited Access</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {restrictionMessage}
+                </p>
+                <Button 
+                  size="sm"
+                  className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-primary-foreground"
+                >
+                  <Crown size={16} className="mr-2" />
+                  Upgrade to Pro
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -316,10 +368,15 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
 
           <Button
             type="submit"
-            disabled={isLoading || !text.trim() || !category}
+            disabled={isLoading || !text.trim() || !category || !freePlanStatus.canAddFortune}
             className="luxury-button w-full"
           >
-            {isLoading ? (
+            {!freePlanStatus.canAddFortune ? (
+              <div className="flex items-center gap-2">
+                <Lock size={18} />
+                Daily Limit Reached
+              </div>
+            ) : isLoading ? (
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 Tracking...
