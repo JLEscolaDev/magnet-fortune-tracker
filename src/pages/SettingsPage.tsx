@@ -28,17 +28,31 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const isDarkMode = theme === 'dark';
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    try {
+      console.log('Starting logout process...');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+        toast({
+          title: "Error",
+          description: `Failed to sign out: ${error.message}`,
+          variant: "destructive",
+        });
+      } else {
+        console.log('Logout successful');
+        toast({
+          title: "Success",
+          description: "Signed out successfully",
+        });
+        // Force page refresh to clear any cached state
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Unexpected logout error:', error);
       toast({
         title: "Error",
-        description: "Failed to sign out",
+        description: "An unexpected error occurred during logout",
         variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "Signed out successfully",
       });
     }
   };
