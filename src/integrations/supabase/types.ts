@@ -99,6 +99,7 @@ export type Database = {
           display_name: string | null
           id: string
           level: number | null
+          stripe_customer_id: string | null
           total_fortunes: number | null
           updated_at: string
           user_id: string
@@ -109,6 +110,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           level?: number | null
+          stripe_customer_id?: string | null
           total_fortunes?: number | null
           updated_at?: string
           user_id: string
@@ -119,6 +121,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           level?: number | null
+          stripe_customer_id?: string | null
           total_fortunes?: number | null
           updated_at?: string
           user_id?: string
