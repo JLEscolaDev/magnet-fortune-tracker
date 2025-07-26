@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { sanitizeText, validateNumericValue, validateCategory, formRateLimiter } from '@/lib/security';
 import { useFreePlanLimits } from '@/hooks/useFreePlanLimits';
+import { useAppState } from '@/contexts/AppStateContext';
 import { SUBSCRIPTION_LIMITS } from '@/config/limits';
 import confetti from 'canvas-confetti';
 
@@ -88,6 +89,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
   const [categories, setCategories] = useState<CategoryData[]>(defaultCategories);
   const { toast } = useToast();
   const freePlanStatus = useFreePlanLimits();
+  const { activeSubscription, fortunesCountToday, addError } = useAppState();
 
   // Load custom categories on mount
   useEffect(() => {
@@ -134,14 +136,19 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
       return;
     }
 
-    // Check free plan limits before submission
-    if (!freePlanStatus.canAddFortune) {
-      toast({
-        title: "Daily limit reached",
-        description: freePlanStatus.restrictionMessage || "You've reached your daily fortune limit. Upgrade to Pro for unlimited access!",
-        variant: "destructive",
-      });
-      return;
+    // Check free plan limits before submission - but allow Pro users to bypass
+    const hasActiveSubscription = activeSubscription !== null;
+    if (!hasActiveSubscription && !freePlanStatus.canAddFortune) {
+      // Fallback check using app state if freePlanStatus is not accurate
+      const dailyLimit = fortunesCountToday >= SUBSCRIPTION_LIMITS.FREE_RESTRICTED_DAILY_LIMIT;
+      if (dailyLimit) {
+        toast({
+          title: "Daily limit reached",
+          description: "Your free plan now limits you to 1 fortune per day. Upgrade to Pro for unlimited access!",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     try {
@@ -197,14 +204,15 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
 
       if (error) {
         // Handle specific error codes from the backend
-        if (error.message?.includes('FREE_DAILY_LIMIT_REACHED')) {
-          toast({
-            title: "Daily limit reached",
-            description: "Your free plan now limits you to 1 fortune per day. Upgrade to Pro for unlimited access!",
-            variant: "destructive",
-          });
-          return;
-        }
+      if (error.message?.includes('FREE_DAILY_LIMIT_REACHED')) {
+        addError('fortune-submission', 'Daily limit reached during server validation');
+        toast({
+          title: "Daily limit reached",
+          description: "Your free plan now limits you to 1 fortune per day. Upgrade to Pro for unlimited access!",
+          variant: "destructive",
+        });
+        return;
+      }
         throw error;
       }
 
@@ -230,7 +238,9 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
       onFortuneAdded();
       onClose();
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Error adding fortune:', error);
+      addError('fortune-submission', errorMessage);
       toast({
         title: "Error",
         description: "Failed to track fortune. Please try again.",
@@ -268,8 +278,8 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
           </button>
         </div>
 
-        {/* Free Plan Status Banner - Only show when actually blocked */}
-        {!freePlanStatus.loading && freePlanStatus.isRestricted && !freePlanStatus.canAddFortune && (
+        {/* Free Plan Status Banner - Only show when actually blocked and no active subscription */}
+        {!freePlanStatus.loading && freePlanStatus.isRestricted && !freePlanStatus.canAddFortune && !activeSubscription && (
           <div className="bg-gradient-to-r from-warning/10 to-accent/10 border border-warning/20 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
               <div className="bg-gradient-to-r from-warning to-accent p-1.5 rounded-full flex-shrink-0">
@@ -366,10 +376,10 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
 
           <Button
             type="submit"
-            disabled={isLoading || !text.trim() || !category || !freePlanStatus.canAddFortune}
+            disabled={isLoading || !text.trim() || !category || (!activeSubscription && !freePlanStatus.canAddFortune)}
             className="luxury-button w-full"
           >
-            {!freePlanStatus.canAddFortune ? (
+            {!activeSubscription && !freePlanStatus.canAddFortune ? (
               <div className="flex items-center gap-2">
                 <Lock size={18} />
                 Daily Limit Reached

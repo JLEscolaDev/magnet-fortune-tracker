@@ -1,6 +1,5 @@
-import { Plus, Lock } from '@phosphor-icons/react';
+import { Plus } from '@phosphor-icons/react';
 import { isSameDay } from 'date-fns';
-import { useFreePlanLimits } from '@/hooks/useFreePlanLimits';
 
 interface FloatingActionButtonProps {
   onClick: () => void;
@@ -8,8 +7,6 @@ interface FloatingActionButtonProps {
 }
 
 export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionButtonProps) => {
-  const freePlanStatus = useFreePlanLimits();
-
   const handleClick = () => {
     // Always open the modal - restrictions will be shown inside
     onClick();

@@ -11,11 +11,14 @@ import { DesktopTabs } from '@/components/DesktopTabs';
 import { FloatingActionButton } from '@/components/FloatingActionButton';
 import { AddFortuneModal } from '@/components/AddFortuneModal';
 import { AuthPage } from '@/pages/AuthPage';
+import { DebugPanel } from '@/components/DebugPanel';
+import { AppStateProvider } from '@/contexts/AppStateContext';
+import { useAppBootstrap } from '@/hooks/useAppBootstrap';
 
 const FortuneApp = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'home' | 'insights'>('home');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSettingsPage, setShowSettingsPage] = useState(false);
@@ -23,13 +26,16 @@ const FortuneApp = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedFortuneDate, setSelectedFortuneDate] = useState<Date | null>(null);
 
+  // Bootstrap the app state
+  const bootstrapState = useAppBootstrap(user);
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
+        setAuthLoading(false);
       }
     );
 
@@ -37,13 +43,15 @@ const FortuneApp = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
+      setAuthLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const handleFortuneAdded = () => {
+    // Refetch app state when fortune is added
+    bootstrapState.refetch();
     setRefreshTrigger(prev => prev + 1);
     setSelectedFortuneDate(null); // Reset selection after adding
   };
@@ -52,7 +60,7 @@ const FortuneApp = () => {
     setSelectedFortuneDate(date);
   };
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="luxury-card p-8 text-center">
@@ -72,54 +80,58 @@ const FortuneApp = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="max-w-6xl mx-auto">
-        <TopBar onSettingsClick={() => setShowSettingsPage(true)} />
-        
-        <DesktopTabs
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onAddFortuneClick={() => setAddFortuneOpen(true)}
-          selectedDate={selectedFortuneDate}
-        />
+    <AppStateProvider value={bootstrapState}>
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="max-w-6xl mx-auto">
+          <TopBar onSettingsClick={() => setShowSettingsPage(true)} />
+          
+          <DesktopTabs
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onAddFortuneClick={() => setAddFortuneOpen(true)}
+            selectedDate={selectedFortuneDate}
+          />
 
-        <main className="relative">
-          {activeTab === 'home' && (
-            <HomeTab refreshTrigger={refreshTrigger} />
-          )}
-          {activeTab === 'insights' && (
-            <InsightsTab 
-              refreshTrigger={refreshTrigger} 
-              onGlobalRefresh={handleFortuneAdded}
-              selectedFortuneDate={selectedFortuneDate}
-              onDateSelect={handleDateSelect}
-            />
-          )}
-        </main>
+          <main className="relative">
+            {activeTab === 'home' && (
+              <HomeTab refreshTrigger={refreshTrigger} />
+            )}
+            {activeTab === 'insights' && (
+              <InsightsTab 
+                refreshTrigger={refreshTrigger} 
+                onGlobalRefresh={handleFortuneAdded}
+                selectedFortuneDate={selectedFortuneDate}
+                onDateSelect={handleDateSelect}
+              />
+            )}
+          </main>
 
-        <TabBar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
+          <TabBar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
 
-        <FloatingActionButton 
-          onClick={() => setAddFortuneOpen(true)} 
-          selectedDate={selectedFortuneDate}
-        />
+          <FloatingActionButton 
+            onClick={() => setAddFortuneOpen(true)} 
+            selectedDate={selectedFortuneDate}
+          />
 
-        <SettingsDrawer
-          isOpen={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-        />
+          <SettingsDrawer
+            isOpen={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+          />
 
-        <AddFortuneModal
-          isOpen={addFortuneOpen}
-          onClose={() => setAddFortuneOpen(false)}
-          onFortuneAdded={handleFortuneAdded}
-          selectedDate={selectedFortuneDate}
-        />
+          <AddFortuneModal
+            isOpen={addFortuneOpen}
+            onClose={() => setAddFortuneOpen(false)}
+            onFortuneAdded={handleFortuneAdded}
+            selectedDate={selectedFortuneDate}
+          />
+
+          <DebugPanel user={user} />
+        </div>
       </div>
-    </div>
+    </AppStateProvider>
   );
 };
 

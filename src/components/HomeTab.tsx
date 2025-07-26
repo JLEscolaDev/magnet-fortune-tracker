@@ -1,88 +1,56 @@
 import { useState, useEffect } from 'react';
 import { LuxuryAvatarSection } from './LuxuryAvatarSection';
 import { FortuneList } from './FortuneList';
-import { Fortune, Profile } from '@/types/fortune';
+import { Fortune } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { useAppState } from '@/contexts/AppStateContext';
 
 interface HomeTabProps {
   refreshTrigger: number;
 }
 
 export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [todaysFortunes, setTodaysFortunes] = useState<Fortune[]>([]);
-  const [totalFortuneCount, setTotalFortuneCount] = useState(0);
+  const { profile, fortunesCountTotal, loading: appLoading } = useAppState();
+  const [recentFortunes, setRecentFortunes] = useState<Fortune[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchRecentFortunes = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user) return;
-
-      // Fetch or create profile
-      let { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (!profileData) {
-        // Create profile if it doesn't exist
-        const { data: newProfile } = await supabase
-          .from('profiles')
-          .insert([{ 
-            user_id: user.id, 
-            display_name: user.email?.split('@')[0] || 'Fortune Seeker'
-          }])
-          .select()
-          .single();
-        
-        profileData = newProfile;
+      if (!user) {
+        setLoading(false);
+        return;
       }
 
-      if (profileData) {
-        setProfile(profileData);
-        // Log any missing fields for debugging
-        if (!profileData.display_name) console.warn('Profile missing display_name');
-        if (profileData.level === null) console.warn('Profile missing level');
-        if (profileData.total_fortunes === null) console.warn('Profile missing total_fortunes');
-      }
+      console.log('[QUERY:fortunes] Fetching recent fortunes');
 
       // Fetch recent fortunes (last 20) instead of just today's
-      const { data: fortunesData } = await supabase
+      const { data: fortunesData, error } = await supabase
         .from('fortunes')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(20);
 
-      if (fortunesData) {
-        setTodaysFortunes(fortunesData);
-      }
-
-      // Fetch total fortune count for level progression
-      const { count: totalCount } = await supabase
-        .from('fortunes')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      if (totalCount !== null) {
-        setTotalFortuneCount(totalCount);
+      if (error) {
+        console.warn(`[QUERY:fortunes] Error fetching recent fortunes: ${error.message}`);
+      } else if (fortunesData) {
+        setRecentFortunes(fortunesData);
+        console.log(`[QUERY:fortunes] Fetched ${fortunesData.length} recent fortunes`);
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('[QUERY:fortunes] Error in fetchRecentFortunes:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchRecentFortunes();
   }, [refreshTrigger]);
 
-  if (loading) {
+  if (loading || appLoading) {
     return (
       <div className="space-y-6 p-6">
         <div className="luxury-card p-6 animate-pulse">
@@ -120,21 +88,21 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
   }
 
   const handleLevelUp = () => {
-    // Refetch data to get updated profile
-    fetchData();
+    // Refetch recent fortunes
+    fetchRecentFortunes();
   };
 
   return (
     <div className="space-y-6 p-6 pb-24 md:pb-6">
       <LuxuryAvatarSection 
         profile={profile} 
-        fortuneCount={totalFortuneCount}
+        fortuneCount={fortunesCountTotal}
         onLevelUp={handleLevelUp}
       />
       <FortuneList 
-        fortunes={todaysFortunes} 
+        fortunes={recentFortunes} 
         title="Recent Fortunes"
-        onFortunesUpdated={fetchData}
+        onFortunesUpdated={fetchRecentFortunes}
       />
     </div>
   );

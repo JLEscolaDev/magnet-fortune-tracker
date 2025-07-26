@@ -7,6 +7,7 @@ import { ImprovedStatistics } from '@/components/ImprovedStatistics';
 import { Fortune, Achievement } from '@/types/fortune';
 import { AchievementCard } from '@/components/AchievementCard';
 import { supabase } from '@/integrations/supabase/client';
+import { useAppState } from '@/contexts/AppStateContext';
 import { 
   CalendarDots, 
   ChartBar, 
@@ -197,6 +198,7 @@ const mockAchievements: Achievement[] = [
 ];
 
 export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDate, onDateSelect }: InsightsTabProps) => {
+  const { addError } = useAppState();
   const [fortunes, setFortunes] = useState<Fortune[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedDateFortunes, setSelectedDateFortunes] = useState<Fortune[]>([]);
@@ -209,15 +211,23 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
-      const { data: fortunesData } = await supabase
+      console.log('[QUERY:fortunes] Fetching all fortunes for insights');
+
+      const { data: fortunesData, error } = await supabase
         .from('fortunes')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (fortunesData) {
+      if (error) {
+        console.warn(`[QUERY:fortunes] Error fetching fortunes for insights: ${error.message}`);
+        addError('insights-fortunes', error.message);
+      } else if (fortunesData) {
         setFortunes(fortunesData);
         
         // Filter fortunes for selected date
@@ -229,7 +239,9 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
         }
       }
     } catch (error) {
-      console.error('Error fetching fortunes:', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[QUERY:fortunes] Error in fetchFortunes:', error);
+      addError('insights-fortunes', message);
     } finally {
       setLoading(false);
     }
