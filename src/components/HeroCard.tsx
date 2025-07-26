@@ -19,14 +19,14 @@ export const HeroCard = ({ profile, recentAchievements }: HeroCardProps) => {
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-medium text-gold bg-gold/20 px-2 py-1 rounded-full">
-              Level {profile.level}
+              Level {profile.level || 1}
             </span>
           </div>
           <h2 className="text-lg font-heading font-semibold mb-1">
-            Welcome back, Fortune Seeker
+            Welcome back, {profile.display_name || 'Fortune Seeker'}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {profile.total_fortunes} fortunes tracked
+            {profile.total_fortunes || 0} fortunes tracked
           </p>
         </div>
       </div>

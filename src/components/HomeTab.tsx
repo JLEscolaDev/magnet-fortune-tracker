@@ -44,6 +44,10 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
 
       if (profileData) {
         setProfile(profileData);
+        // Log any missing fields for debugging
+        if (!profileData.display_name) console.warn('Profile missing display_name');
+        if (profileData.level === null) console.warn('Profile missing level');
+        if (profileData.total_fortunes === null) console.warn('Profile missing total_fortunes');
       }
 
       // Fetch recent fortunes (last 20) instead of just today's

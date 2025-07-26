@@ -41,7 +41,7 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
         }
 
         // Check if user leveled up
-        if (profile.level && profile.level < currentLevel) {
+        if ((profile.level || 1) < currentLevel) {
           setIsLevelingUp(true);
           
           // Update user's level and avatar_url in profile

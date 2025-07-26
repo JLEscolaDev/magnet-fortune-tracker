@@ -1,19 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from './types';
-
-// Manual type definitions until types.ts is regenerated
-export type Subscription = {
-  id: string;
-  user_id: string;
-  plan_id: string;
-  status: string;
-  current_period_start: string;
-  current_period_end: string;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
-  created_at: string;
-  updated_at: string;
-};
+import { Subscription } from '@/types/fortune';
 
 export type ActiveSubscription = Subscription;
 
@@ -32,8 +19,7 @@ export async function getActiveSubscription(
     }
 
     // Query the subscriptions table directly with active status filter
-    // Use any to bypass type checking until types.ts is regenerated
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
@@ -78,8 +64,7 @@ export async function getUserSubscriptions(
       return [];
     }
 
-    // Use any to bypass type checking until types.ts is regenerated
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
