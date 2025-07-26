@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FortuneCategory, CategoryData } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { sanitizeText, validateNumericValue, validateCategory, formRateLimiter } from '@/lib/security';
 import confetti from 'canvas-confetti';
 
 interface AddFortuneModalProps {
@@ -120,24 +121,44 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!text.trim() || !category) {
+    // Rate limiting check
+    if (!formRateLimiter.canProceed('add-fortune')) {
       toast({
-        title: "Error",
-        description: !text.trim() ? "Please enter your fortune" : "Please select a category",
+        title: "Too many requests",
+        description: "Please wait a moment before submitting again",
         variant: "destructive",
       });
-      
-      // Error feedback
-      if ('vibrate' in navigator) {
-        navigator.vibrate([100, 50, 100]);
-      }
-      
       return;
     }
-
-    setIsLoading(true);
-
+    
     try {
+      // Input validation and sanitization
+      if (!text.trim() || !category) {
+        toast({
+          title: "Error",
+          description: !text.trim() ? "Please enter your fortune" : "Please select a category",
+          variant: "destructive",
+        });
+        
+        // Error feedback
+        if ('vibrate' in navigator) {
+          navigator.vibrate([100, 50, 100]);
+        }
+        
+        return;
+      }
+
+      // Sanitize and validate inputs
+      const sanitizedText = sanitizeText(text, 500);
+      const validatedCategory = validateCategory(category);
+      let validatedValue: number | null = null;
+      
+      if (getCurrentCategory().hasNumericValue && fortuneValue) {
+        validatedValue = validateNumericValue(fortuneValue, 0, 1000000);
+      }
+
+      setIsLoading(true);
+
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -151,11 +172,9 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
 
       const insertData: any = {
         user_id: user.id,
-        text: text.trim(),
-        category,
-        fortune_value: getCurrentCategory().hasNumericValue && fortuneValue 
-          ? parseFloat(fortuneValue) 
-          : null
+        text: sanitizedText,
+        category: validatedCategory,
+        fortune_value: validatedValue
       };
 
       // If a specific date is selected, set it as the created_at timestamp

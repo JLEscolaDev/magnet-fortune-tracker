@@ -160,6 +160,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Webhook error:', error);
-    return new Response('Internal error', { status: 500 });
+    // Log the error securely without exposing details
+    return new Response('Webhook processing failed', { status: 500 });
   }
 });

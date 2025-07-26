@@ -5,6 +5,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 };
 
 serve(async (req) => {
@@ -116,8 +118,14 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error creating checkout session:', error);
+    
+    // Don't expose internal error details to client
+    const errorMessage = error instanceof Error && error.message.includes('Price') 
+      ? 'Invalid pricing information' 
+      : 'Unable to create checkout session';
+      
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

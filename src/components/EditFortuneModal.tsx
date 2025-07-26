@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Fortune, FortuneCategory, CategoryData } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { sanitizeText, validateNumericValue, validateCategory, formRateLimiter } from '@/lib/security';
 import { Loader2 } from 'lucide-react';
 
 interface EditFortuneModalProps {
@@ -75,18 +76,32 @@ export const EditFortuneModal = ({ isOpen, onClose, fortune, onFortuneUpdated }:
     e.preventDefault();
     if (!fortune || !fortuneText.trim() || !selectedCategory) return;
     
+    // Rate limiting check
+    if (!formRateLimiter.canProceed('edit-fortune')) {
+      toast({
+        title: "Too many requests",
+        description: "Please wait a moment before submitting again",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
+      // Sanitize and validate inputs
+      const sanitizedText = sanitizeText(fortuneText, 500);
+      const validatedCategory = validateCategory(selectedCategory);
+      
       const selectedCategoryData = categories.find(cat => cat.name === selectedCategory);
       const updateData: any = {
-        text: fortuneText.trim(),
-        category: selectedCategory,
+        text: sanitizedText,
+        category: validatedCategory,
       };
 
       // Only include fortune_value if the category supports numeric values
       if (selectedCategoryData?.hasNumericValue) {
-        updateData.fortune_value = fortuneValue;
+        updateData.fortune_value = fortuneValue ? validateNumericValue(fortuneValue, 0, 1000000) : null;
       } else {
         updateData.fortune_value = null;
       }
