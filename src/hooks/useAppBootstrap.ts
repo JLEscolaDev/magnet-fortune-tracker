@@ -41,6 +41,12 @@ export const useAppBootstrap = (user: User | null) => {
 
   const ensureProfile = async (user: User): Promise<Profile | null> => {
     try {
+      if (!user?.id) {
+        logWithPrefix('ERROR: No user ID provided');
+        addError('profiles-ensure', 'No user ID provided');
+        return null;
+      }
+
       logWithPrefix('Ensuring profile exists', { userId: user.id });
       
       // Try to get existing profile by user_id (not id)
@@ -96,6 +102,12 @@ export const useAppBootstrap = (user: User | null) => {
 
   const fetchCounts = async (userId: string) => {
     try {
+      if (!userId) {
+        logWithPrefix('ERROR: No userId provided for fetching counts');
+        addError('fortunes-counts', 'No userId provided');
+        return { total: 0, today: 0 };
+      }
+      
       logWithPrefix('Fetching fortune counts');
 
       // Get total fortunes count
@@ -137,6 +149,12 @@ export const useAppBootstrap = (user: User | null) => {
 
   const fetchActiveSubscription = async (userId: string): Promise<Subscription | null> => {
     try {
+      if (!userId) {
+        logWithPrefix('ERROR: No userId provided for fetching subscription');
+        addError('subscriptions-fetch', 'No userId provided');
+        return null;
+      }
+      
       logWithPrefix('Fetching active subscription');
 
       const { data, error } = await supabase

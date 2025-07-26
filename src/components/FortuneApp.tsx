@@ -19,6 +19,7 @@ const FortuneApp = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [sessionInitialized, setSessionInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<'home' | 'insights'>('home');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSettingsPage, setShowSettingsPage] = useState(false);
@@ -26,27 +27,59 @@ const FortuneApp = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedFortuneDate, setSelectedFortuneDate] = useState<Date | null>(null);
 
-  // Bootstrap the app state
-  const bootstrapState = useAppBootstrap(user);
+  // Only bootstrap after session is properly initialized
+  const bootstrapState = useAppBootstrap(sessionInitialized ? user : null);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    let mounted = true;
+
+    const initializeSession = async () => {
+      try {
+        // First, get the existing session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setSessionInitialized(true);
+          setAuthLoading(false);
+        }
+      } catch (error) {
+        console.error('Error getting session:', error);
+        if (mounted) {
+          setAuthLoading(false);
+          setSessionInitialized(true);
+        }
+      }
+    };
+
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setAuthLoading(false);
+        if (!mounted) return;
+        
+        // Handle initial session and subsequent auth events
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setSessionInitialized(true);
+          setAuthLoading(false);
+        } else if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          setSessionInitialized(true);
+          setAuthLoading(false);
+        }
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-    });
+    // Initialize session
+    initializeSession();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleFortuneAdded = () => {
