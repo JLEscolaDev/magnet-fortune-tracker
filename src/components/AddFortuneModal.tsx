@@ -138,7 +138,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
     if (!freePlanStatus.canAddFortune) {
       toast({
         title: "Daily limit reached",
-        description: "You've reached your daily fortune limit. Upgrade to Pro for unlimited access!",
+        description: freePlanStatus.restrictionMessage || "You've reached your daily fortune limit. Upgrade to Pro for unlimited access!",
         variant: "destructive",
       });
       return;
@@ -183,23 +183,34 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
         return;
       }
 
-      const insertData: any = {
-        user_id: user.id,
+      const fortuneData = {
         text: sanitizedText,
         category: validatedCategory,
-        fortune_value: validatedValue
+        fortune_value: validatedValue,
+        created_at: selectedDate?.toISOString()
       };
 
-      // If a specific date is selected, set it as the created_at timestamp
-      if (selectedDate) {
-        insertData.created_at = selectedDate.toISOString();
+      // Use the backend validation function for defense in depth
+      const { data: insertResult, error } = await supabase.functions.invoke('validate-and-insert-fortune', {
+        body: fortuneData
+      });
+
+      if (error) {
+        // Handle specific error codes from the backend
+        if (error.message?.includes('FREE_DAILY_LIMIT_REACHED')) {
+          toast({
+            title: "Daily limit reached",
+            description: "Your free plan now limits you to 1 fortune per day. Upgrade to Pro for unlimited access!",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw error;
       }
 
-      const { error } = await supabase
-        .from('fortunes')
-        .insert([insertData]);
-
-      if (error) throw error;
+      if (!insertResult?.success) {
+        throw new Error(insertResult?.error || 'Failed to add fortune');
+      }
 
       // Success animations and feedback - conditional based on category
       if (category === 'Wealth') {
@@ -232,20 +243,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
 
   if (!isOpen) return null;
 
-  const getRestrictionMessage = () => {
-    if (freePlanStatus.restrictionReason === 'trial_expired') {
-      return `Your ${SUBSCRIPTION_LIMITS.FREE_TRIAL_DAYS}-day trial has ended. Upgrade to Pro for unlimited fortunes!`;
-    }
-    if (freePlanStatus.restrictionReason === 'fortune_limit_reached') {
-      return `You've reached ${SUBSCRIPTION_LIMITS.FREE_TRIAL_FORTUNE_LIMIT} fortunes. Upgrade to Pro for unlimited access!`;
-    }
-    if (freePlanStatus.restrictionReason === 'daily_limit_reached') {
-      return `You've reached your daily limit of ${SUBSCRIPTION_LIMITS.FREE_RESTRICTED_DAILY_LIMIT} fortune. Upgrade to Pro or try again tomorrow!`;
-    }
-    return null;
-  };
-
-  const restrictionMessage = getRestrictionMessage();
+  const restrictionMessage = freePlanStatus.restrictionMessage;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -270,8 +268,8 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
           </button>
         </div>
 
-        {/* Free Plan Status Banner */}
-        {!freePlanStatus.loading && freePlanStatus.isRestricted && (
+        {/* Free Plan Status Banner - Only show when actually blocked */}
+        {!freePlanStatus.loading && freePlanStatus.isRestricted && !freePlanStatus.canAddFortune && (
           <div className="bg-gradient-to-r from-warning/10 to-accent/10 border border-warning/20 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
               <div className="bg-gradient-to-r from-warning to-accent p-1.5 rounded-full flex-shrink-0">

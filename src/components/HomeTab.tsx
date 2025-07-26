@@ -46,18 +46,13 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
         setProfile(profileData);
       }
 
-      // Fetch today's fortunes
-      const today = new Date();
-      const startOfToday = startOfDay(today);
-      const endOfToday = endOfDay(today);
-
+      // Fetch recent fortunes (last 20) instead of just today's
       const { data: fortunesData } = await supabase
         .from('fortunes')
         .select('*')
         .eq('user_id', user.id)
-        .gte('created_at', startOfToday.toISOString())
-        .lte('created_at', endOfToday.toISOString())
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(20);
 
       if (fortunesData) {
         setTodaysFortunes(fortunesData);
@@ -134,6 +129,7 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
       />
       <FortuneList 
         fortunes={todaysFortunes} 
+        title="Recent Fortunes"
         onFortunesUpdated={fetchData}
       />
     </div>

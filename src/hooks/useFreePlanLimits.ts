@@ -13,6 +13,7 @@ interface FreePlanStatus {
   canAddFortune: boolean;
   restrictionReason: 'trial_expired' | 'fortune_limit_reached' | 'daily_limit_reached' | null;
   loading: boolean;
+  restrictionMessage: string | null;
 }
 
 export const useFreePlanLimits = (): FreePlanStatus => {
@@ -26,6 +27,7 @@ export const useFreePlanLimits = (): FreePlanStatus => {
     dailyFortunesAdded: 0,
     canAddFortune: true,
     restrictionReason: null,
+    restrictionMessage: null,
     loading: true,
   });
 
@@ -41,6 +43,7 @@ export const useFreePlanLimits = (): FreePlanStatus => {
           isRestricted: false,
           canAddFortune: true,
           restrictionReason: null,
+          restrictionMessage: null,
           loading: false,
         }));
         return;
@@ -86,21 +89,27 @@ export const useFreePlanLimits = (): FreePlanStatus => {
         // Determine if user has full access
         const hasFullAccess = isWithinTrialPeriod && (totalFortunes || 0) < SUBSCRIPTION_LIMITS.FREE_TRIAL_FORTUNE_LIMIT;
         
-        // Determine restriction reason
+        // Determine restriction reason and message
         let restrictionReason: FreePlanStatus['restrictionReason'] = null;
+        let restrictionMessage: string | null = null;
         let canAddFortune = true;
 
         if (!hasFullAccess) {
           if (!isWithinTrialPeriod) {
             restrictionReason = 'trial_expired';
+            restrictionMessage = `Your ${SUBSCRIPTION_LIMITS.FREE_TRIAL_DAYS}-day trial has ended.`;
           } else if ((totalFortunes || 0) >= SUBSCRIPTION_LIMITS.FREE_TRIAL_FORTUNE_LIMIT) {
             restrictionReason = 'fortune_limit_reached';
+            restrictionMessage = `You've reached ${SUBSCRIPTION_LIMITS.FREE_TRIAL_FORTUNE_LIMIT} fortunes.`;
           }
 
           // Check daily limit for restricted users
           if ((dailyFortunesAdded || 0) >= SUBSCRIPTION_LIMITS.FREE_RESTRICTED_DAILY_LIMIT) {
             restrictionReason = 'daily_limit_reached';
+            restrictionMessage = 'Your free plan now limits you to 1 fortune per day.';
             canAddFortune = false;
+          } else if (restrictionMessage) {
+            restrictionMessage += ` You can add ${SUBSCRIPTION_LIMITS.FREE_RESTRICTED_DAILY_LIMIT} fortune per day.`;
           }
         }
 
@@ -113,6 +122,7 @@ export const useFreePlanLimits = (): FreePlanStatus => {
           dailyFortunesAdded: dailyFortunesAdded || 0,
           canAddFortune,
           restrictionReason,
+          restrictionMessage,
           loading: false,
         });
 

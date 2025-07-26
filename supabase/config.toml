@@ -29,3 +29,9 @@ verify_jwt = true
 
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.validate-fortune-limits]
+verify_jwt = true
+
+[functions.validate-and-insert-fortune]
+verify_jwt = true
