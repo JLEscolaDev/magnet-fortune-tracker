@@ -33,12 +33,22 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
     console.log(`[DEBUG] Manual profile search started for user: ${user.id}`);
     
     try {
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000)
+      );
+
       // Direct database query to test profile fetch
-      const { data: profileData, error: profileError } = await supabase
+      const queryPromise = supabase
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
+
+      const { data: profileData, error: profileError } = await Promise.race([
+        queryPromise,
+        timeoutPromise
+      ]) as any;
 
       console.log(`[DEBUG] Manual profile query result:`, { 
         data: profileData, 
@@ -47,6 +57,7 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
       });
 
       if (profileError) {
+        console.error(`[DEBUG] Profile query error:`, profileError);
         toast({
           title: "Profile Search Error",
           description: profileError.message,
@@ -56,6 +67,7 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
       }
 
       if (profileData) {
+        console.log(`[DEBUG] Profile found successfully:`, profileData);
         toast({
           title: "Profile Found!",
           description: `Found profile for ${profileData.display_name || 'Unknown'} (Level ${profileData.level})`,
@@ -66,6 +78,7 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
         console.log(`[DEBUG] Triggering full bootstrap refetch after manual search`);
         await refetch();
       } else {
+        console.log(`[DEBUG] No profile found in database`);
         toast({
           title: "Profile Not Found",
           description: "No profile exists in database for this user",
@@ -81,6 +94,7 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
         variant: "destructive"
       });
     } finally {
+      console.log(`[DEBUG] Manual profile search completed`);
       setIsSearching(false);
     }
   };
