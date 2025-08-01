@@ -31,24 +31,29 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
 
     setIsSearching(true);
     console.log(`[DEBUG] Manual profile search started for user: ${user.id}`);
+    console.log(`[DEBUG] Current auth session:`, await supabase.auth.getSession());
+    console.log(`[DEBUG] Current user context:`, await supabase.auth.getUser());
     
     try {
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000)
-      );
+      // First check if we can connect to Supabase at all
+      console.log(`[DEBUG] Testing basic Supabase connection...`);
+      const { data: testData, error: testError } = await supabase
+        .from('profiles')
+        .select('count(*)', { count: 'exact', head: true });
+      
+      console.log(`[DEBUG] Basic connection test:`, { count: testData, error: testError });
 
-      // Direct database query to test profile fetch
-      const queryPromise = supabase
+      if (testError) {
+        throw new Error(`Connection test failed: ${testError.message}`);
+      }
+
+      // Now try the actual profile query
+      console.log(`[DEBUG] Querying profile for user_id: ${user.id}`);
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
-
-      const { data: profileData, error: profileError } = await Promise.race([
-        queryPromise,
-        timeoutPromise
-      ]) as any;
 
       console.log(`[DEBUG] Manual profile query result:`, { 
         data: profileData, 
