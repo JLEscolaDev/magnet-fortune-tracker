@@ -207,12 +207,20 @@ export const useAppBootstrap = (user: User | null) => {
       logWithPrefix('Starting bootstrap', { userId: user.id, email: user.email });
       setState(prev => ({ ...prev, loading: true }));
 
-      // Run all fetches in parallel for better performance, with simple retry logic
+      // Add a small delay for session restore to ensure Supabase client context is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Run all fetches in parallel for better performance
       const [profile, counts, subscription] = await Promise.all([
         ensureProfile(user),
         fetchCounts(user.id),
         fetchActiveSubscription(user.id)
       ]);
+
+      if (!profile) {
+        logWithPrefix('Profile fetch failed, will retry');
+        addError('bootstrap', 'Profile not found - authentication context may not be ready');
+      }
 
       setState(prev => ({
         ...prev,
@@ -225,6 +233,7 @@ export const useAppBootstrap = (user: User | null) => {
 
       logWithPrefix('Bootstrap completed', { 
         hasProfile: !!profile, 
+        profileDisplayName: profile?.display_name,
         totalFortunes: counts.total,
         todayFortunes: counts.today,
         hasSubscription: !!subscription 

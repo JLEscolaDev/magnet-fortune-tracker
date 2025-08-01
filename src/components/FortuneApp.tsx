@@ -27,8 +27,8 @@ const FortuneApp = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedFortuneDate, setSelectedFortuneDate] = useState<Date | null>(null);
 
-  // Only bootstrap after session is properly initialized
-  const bootstrapState = useAppBootstrap(sessionInitialized ? user : null);
+  // Bootstrap with both session and user for proper context
+  const bootstrapState = useAppBootstrap(sessionInitialized && session ? user : null);
 
   useEffect(() => {
     let mounted = true;
@@ -57,40 +57,31 @@ const FortuneApp = () => {
         
         console.log('[AUTH] Auth state change:', event, session ? 'Session exists' : 'No session');
         
+        // Handle all auth events consistently
         if (event === 'INITIAL_SESSION') {
-          // Check if the initial session is valid
+          console.log('[AUTH] Processing initial session:', session ? 'Session found' : 'No session');
           if (session) {
-            // Validate the session by checking if it has required tokens
-            if (!session.access_token || !session.refresh_token) {
-              console.error('[AUTH] Invalid session tokens detected');
-              await handleSessionError();
-              return;
-            }
-            
-            // Check if tokens are expired
-            const now = Math.floor(Date.now() / 1000);
-            if (session.expires_at && session.expires_at < now) {
-              console.error('[AUTH] Session tokens expired');
+            // Basic validation for session restore
+            if (!session.access_token) {
+              console.error('[AUTH] Invalid session - missing access token');
               await handleSessionError();
               return;
             }
           }
-          
-          setSession(session);
-          setUser(session?.user ?? null);
-          setSessionInitialized(true);
-          setAuthLoading(false);
-        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          setSession(session);
-          setUser(session?.user ?? null);
-          setSessionInitialized(true);
-          setAuthLoading(false);
-        } else if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setUser(null);
-          setSessionInitialized(true);
-          setAuthLoading(false);
         }
+        
+        // Set state consistently for all events
+        setSession(session);
+        setUser(session?.user ?? null);
+        setSessionInitialized(true);
+        setAuthLoading(false);
+        
+        console.log('[AUTH] State updated:', {
+          event,
+          hasSession: !!session,
+          hasUser: !!(session?.user),
+          userId: session?.user?.id
+        });
       }
     );
 
