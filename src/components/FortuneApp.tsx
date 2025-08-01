@@ -36,17 +36,32 @@ const FortuneApp = () => {
     const initializeSession = async () => {
       try {
         // First, get the existing session
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Auth error during session initialization:', error);
+          // Clear any corrupted session data
+          if (mounted) {
+            setSession(null);
+            setUser(null);
+            setSessionInitialized(true);
+            setAuthLoading(false);
+          }
+          return;
+        }
         
         if (mounted) {
+          console.log('[AUTH] Session initialized:', session ? 'Valid session found' : 'No session');
           setSession(session);
           setUser(session?.user ?? null);
           setSessionInitialized(true);
           setAuthLoading(false);
         }
       } catch (error) {
-        console.error('Error getting session:', error);
+        console.error('Unexpected error getting session:', error);
         if (mounted) {
+          setSession(null);
+          setUser(null);
           setAuthLoading(false);
           setSessionInitialized(true);
         }
