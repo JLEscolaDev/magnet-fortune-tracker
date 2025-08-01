@@ -137,9 +137,9 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
             <Bug size={16} className="mr-2" />
             Debug Panel
             {isOpen ? <CaretUp size={16} className="ml-2" /> : <CaretDown size={16} className="ml-2" />}
-            {errors.length > 0 && (
+            {(errors?.length || 0) > 0 && (
               <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 text-xs">
-                {errors.length}
+                {errors?.length || 0}
               </Badge>
             )}
           </Button>
@@ -185,7 +185,7 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
                   </Badge></div>
                   {profile && (
                     <>
-                      <div>ID: {profile.id.slice(0, 8)}...</div>
+                      <div>ID: {profile.id ? profile.id.slice(0, 8) + '...' : 'Missing'}</div>
                       <div>Name: {profile.display_name || 'Missing'}</div>
                       <div>Level: {profile.level || 'Missing'}</div>
                       <div>Total Fortunes: {profile.total_fortunes ?? 'Missing'}</div>
@@ -271,7 +271,7 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
               </div>
 
               {/* Errors Section */}
-              {errors.length > 0 && (
+              {(errors?.length || 0) > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Warning size={14} className="text-destructive" />
@@ -286,7 +286,7 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
                     </Button>
                   </div>
                   <div className="ml-5 space-y-1">
-                    {errors.slice(-3).map((error, index) => (
+                    {(errors || []).slice(-3).map((error, index) => (
                       <div key={index} className="text-xs">
                         <div className="font-mono text-destructive">{error.source}</div>
                         <div className="text-muted-foreground truncate">{error.message}</div>
