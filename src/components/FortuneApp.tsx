@@ -28,7 +28,7 @@ const FortuneApp = () => {
   const [selectedFortuneDate, setSelectedFortuneDate] = useState<Date | null>(null);
 
   // Bootstrap only when session is properly initialized and user is available
-  const bootstrapState = useAppBootstrap(sessionInitialized ? user : null);
+  const bootstrapState = useAppBootstrap(sessionInitialized && user ? user : null);
 
   useEffect(() => {
     let mounted = true;
