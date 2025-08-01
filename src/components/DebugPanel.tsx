@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { CaretDown, CaretUp, Bug, User, CreditCard, Calendar, Warning } from '@phosphor-icons/react';
+import { CaretDown, CaretUp, Bug, User, CreditCard, Calendar, Warning, MagnifyingGlass } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAppState } from '@/contexts/AppStateContext';
 import { User as SupabaseUser } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface DebugPanelProps {
   user: SupabaseUser | null;
@@ -13,7 +15,75 @@ interface DebugPanelProps {
 
 export const DebugPanel = ({ user }: DebugPanelProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { profile, fortunesCountToday, fortunesCountTotal, activeSubscription, loading, errors, clearErrors } = useAppState();
+  const [isSearching, setIsSearching] = useState(false);
+  const { profile, fortunesCountToday, fortunesCountTotal, activeSubscription, loading, errors, clearErrors, refetch } = useAppState();
+  const { toast } = useToast();
+
+  const forceProfileSearch = async () => {
+    if (!user?.id) {
+      toast({
+        title: "No User",
+        description: "No authenticated user to search for",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSearching(true);
+    console.log(`[DEBUG] Manual profile search started for user: ${user.id}`);
+    
+    try {
+      // Direct database query to test profile fetch
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      console.log(`[DEBUG] Manual profile query result:`, { 
+        data: profileData, 
+        error: profileError,
+        userId: user.id 
+      });
+
+      if (profileError) {
+        toast({
+          title: "Profile Search Error",
+          description: profileError.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (profileData) {
+        toast({
+          title: "Profile Found!",
+          description: `Found profile for ${profileData.display_name || 'Unknown'} (Level ${profileData.level})`,
+          variant: "default"
+        });
+        
+        // Also trigger a full refetch to compare
+        console.log(`[DEBUG] Triggering full bootstrap refetch after manual search`);
+        await refetch();
+      } else {
+        toast({
+          title: "Profile Not Found",
+          description: "No profile exists in database for this user",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[DEBUG] Manual profile search failed:`, error);
+      toast({
+        title: "Search Failed",
+        description: message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   // Only show in development or with debug flag
   const isDebugMode = process.env.NODE_ENV !== 'production' || 
@@ -114,6 +184,51 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
                       <div>Ends: {new Date(activeSubscription.current_period_end).toLocaleDateString()}</div>
                     </>
                   )}
+                </div>
+              </div>
+
+              {/* Debug Actions Section */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <MagnifyingGlass size={14} />
+                  <span className="font-medium">Debug Actions</span>
+                </div>
+                <div className="ml-5 space-y-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={forceProfileSearch}
+                    disabled={isSearching || !user}
+                    className="h-7 px-3 text-xs w-full"
+                  >
+                    {isSearching ? (
+                      <>
+                        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin mr-2" />
+                        Searching...
+                      </>
+                    ) : (
+                      <>
+                        <MagnifyingGlass size={12} className="mr-2" />
+                        Force Profile Search
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={refetch}
+                    disabled={loading || !user}
+                    className="h-7 px-3 text-xs w-full"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin mr-2" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Refetch All Data'
+                    )}
+                  </Button>
                 </div>
               </div>
 
