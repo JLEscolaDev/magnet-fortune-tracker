@@ -55,29 +55,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     return () => authSubscription.unsubscribe();
   }, []);
 
-  // Listen for real-time subscription updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('subscription-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'subscriptions'
-        },
-        async (payload) => {
-          console.log('Subscription changed:', payload);
-          // Refetch subscription data when table changes
-          await fetchSubscription();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  // Real-time updates removed - using auth state changes for subscription updates
 
   const value: SubscriptionContextType = {
     loading,
