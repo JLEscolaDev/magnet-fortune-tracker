@@ -261,12 +261,13 @@ export const useAppBootstrap = (user: User | null) => {
       addError('bootstrap', message);
       setState(prev => ({ ...prev, loading: false }));
     }
-  }, [user, addError]);
+  }, [addError]);
 
-  // Run bootstrap when user changes
+  // Run bootstrap when user changes - direct dependency on user
   useEffect(() => {
+    logWithPrefix('User changed, triggering bootstrap', { hasUser: !!user, userId: user?.id });
     bootstrap();
-  }, [bootstrap]);
+  }, [user, bootstrap]);
 
   return {
     ...state,
