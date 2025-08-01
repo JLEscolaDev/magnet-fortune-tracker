@@ -71,7 +71,12 @@ export const useAppBootstrap = (user: User | null) => {
       }
 
       if (existingProfile) {
-        logWithPrefix('Profile found', { displayName: existingProfile.display_name });
+        logWithPrefix('Profile found successfully', { 
+          userId: existingProfile.user_id,
+          displayName: existingProfile.display_name,
+          level: existingProfile.level,
+          totalFortunes: existingProfile.total_fortunes
+        });
         if (!existingProfile.display_name) console.warn('Profile missing display_name');
         if (existingProfile.level === null) console.warn('Profile missing level');
         if (existingProfile.total_fortunes === null) console.warn('Profile missing total_fortunes');
@@ -117,7 +122,7 @@ export const useAppBootstrap = (user: User | null) => {
         return { total: 0, today: 0 };
       }
       
-      logWithPrefix('Fetching fortune counts');
+      logWithPrefix('Fetching fortune counts', { userId });
 
       // Get total fortunes count
       const { count: totalCount, error: totalError } = await supabase
@@ -128,6 +133,8 @@ export const useAppBootstrap = (user: User | null) => {
       if (totalError) {
         console.warn(`[QUERY:fortunes] Error fetching total count: ${totalError.message}`);
         addError('fortunes-count-total', totalError.message);
+      } else {
+        logWithPrefix('Total fortunes count fetched', { totalCount });
       }
 
       // Get today's fortunes count (UTC midnight boundary)
@@ -145,9 +152,11 @@ export const useAppBootstrap = (user: User | null) => {
       if (todayError) {
         console.warn(`[QUERY:fortunes] Error fetching today count: ${todayError.message}`);
         addError('fortunes-count-today', todayError.message);
+      } else {
+        logWithPrefix('Today fortunes count fetched', { todayCount });
       }
 
-      logWithPrefix('Fortune counts fetched', { total: totalCount, today: todayCount });
+      logWithPrefix('Fortune counts completed', { total: totalCount, today: todayCount });
       return { total: totalCount || 0, today: todayCount || 0 };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -164,7 +173,7 @@ export const useAppBootstrap = (user: User | null) => {
         return null;
       }
       
-      logWithPrefix('Fetching active subscription');
+      logWithPrefix('Fetching active subscription', { userId });
 
       const { data, error } = await supabase
         .from('subscriptions')
@@ -180,7 +189,7 @@ export const useAppBootstrap = (user: User | null) => {
         return null;
       }
 
-      logWithPrefix('Subscription fetched', { hasActive: !!data });
+      logWithPrefix('Subscription fetch completed', { hasActive: !!data });
       return data;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -211,14 +220,22 @@ export const useAppBootstrap = (user: User | null) => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Run all fetches in parallel for better performance
+      logWithPrefix('Starting parallel data fetch');
+      
       const [profile, counts, subscription] = await Promise.all([
         ensureProfile(user),
         fetchCounts(user.id),
         fetchActiveSubscription(user.id)
       ]);
 
+      logWithPrefix('Parallel data fetch completed', {
+        profileLoaded: !!profile,
+        countsLoaded: !!counts,
+        subscriptionLoaded: !!subscription
+      });
+
       if (!profile) {
-        logWithPrefix('Profile fetch failed, will retry');
+        logWithPrefix('ERROR: Profile fetch failed completely');
         addError('bootstrap', 'Profile not found - authentication context may not be ready');
       }
 
