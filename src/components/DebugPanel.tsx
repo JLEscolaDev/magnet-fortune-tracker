@@ -31,15 +31,23 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
 
     setIsSearching(true);
     console.log(`[DEBUG] Manual profile search started for user: ${user.id}`);
-    console.log(`[DEBUG] Current auth session:`, await supabase.auth.getSession());
-    console.log(`[DEBUG] Current user context:`, await supabase.auth.getUser());
     
+    // Create an AbortController with 10-second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 10000); // 10 second timeout
+
     try {
+      console.log(`[DEBUG] Current auth session:`, await supabase.auth.getSession());
+      console.log(`[DEBUG] Current user context:`, await supabase.auth.getUser());
+      
       // First check if we can connect to Supabase at all
       console.log(`[DEBUG] Testing basic Supabase connection...`);
       const { data: testData, error: testError } = await supabase
         .from('profiles')
-        .select('count(*)', { count: 'exact', head: true });
+        .select('count(*)', { count: 'exact', head: true })
+        .abortSignal(controller.signal);
       
       console.log(`[DEBUG] Basic connection test:`, { count: testData, error: testError });
 
@@ -53,6 +61,7 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
+        .abortSignal(controller.signal)
         .maybeSingle();
 
       console.log(`[DEBUG] Manual profile query result:`, { 
@@ -91,14 +100,24 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
         });
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[DEBUG] Manual profile search failed:`, error);
-      toast({
-        title: "Search Failed",
-        description: message,
-        variant: "destructive"
-      });
+      if (error.name === 'AbortError') {
+        console.error(`[DEBUG] Manual profile search timed out after 10 seconds`);
+        toast({
+          title: "Search Timeout",
+          description: "Profile search timed out after 10 seconds",
+          variant: "destructive"
+        });
+      } else {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[DEBUG] Manual profile search failed:`, error);
+        toast({
+          title: "Search Failed",
+          description: message,
+          variant: "destructive"
+        });
+      }
     } finally {
+      clearTimeout(timeoutId);
       console.log(`[DEBUG] Manual profile search completed`);
       setIsSearching(false);
     }

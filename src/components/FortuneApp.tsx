@@ -27,8 +27,8 @@ const FortuneApp = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedFortuneDate, setSelectedFortuneDate] = useState<Date | null>(null);
 
-  // Bootstrap with both session and user for proper context
-  const bootstrapState = useAppBootstrap(sessionInitialized && session ? user : null);
+  // Bootstrap only when session is properly initialized and user is available
+  const bootstrapState = useAppBootstrap(sessionInitialized ? user : null);
 
   useEffect(() => {
     let mounted = true;
@@ -72,16 +72,25 @@ const FortuneApp = () => {
             }
             
             // Set state consistently for all events
+            const newUser = session?.user ?? null;
             setSession(session);
-            setUser(session?.user ?? null);
+            setUser(newUser);
             setSessionInitialized(true);
             setAuthLoading(false);
             
             console.log('[AUTH] State updated:', {
               event,
               hasSession: !!session,
-              hasUser: !!(session?.user),
-              userId: session?.user?.id
+              hasUser: !!newUser,
+              userId: newUser?.id,
+              sessionInitialized: true
+            });
+            
+            // Log bootstrap trigger conditions
+            console.log('[BOOTSTRAP] Trigger conditions:', {
+              sessionInitialized: true,
+              hasUser: !!newUser,
+              shouldTriggerBootstrap: !!newUser
             });
           }
         );
@@ -99,10 +108,18 @@ const FortuneApp = () => {
         if (mounted) {
           console.log('[AUTH] Initial session check complete:', session ? 'Session found' : 'No session');
           // This will trigger the onAuthStateChange listener with INITIAL_SESSION
+          const initialUser = session?.user ?? null;
           setSession(session);
-          setUser(session?.user ?? null);
+          setUser(initialUser);
           setSessionInitialized(true);
           setAuthLoading(false);
+          
+          console.log('[AUTH] Initial state set:', {
+            hasSession: !!session,
+            hasUser: !!initialUser,
+            userId: initialUser?.id,
+            sessionInitialized: true
+          });
         }
 
         return () => {
