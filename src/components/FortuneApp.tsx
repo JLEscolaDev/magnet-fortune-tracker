@@ -27,8 +27,9 @@ const FortuneApp = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedFortuneDate, setSelectedFortuneDate] = useState<Date | null>(null);
 
-  // Only bootstrap after session is properly initialized
-  const bootstrapState = useAppBootstrap(sessionInitialized ? user : null);
+  // Enhanced session validation - only bootstrap after Supabase client is ready
+  const [clientReady, setClientReady] = useState(false);
+  const bootstrapState = useAppBootstrap(sessionInitialized && clientReady ? user : null);
 
   useEffect(() => {
     let mounted = true;
@@ -46,6 +47,30 @@ const FortuneApp = () => {
         setUser(null);
         setSessionInitialized(true);
         setAuthLoading(false);
+        setClientReady(false);
+      }
+    };
+
+    const validateSupabaseClientAuth = async (session: Session): Promise<boolean> => {
+      try {
+        // Make a simple authenticated query to verify the client has proper auth context
+        const { data, error } = await supabase.auth.getUser();
+        
+        if (error) {
+          console.error('[AUTH] Client auth validation failed:', error.message);
+          return false;
+        }
+        
+        if (!data.user || data.user.id !== session.user.id) {
+          console.error('[AUTH] Client user mismatch');
+          return false;
+        }
+        
+        console.log('[AUTH] Client auth validation successful');
+        return true;
+      } catch (error) {
+        console.error('[AUTH] Client auth validation error:', error);
+        return false;
       }
     };
 
@@ -73,6 +98,21 @@ const FortuneApp = () => {
               await handleSessionError();
               return;
             }
+
+            // Add delay to ensure Supabase client context is ready, then validate
+            setTimeout(async () => {
+              if (!mounted) return;
+              
+              const isClientReady = await validateSupabaseClientAuth(session);
+              if (isClientReady) {
+                setClientReady(true);
+              } else {
+                console.error('[AUTH] Client not ready after validation');
+                await handleSessionError();
+              }
+            }, 100); // Small delay to allow client auth context to update
+          } else {
+            setClientReady(false);
           }
           
           setSession(session);
@@ -80,6 +120,14 @@ const FortuneApp = () => {
           setSessionInitialized(true);
           setAuthLoading(false);
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (session) {
+            // For new sign-ins and token refreshes, validate client immediately
+            const isClientReady = await validateSupabaseClientAuth(session);
+            setClientReady(isClientReady);
+          } else {
+            setClientReady(false);
+          }
+          
           setSession(session);
           setUser(session?.user ?? null);
           setSessionInitialized(true);
@@ -89,6 +137,7 @@ const FortuneApp = () => {
           setUser(null);
           setSessionInitialized(true);
           setAuthLoading(false);
+          setClientReady(false);
         }
       }
     );

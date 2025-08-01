@@ -39,7 +39,21 @@ export const useAppBootstrap = (user: User | null) => {
     setState(prev => ({ ...prev, errors: [] }));
   }, []);
 
-  const ensureProfile = async (user: User): Promise<Profile | null> => {
+  const validateAuthContext = async (): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user) {
+        logWithPrefix('Auth context validation failed', { error: error?.message });
+        return false;
+      }
+      return true;
+    } catch (error) {
+      logWithPrefix('Auth context validation error', { error });
+      return false;
+    }
+  };
+
+  const ensureProfile = async (user: User, retryCount: number = 0): Promise<Profile | null> => {
     try {
       if (!user?.id) {
         logWithPrefix('ERROR: No user ID provided');
@@ -47,7 +61,20 @@ export const useAppBootstrap = (user: User | null) => {
         return null;
       }
 
-      logWithPrefix('Ensuring profile exists', { userId: user.id });
+      // Validate auth context before making queries
+      const isAuthValid = await validateAuthContext();
+      if (!isAuthValid) {
+        if (retryCount < 2) {
+          logWithPrefix(`Auth context invalid, retrying... (${retryCount + 1}/3)`);
+          await new Promise(resolve => setTimeout(resolve, 200));
+          return ensureProfile(user, retryCount + 1);
+        }
+        logWithPrefix('Auth context validation failed after retries');
+        addError('profiles-ensure', 'Authentication context not ready');
+        return null;
+      }
+
+      logWithPrefix('Ensuring profile exists', { userId: user.id, retry: retryCount });
       
       // Try to get existing profile by user_id (not id)
       const { data: existingProfile, error: fetchError } = await supabase
@@ -58,7 +85,16 @@ export const useAppBootstrap = (user: User | null) => {
 
       if (fetchError) {
         console.warn(`[QUERY:profiles] Error fetching profile: ${fetchError.message}`);
+        
+        // Check if this might be an RLS/auth issue and retry
+        if (fetchError.message.includes('JWT') || fetchError.message.includes('RLS') || retryCount < 2) {
+          logWithPrefix(`Profile fetch failed, retrying... (${retryCount + 1}/3)`, { error: fetchError.message });
+          await new Promise(resolve => setTimeout(resolve, 300));
+          return ensureProfile(user, retryCount + 1);
+        }
+        
         addError('profiles-fetch', fetchError.message);
+        return null;
       }
 
       if (existingProfile) {
@@ -87,6 +123,14 @@ export const useAppBootstrap = (user: User | null) => {
 
       if (insertError) {
         console.warn(`[QUERY:profiles] Error creating profile: ${insertError.message}`);
+        
+        // Retry profile creation if it failed due to auth issues
+        if ((insertError.message.includes('JWT') || insertError.message.includes('RLS')) && retryCount < 2) {
+          logWithPrefix(`Profile creation failed, retrying... (${retryCount + 1}/3)`, { error: insertError.message });
+          await new Promise(resolve => setTimeout(resolve, 300));
+          return ensureProfile(user, retryCount + 1);
+        }
+        
         addError('profiles-create', insertError.message);
         return null;
       }
@@ -95,6 +139,14 @@ export const useAppBootstrap = (user: User | null) => {
       return newProfile;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Retry on general errors too
+      if (retryCount < 2) {
+        logWithPrefix(`Profile operation failed, retrying... (${retryCount + 1}/3)`, { error: message });
+        await new Promise(resolve => setTimeout(resolve, 300));
+        return ensureProfile(user, retryCount + 1);
+      }
+      
       addError('profiles-ensure', message);
       return null;
     }
@@ -198,7 +250,7 @@ export const useAppBootstrap = (user: User | null) => {
       logWithPrefix('Starting bootstrap', { userId: user.id, email: user.email });
       setState(prev => ({ ...prev, loading: true }));
 
-      // Run all fetches in parallel for better performance
+      // Run all fetches in parallel for better performance, with enhanced error handling
       const [profile, counts, subscription] = await Promise.all([
         ensureProfile(user),
         fetchCounts(user.id),
