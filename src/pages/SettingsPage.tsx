@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
 import { CategoryManager } from '@/components/CategoryManager';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PricingDialog } from '@/components/billing/PricingDialog';
 
 interface SettingsPageProps {

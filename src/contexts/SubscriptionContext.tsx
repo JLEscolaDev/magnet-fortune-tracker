@@ -37,22 +37,35 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     fetchSubscription();
   }, []);
 
-  // Listen for auth state changes and refetch subscription
+  // Manual refresh check every 5 minutes for subscription updates
   useEffect(() => {
-    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          // User signed in or token refreshed, fetch subscription
+    let intervalId: NodeJS.Timeout;
+    
+    const startPeriodicRefresh = () => {
+      intervalId = setInterval(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          console.log('[SUBSCRIPTION] Periodic refresh check');
           await fetchSubscription();
-        } else if (event === 'SIGNED_OUT') {
-          // User signed out, clear subscription
-          setSubscription(null);
-          setLoading(false);
         }
-      }
-    );
+      }, 5 * 60 * 1000); // 5 minutes
+    };
 
-    return () => authSubscription.unsubscribe();
+    // Start periodic refresh only if we have a session
+    const checkAndStartRefresh = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        startPeriodicRefresh();
+      }
+    };
+
+    checkAndStartRefresh();
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, []);
 
   // Real-time updates removed - using auth state changes for subscription updates

@@ -32,6 +32,7 @@ const FortuneApp = () => {
 
   useEffect(() => {
     let mounted = true;
+    let refreshInterval: NodeJS.Timeout;
 
     const handleSessionError = async () => {
       console.log('[AUTH] Session error detected, forcing logout');
@@ -49,54 +50,59 @@ const FortuneApp = () => {
       }
     };
 
+    const validateAndSetSession = async (session: Session | null) => {
+      if (session) {
+        // Basic validation for session
+        if (!session.access_token) {
+          console.error('[AUTH] Invalid session - missing access token');
+          await handleSessionError();
+          return false;
+        }
+        
+        // Check if token is expired (with 5-minute buffer)
+        const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+        const now = Date.now();
+        const fiveMinutes = 5 * 60 * 1000;
+        
+        if (expiresAt > 0 && now > (expiresAt - fiveMinutes)) {
+          console.log('[AUTH] Token expires soon, refreshing...');
+          try {
+            const { data: { session: refreshedSession }, error } = await supabase.auth.refreshSession();
+            if (error || !refreshedSession) {
+              console.error('[AUTH] Failed to refresh session:', error);
+              await handleSessionError();
+              return false;
+            }
+            session = refreshedSession;
+          } catch (error) {
+            console.error('[AUTH] Error refreshing session:', error);
+            await handleSessionError();
+            return false;
+          }
+        }
+      }
+
+      if (mounted) {
+        const newUser = session?.user ?? null;
+        setSession(session);
+        setUser(newUser);
+        setSessionInitialized(true);
+        setAuthLoading(false);
+        
+        console.log('[AUTH] Session state set:', {
+          hasSession: !!session,
+          hasUser: !!newUser,
+          userId: newUser?.id,
+          sessionInitialized: true
+        });
+      }
+      
+      return true;
+    };
+
     const initializeAuth = async () => {
       try {
-        // Set up auth state listener FIRST
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            if (!mounted) return;
-            
-            console.log('[AUTH] Auth state change:', event, session ? 'Session exists' : 'No session');
-            
-            // Handle all auth events consistently
-            if (event === 'INITIAL_SESSION') {
-              console.log('[AUTH] Processing initial session:', session ? 'Session found' : 'No session');
-              if (session) {
-                // Basic validation for session restore
-                if (!session.access_token) {
-                  console.error('[AUTH] Invalid session - missing access token');
-                  await handleSessionError();
-                  return;
-                }
-              }
-            }
-            
-            // Set state consistently for all events
-            const newUser = session?.user ?? null;
-            setSession(session);
-            setUser(newUser);
-            setSessionInitialized(true);
-            setAuthLoading(false);
-            
-            console.log('[AUTH] State updated:', {
-              event,
-              hasSession: !!session,
-              hasUser: !!newUser,
-              userId: newUser?.id,
-              sessionInitialized: true
-            });
-            
-            // Log bootstrap trigger conditions
-            console.log('[BOOTSTRAP] Trigger conditions:', {
-              sessionInitialized: true,
-              hasUser: !!newUser,
-              shouldTriggerBootstrap: !!newUser
-            });
-          }
-        );
-
-        // THEN check for existing session (critical for page refresh)
-        console.log('[AUTH] Checking for existing session...');
+        console.log('[AUTH] Initializing manual auth check...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -105,26 +111,21 @@ const FortuneApp = () => {
           return;
         }
 
-        if (mounted) {
-          console.log('[AUTH] Initial session check complete:', session ? 'Session found' : 'No session');
-          // This will trigger the onAuthStateChange listener with INITIAL_SESSION
-          const initialUser = session?.user ?? null;
-          setSession(session);
-          setUser(initialUser);
-          setSessionInitialized(true);
-          setAuthLoading(false);
-          
-          console.log('[AUTH] Initial state set:', {
-            hasSession: !!session,
-            hasUser: !!initialUser,
-            userId: initialUser?.id,
-            sessionInitialized: true
-          });
+        const isValid = await validateAndSetSession(session);
+        
+        if (isValid && session) {
+          // Set up periodic session refresh (every 50 minutes)
+          refreshInterval = setInterval(async () => {
+            console.log('[AUTH] Periodic session refresh...');
+            try {
+              const { data: { session: currentSession } } = await supabase.auth.getSession();
+              await validateAndSetSession(currentSession);
+            } catch (error) {
+              console.error('[AUTH] Periodic refresh failed:', error);
+              await handleSessionError();
+            }
+          }, 50 * 60 * 1000); // 50 minutes
         }
-
-        return () => {
-          subscription.unsubscribe();
-        };
       } catch (error) {
         console.error('[AUTH] Failed to initialize auth:', error);
         if (mounted) {
@@ -133,11 +134,13 @@ const FortuneApp = () => {
       }
     };
 
-    const cleanup = initializeAuth();
+    initializeAuth();
 
     return () => {
       mounted = false;
-      cleanup.then(cleanupFn => cleanupFn?.());
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
     };
   }, []);
 
