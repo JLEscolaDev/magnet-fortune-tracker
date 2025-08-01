@@ -33,48 +33,53 @@ const FortuneApp = () => {
   useEffect(() => {
     let mounted = true;
 
-    const initializeSession = async () => {
+    const handleSessionError = async () => {
+      console.log('[AUTH] Session error detected, forcing logout');
       try {
-        // First, get the existing session
-        const { data: { session }, error } = await supabase.auth.getSession();
+        await supabase.auth.signOut();
+        localStorage.clear();
+      } catch (error) {
+        console.error('Error during forced signout:', error);
+      }
+      if (mounted) {
+        setSession(null);
+        setUser(null);
+        setSessionInitialized(true);
+        setAuthLoading(false);
+      }
+    };
+
+    // Set up auth state listener - this handles all session management
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
         
-        if (error) {
-          console.error('Auth error during session initialization:', error);
-          // Clear any corrupted session data
-          if (mounted) {
-            setSession(null);
-            setUser(null);
-            setSessionInitialized(true);
-            setAuthLoading(false);
+        console.log('[AUTH] Auth state change:', event, session ? 'Session exists' : 'No session');
+        
+        if (event === 'INITIAL_SESSION') {
+          // Check if the initial session is valid
+          if (session) {
+            // Validate the session by checking if it has required tokens
+            if (!session.access_token || !session.refresh_token) {
+              console.error('[AUTH] Invalid session tokens detected');
+              await handleSessionError();
+              return;
+            }
+            
+            // Check if tokens are expired
+            const now = Math.floor(Date.now() / 1000);
+            if (session.expires_at && session.expires_at < now) {
+              console.error('[AUTH] Session tokens expired');
+              await handleSessionError();
+              return;
+            }
           }
-          return;
-        }
-        
-        if (mounted) {
-          console.log('[AUTH] Session initialized:', session ? 'Valid session found' : 'No session');
+          
           setSession(session);
           setUser(session?.user ?? null);
           setSessionInitialized(true);
           setAuthLoading(false);
-        }
-      } catch (error) {
-        console.error('Unexpected error getting session:', error);
-        if (mounted) {
-          setSession(null);
-          setUser(null);
-          setAuthLoading(false);
-          setSessionInitialized(true);
-        }
-      }
-    };
-
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!mounted) return;
-        
-        // Handle initial session and subsequent auth events
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           setSession(session);
           setUser(session?.user ?? null);
           setSessionInitialized(true);
@@ -87,9 +92,6 @@ const FortuneApp = () => {
         }
       }
     );
-
-    // Initialize session
-    initializeSession();
 
     return () => {
       mounted = false;
