@@ -27,8 +27,9 @@ const FortuneApp = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedFortuneDate, setSelectedFortuneDate] = useState<Date | null>(null);
 
-  // Bootstrap only when session is properly initialized and user is available
-  const bootstrapState = useAppBootstrap(sessionInitialized && user ? user : null);
+  console.log('[AUTH] Bootstrap check user:', user);
+  console.log('[BOOTSTRAP] Passing user to useAppBootstrap:', user);
+  const bootstrapState = useAppBootstrap(user);
 
   useEffect(() => {
     let mounted = true;
@@ -95,6 +96,29 @@ const FortuneApp = () => {
           userId: newUser?.id,
           sessionInitialized: true
         });
+
+        // Insert profile if not exists
+        if (newUser) {
+          const { data: existingProfile, error: fetchError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', newUser.id as string)
+            .maybeSingle();
+
+          if (!existingProfile) {
+            const { error: insertError } = await supabase
+              .from("profiles")
+              .insert({
+                user_id: newUser.id as string,
+                username: "anonymous",
+                avatar_url: "",
+                created_at: new Date().toISOString()
+              } as any);
+            if (insertError) {
+              console.error('[AUTH] Error inserting profile:', insertError);
+            }
+          }
+        }
       }
       
       return true;
@@ -172,6 +196,27 @@ const FortuneApp = () => {
 
   if (showSettingsPage) {
     return <SettingsPage onBack={() => setShowSettingsPage(false)} />;
+  }
+
+  // Debugging bootstrap state before loading/profile check
+  console.log('[BOOTSTRAP DEBUG]', {
+    sessionInitialized,
+    user,
+    bootstrapLoading: bootstrapState?.loading,
+    profile: bootstrapState?.profile,
+    errors: bootstrapState?.errors
+  });
+  if (!user || !bootstrapState || bootstrapState.loading || !bootstrapState.profile || bootstrapState.errors?.length) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="luxury-card p-8 text-center">
+          <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">
+            {bootstrapState?.errors?.length ? "Error loading your profile" : "Loading your profile..."}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

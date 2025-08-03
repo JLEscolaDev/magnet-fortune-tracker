@@ -29,14 +29,14 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
       const { data: fortunesData, error } = await supabase
         .from('fortunes')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id as any)
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (error) {
         console.warn(`[QUERY:fortunes] Error fetching recent fortunes: ${error.message}`);
       } else if (fortunesData) {
-        setRecentFortunes(fortunesData);
+        setRecentFortunes(fortunesData as unknown as Fortune[]);
         console.log(`[QUERY:fortunes] Fetched ${fortunesData.length} recent fortunes`);
       }
     } catch (error) {
