@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile, Subscription } from '@/types/fortune';
+// @ts-expect-error temporary workaround for module resolution
+import type { Database } from '@/types/database.types';
 
 interface AppBootstrapState {
   profile: Profile | null;
@@ -9,7 +11,7 @@ interface AppBootstrapState {
   fortunesCountTotal: number;
   activeSubscription: Subscription | null;
   loading: boolean;
-  errors: Array<{ source: string; message: string; timestamp: number }>;
+  errors: { source: string; message: string; timestamp: number }[];
 }
 
 const logWithPrefix = (step: string, details?: any) => {
@@ -53,8 +55,8 @@ export const useAppBootstrap = (user: User | null) => {
       const { data: existingProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+        .eq('user_id', user.id as unknown as Database['public']['Tables']['profiles']['Row']['user_id'])
+        .maybeSingle<Database['public']['Tables']['profiles']['Row']>();
 
       if (fetchError) {
         console.warn(`[QUERY:profiles] Error fetching profile: ${fetchError.message}`);
@@ -70,7 +72,7 @@ export const useAppBootstrap = (user: User | null) => {
         return null;
       }
 
-      if (existingProfile) {
+      if (existingProfile && !('error' in existingProfile)) {
         logWithPrefix('Profile found successfully', { 
           userId: existingProfile.user_id,
           displayName: existingProfile.display_name,
@@ -86,18 +88,20 @@ export const useAppBootstrap = (user: User | null) => {
       // Create new profile if none exists
       logWithPrefix('Creating new profile');
       const displayName = user.email?.split('@')[0] || 'Fortune Seeker';
+
+      const insertPayload: Database['public']['Tables']['profiles']['Insert'] = {
+        user_id: user.id as unknown as Database['public']['Tables']['profiles']['Insert']['user_id'],
+        display_name: displayName,
+        avatar_url: null,
+        level: 1,
+        total_fortunes: 0
+      };
       
       const { data: newProfile, error: insertError } = await supabase
         .from('profiles')
-        .insert([{
-          user_id: user.id,
-          display_name: displayName,
-          avatar_url: null,
-          level: 1,
-          total_fortunes: 0
-        }])
+        .insert([insertPayload])
         .select()
-        .single();
+        .single<Database['public']['Tables']['profiles']['Row']>();
 
       if (insertError) {
         console.warn(`[QUERY:profiles] Error creating profile: ${insertError.message}`);
@@ -105,8 +109,12 @@ export const useAppBootstrap = (user: User | null) => {
         return null;
       }
 
-      logWithPrefix('Profile created', { displayName: newProfile.display_name });
-      return newProfile;
+      if (newProfile && !('error' in newProfile)) {
+        logWithPrefix('Profile created', { displayName: newProfile.display_name });
+        return newProfile;
+      }
+
+      return null;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       addError('profiles-ensure', message);
@@ -128,7 +136,7 @@ export const useAppBootstrap = (user: User | null) => {
       const { count: totalCount, error: totalError } = await supabase
         .from('fortunes')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
+        .eq('user_id', userId as unknown as Database['public']['Tables']['fortunes']['Row']['user_id']);
 
       if (totalError) {
         console.warn(`[QUERY:fortunes] Error fetching total count: ${totalError.message}`);
@@ -145,7 +153,7 @@ export const useAppBootstrap = (user: User | null) => {
       const { count: todayCount, error: todayError } = await supabase
         .from('fortunes')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
+        .eq('user_id', userId as unknown as Database['public']['Tables']['fortunes']['Row']['user_id'])
         .gte('created_at', startOfDayUTC.toISOString())
         .lt('created_at', endOfDayUTC.toISOString());
 
@@ -178,8 +186,8 @@ export const useAppBootstrap = (user: User | null) => {
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'active')
+        .eq('user_id', userId as unknown as Database['public']['Tables']['subscriptions']['Row']['user_id'])
+        .eq('status', 'active' as Database['public']['Tables']['subscriptions']['Row']['status'])
         .gte('current_period_end', new Date().toISOString())
         .maybeSingle();
 
@@ -189,8 +197,11 @@ export const useAppBootstrap = (user: User | null) => {
         return null;
       }
 
-      logWithPrefix('Subscription fetch completed', { hasActive: !!data });
-      return data;
+      if (data && !('error' in data)) {
+        logWithPrefix('Subscription fetch completed', { hasActive: !!data });
+        return data;
+      }
+      return null;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       addError('subscriptions-fetch', message);
@@ -199,8 +210,8 @@ export const useAppBootstrap = (user: User | null) => {
   };
 
   const bootstrap = useCallback(async () => {
-    if (!user) {
-      logWithPrefix('No user, clearing state');
+    if (!user || typeof user.id !== 'string' || user.id.trim().length < 5) {
+      logWithPrefix('Invalid user or user missing ID, resetting state');
       setState({
         profile: null,
         fortunesCountToday: 0,
@@ -228,6 +239,11 @@ export const useAppBootstrap = (user: User | null) => {
         fetchActiveSubscription(user.id)
       ]);
 
+      if (profile && 'error' in profile) {
+        console.warn('[BOOTSTRAP] Profile fetch returned error, skipping...');
+        return;
+      }
+
       logWithPrefix('Parallel data fetch completed', {
         profileLoaded: !!profile,
         countsLoaded: !!counts,
@@ -250,7 +266,7 @@ export const useAppBootstrap = (user: User | null) => {
 
       logWithPrefix('Bootstrap completed', { 
         hasProfile: !!profile, 
-        profileDisplayName: profile?.display_name,
+        profileDisplayName: profile && !('error' in profile) ? profile.display_name : undefined,
         totalFortunes: counts.total,
         todayFortunes: counts.today,
         hasSubscription: !!subscription 
@@ -265,7 +281,13 @@ export const useAppBootstrap = (user: User | null) => {
 
   // Run bootstrap when user changes - direct dependency on user
   useEffect(() => {
-    logWithPrefix('User changed, triggering bootstrap', { hasUser: !!user, userId: user?.id });
+    const isValidUser = Boolean(user?.id && typeof user.id === 'string' && user.id.trim().length >= 5);
+    if (!isValidUser) {
+      logWithPrefix('User not yet available or invalid, delaying bootstrap until user is set');
+      return;
+    }
+
+    logWithPrefix('User available, triggering bootstrap', { hasUser: !!user, userId: user?.id });
     bootstrap();
   }, [user, bootstrap]);
 

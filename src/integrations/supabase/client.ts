@@ -16,5 +16,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   db: {
     schema: 'public'
-  }
+  },
+  // 👇 Optionally remove or comment out the entire `realtime` block if not used
+  // realtime: {} // Leaving this empty does not initiate any realtime connection
 });

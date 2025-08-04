@@ -1,0 +1,9 @@
+{
+  "importMap": "./supabase/functions/import_map.json",
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"]
+  },
+  "tasks": {
+    "portal": "deno run -A supabase/functions/create-portal-session/index.ts"
+  }
+}
