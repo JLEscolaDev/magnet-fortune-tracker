@@ -23,15 +23,20 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
         return;
       }
 
-      console.log('[QUERY:fortunes] Fetching recent fortunes');
+      console.log('[QUERY:fortunes] Fetching today\'s fortunes');
 
-      // Fetch recent fortunes (last 20) instead of just today's
+      // Get today's fortunes only (UTC midnight boundary)
+      const today = new Date();
+      const startOfDayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+      const endOfDayUTC = new Date(startOfDayUTC.getTime() + 24 * 60 * 60 * 1000);
+
       const { data: fortunesData, error } = await supabase
         .from('fortunes')
         .select('*')
         .eq('user_id', user.id as any)
-        .order('created_at', { ascending: false })
-        .limit(20);
+        .gte('created_at', startOfDayUTC.toISOString())
+        .lt('created_at', endOfDayUTC.toISOString())
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.warn(`[QUERY:fortunes] Error fetching recent fortunes: ${error.message}`);
@@ -101,7 +106,7 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
       />
       <FortuneList 
         fortunes={recentFortunes} 
-        title="Recent Fortunes"
+        title="Today's Fortunes"
         onFortunesUpdated={fetchRecentFortunes}
       />
     </div>
