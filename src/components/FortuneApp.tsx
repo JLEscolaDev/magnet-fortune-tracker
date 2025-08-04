@@ -190,12 +190,25 @@ const FortuneApp = () => {
     );
   }
 
-  if (!user) {
-    return <AuthPage />;
-  }
-
   if (showSettingsPage) {
     return <SettingsPage onBack={() => setShowSettingsPage(false)} />;
+  }
+
+  // Wait for session initialization before proceeding
+  if (!sessionInitialized) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="luxury-card p-8 text-center">
+          <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Initializing session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If session is initialized but no user, show auth page
+  if (!user) {
+    return <AuthPage />;
   }
 
   // Debugging bootstrap state before loading/profile check
@@ -206,7 +219,9 @@ const FortuneApp = () => {
     profile: bootstrapState?.profile,
     errors: bootstrapState?.errors
   });
-  if (!user || !bootstrapState || bootstrapState.loading || !bootstrapState.profile || bootstrapState.errors?.length) {
+
+  // Wait for bootstrap to complete
+  if (!bootstrapState || bootstrapState.loading || !bootstrapState.profile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="luxury-card p-8 text-center">
