@@ -12,6 +12,8 @@ interface AppBootstrapState {
   activeSubscription: Subscription | null;
   loading: boolean;
   errors: { source: string; message: string; timestamp: number }[];
+  retryCount: number;
+  bootstrapFailed: boolean;
 }
 
 const logWithPrefix = (step: string, details?: any) => {
@@ -27,6 +29,8 @@ export const useAppBootstrap = (user: User | null) => {
     activeSubscription: null,
     loading: true,
     errors: [],
+    retryCount: 0,
+    bootstrapFailed: false,
   });
 
   const addError = useCallback((source: string, message: string) => {
@@ -209,7 +213,10 @@ export const useAppBootstrap = (user: User | null) => {
     }
   };
 
-  const bootstrap = useCallback(async () => {
+  const bootstrap = useCallback(async (retryAttempt: number = 0) => {
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 10000; // 10 seconds timeout per attempt
+
     if (!user || !user.id) {
       logWithPrefix('Invalid user or user missing ID, resetting state');
       setState({
@@ -219,29 +226,40 @@ export const useAppBootstrap = (user: User | null) => {
         activeSubscription: null,
         loading: false,
         errors: [],
+        retryCount: 0,
+        bootstrapFailed: false,
       });
       return;
     }
 
     try {
-      logWithPrefix('Starting bootstrap', { userId: user.id, email: user.email });
-      setState(prev => ({ ...prev, loading: true }));
+      logWithPrefix(`Starting bootstrap attempt ${retryAttempt + 1}/${MAX_RETRIES}`, { userId: user.id, email: user.email });
+      setState(prev => ({ ...prev, loading: true, retryCount: retryAttempt }));
+
+      // Create timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Bootstrap timeout')), TIMEOUT_MS);
+      });
 
       // Add a small delay for session restore to ensure Supabase client context is ready
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Run all fetches in parallel for better performance
-      logWithPrefix('Starting parallel data fetch');
+      // Run all fetches in parallel with timeout
+      logWithPrefix('Starting parallel data fetch with timeout');
       
-      const [profile, counts, subscription] = await Promise.all([
+      const fetchPromise = Promise.all([
         ensureProfile(user),
         fetchCounts(user.id),
         fetchActiveSubscription(user.id)
       ]);
 
+      const [profile, counts, subscription] = await Promise.race([
+        fetchPromise,
+        timeoutPromise
+      ]) as [Profile | null, { total: number; today: number }, Subscription | null];
+
       if (profile && 'error' in profile) {
-        console.warn('[BOOTSTRAP] Profile fetch returned error, skipping...');
-        return;
+        throw new Error('Profile fetch returned error');
       }
 
       logWithPrefix('Parallel data fetch completed', {
@@ -251,8 +269,7 @@ export const useAppBootstrap = (user: User | null) => {
       });
 
       if (!profile) {
-        logWithPrefix('ERROR: Profile fetch failed completely');
-        addError('bootstrap', 'Profile not found - authentication context may not be ready');
+        throw new Error('Profile not found - authentication context may not be ready');
       }
 
       setState(prev => ({
@@ -262,9 +279,11 @@ export const useAppBootstrap = (user: User | null) => {
         fortunesCountTotal: counts.total,
         activeSubscription: subscription,
         loading: false,
+        retryCount: retryAttempt,
+        bootstrapFailed: false,
       }));
 
-      logWithPrefix('Bootstrap completed', { 
+      logWithPrefix('Bootstrap completed successfully', { 
         hasProfile: !!profile, 
         profileDisplayName: profile && !('error' in profile) ? profile.display_name : undefined,
         totalFortunes: counts.total,
@@ -273,11 +292,26 @@ export const useAppBootstrap = (user: User | null) => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logWithPrefix('Bootstrap failed', { error: message });
+      logWithPrefix(`Bootstrap failed on attempt ${retryAttempt + 1}`, { error: message });
       addError('bootstrap', message);
-      setState(prev => ({ ...prev, loading: false }));
+
+      if (retryAttempt < MAX_RETRIES - 1) {
+        // Retry with exponential backoff
+        const retryDelay = Math.pow(2, retryAttempt) * 1000; // 1s, 2s, 4s
+        logWithPrefix(`Retrying bootstrap in ${retryDelay}ms...`);
+        setTimeout(() => bootstrap(retryAttempt + 1), retryDelay);
+      } else {
+        // All retries exhausted - mark as failed
+        logWithPrefix('All bootstrap retries exhausted - marking as failed');
+        setState(prev => ({ 
+          ...prev, 
+          loading: false,
+          retryCount: retryAttempt,
+          bootstrapFailed: true,
+        }));
+      }
     }
-  }, [addError]);
+  }, [addError, user]);
 
   // Run bootstrap when user changes - direct dependency on user
   useEffect(() => {
