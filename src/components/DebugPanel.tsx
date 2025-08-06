@@ -130,7 +130,7 @@ export const DebugPanel = ({ user }: DebugPanelProps) => {
   if (!isDebugMode) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[100] max-w-xs">
+    <div className="fixed bottom-4 left-4 z-[100] max-w-xs">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button variant="outline" size="sm" className="bg-card/90 backdrop-blur">
