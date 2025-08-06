@@ -15,6 +15,7 @@ import { DebugPanel } from '@/components/DebugPanel';
 import { AppStateProvider } from '@/contexts/AppStateContext';
 import { useAppBootstrap } from '@/hooks/useAppBootstrap';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { SettingsProvider } from '@/contexts/SettingsContext';
 
 const FortuneApp = () => {
   const { user, session } = useSubscription();
@@ -102,58 +103,60 @@ const FortuneApp = () => {
   }
 
   return (
-    <AppStateProvider value={bootstrapState}>
-      <div className="min-h-screen bg-background text-foreground">
-        <div className="max-w-6xl mx-auto">
-          <TopBar onSettingsClick={() => setShowSettingsPage(true)} />
-          
-          <DesktopTabs
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            onAddFortuneClick={() => setAddFortuneOpen(true)}
-            selectedDate={selectedFortuneDate}
-          />
+    <SettingsProvider>
+      <AppStateProvider value={bootstrapState}>
+        <div className="min-h-screen bg-background text-foreground">
+          <div className="max-w-6xl mx-auto">
+            <TopBar onSettingsClick={() => setShowSettingsPage(true)} />
+            
+            <DesktopTabs
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              onAddFortuneClick={() => setAddFortuneOpen(true)}
+              selectedDate={selectedFortuneDate}
+            />
 
-          <main className="relative">
-            {activeTab === 'home' && (
-              <HomeTab refreshTrigger={refreshTrigger} />
-            )}
-            {activeTab === 'insights' && (
-              <InsightsTab 
-                refreshTrigger={refreshTrigger} 
-                onGlobalRefresh={handleFortuneAdded}
-                selectedFortuneDate={selectedFortuneDate}
-                onDateSelect={handleDateSelect}
-              />
-            )}
-          </main>
+            <main className="relative">
+              {activeTab === 'home' && (
+                <HomeTab refreshTrigger={refreshTrigger} />
+              )}
+              {activeTab === 'insights' && (
+                <InsightsTab 
+                  refreshTrigger={refreshTrigger} 
+                  onGlobalRefresh={handleFortuneAdded}
+                  selectedFortuneDate={selectedFortuneDate}
+                  onDateSelect={handleDateSelect}
+                />
+              )}
+            </main>
 
-          <TabBar
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
+            <TabBar
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            />
 
-          <FloatingActionButton 
-            onClick={() => setAddFortuneOpen(true)} 
-            selectedDate={selectedFortuneDate}
-          />
+            <FloatingActionButton 
+              onClick={() => setAddFortuneOpen(true)} 
+              selectedDate={selectedFortuneDate}
+            />
 
-          <SettingsDrawer
-            isOpen={settingsOpen}
-            onClose={() => setSettingsOpen(false)}
-          />
+            <SettingsDrawer
+              isOpen={settingsOpen}
+              onClose={() => setSettingsOpen(false)}
+            />
 
-          <AddFortuneModal
-            isOpen={addFortuneOpen}
-            onClose={() => setAddFortuneOpen(false)}
-            onFortuneAdded={handleFortuneAdded}
-            selectedDate={selectedFortuneDate}
-          />
+            <AddFortuneModal
+              isOpen={addFortuneOpen}
+              onClose={() => setAddFortuneOpen(false)}
+              onFortuneAdded={handleFortuneAdded}
+              selectedDate={selectedFortuneDate}
+            />
 
-          <DebugPanel user={user} />
+            <DebugPanel user={user} />
+          </div>
         </div>
-      </div>
-    </AppStateProvider>
+      </AppStateProvider>
+    </SettingsProvider>
   );
 };
 

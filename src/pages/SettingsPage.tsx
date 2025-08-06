@@ -9,6 +9,7 @@ import { useTheme } from 'next-themes';
 import { CategoryManager } from '@/components/CategoryManager';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PricingDialog } from '@/components/billing/PricingDialog';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -16,10 +17,7 @@ interface SettingsPageProps {
 
 export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const { theme, setTheme } = useTheme();
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [animationsEnabled, setAnimationsEnabled] = useState(true);
-  const [hapticsEnabled, setHapticsEnabled] = useState(true);
-  const [currency, setCurrency] = useState('USD');
+  const { soundEnabled, setSoundEnabled, animationsEnabled, setAnimationsEnabled, hapticsEnabled, setHapticsEnabled, currency, setCurrency } = useSettings();
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showPricingDialog, setShowPricingDialog] = useState(false);
   const { toast } = useToast();

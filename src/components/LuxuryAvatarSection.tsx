@@ -3,6 +3,7 @@ import { User, Trophy, Crown } from '@phosphor-icons/react';
 import { Profile } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface Avatar {
   id: string;
@@ -21,6 +22,7 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
   const [avatar, setAvatar] = useState<Avatar | null>(null);
   const [isLevelingUp, setIsLevelingUp] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { animationsEnabled } = useSettings();
 
   const fortunesPerLevel = 5;
   const currentLevel = Math.floor(fortuneCount / fortunesPerLevel) + 1;
@@ -42,7 +44,9 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
 
         // Check if user leveled up
         if ((profile.level || 1) < currentLevel) {
-          setIsLevelingUp(true);
+          if (animationsEnabled) {
+            setIsLevelingUp(true);
+          }
           
           // Update user's level and avatar_url in profile
           await supabase
@@ -55,8 +59,10 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
 
           onLevelUp?.();
           
-          // Reset level up animation after 2 seconds
-          setTimeout(() => setIsLevelingUp(false), 2000);
+          // Reset level up animation after 3 seconds (only if animations are enabled)
+          if (animationsEnabled) {
+            setTimeout(() => setIsLevelingUp(false), 3000);
+          }
         }
       } catch (error) {
         console.error('Error fetching avatar:', error);
@@ -141,7 +147,7 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
       </div>
 
       {/* Level Up Notification */}
-      {isLevelingUp && (
+      {isLevelingUp && animationsEnabled && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="bg-gold/95 text-rich-black px-6 py-3 rounded-full font-heading font-semibold text-lg animate-[scale-in_0.5s_ease-out] shadow-xl border-2 border-gold">
             Level Up! 🎉
