@@ -210,7 +210,7 @@ export const useAppBootstrap = (user: User | null) => {
   };
 
   const bootstrap = useCallback(async () => {
-    if (!user || typeof user.id !== 'string' || user.id.trim().length < 5) {
+    if (!user || !user.id) {
       logWithPrefix('Invalid user or user missing ID, resetting state');
       setState({
         profile: null,
@@ -281,7 +281,7 @@ export const useAppBootstrap = (user: User | null) => {
 
   // Run bootstrap when user changes - direct dependency on user
   useEffect(() => {
-    const isValidUser = Boolean(user?.id && typeof user.id === 'string' && user.id.trim().length >= 5);
+    const isValidUser = Boolean(user?.id);
     if (!isValidUser) {
       logWithPrefix('User not yet available or invalid, delaying bootstrap until user is set');
       return;
