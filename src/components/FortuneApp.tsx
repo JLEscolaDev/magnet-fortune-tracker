@@ -127,6 +127,16 @@ const FortuneApp = () => {
     const initializeAuth = async () => {
       try {
         console.log('[AUTH] Initializing manual auth check...');
+        
+        // Set up auth state listener FIRST
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log('[AUTH] State change event:', event, session?.user?.id);
+            await validateAndSetSession(session);
+          }
+        );
+
+        // THEN check for existing session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -150,6 +160,8 @@ const FortuneApp = () => {
             }
           }, 50 * 60 * 1000); // 50 minutes
         }
+
+        return () => subscription.unsubscribe();
       } catch (error) {
         console.error('[AUTH] Failed to initialize auth:', error);
         if (mounted) {
@@ -158,12 +170,15 @@ const FortuneApp = () => {
       }
     };
 
-    initializeAuth();
+    const unsubscribe = initializeAuth();
 
     return () => {
       mounted = false;
       if (refreshInterval) {
         clearInterval(refreshInterval);
+      }
+      if (unsubscribe) {
+        unsubscribe.then(unsub => unsub && unsub());
       }
     };
   }, []);
