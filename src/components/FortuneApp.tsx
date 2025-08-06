@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { TopBar } from '@/components/TopBar';
@@ -14,12 +14,10 @@ import { AuthPage } from '@/pages/AuthPage';
 import { DebugPanel } from '@/components/DebugPanel';
 import { AppStateProvider } from '@/contexts/AppStateContext';
 import { useAppBootstrap } from '@/hooks/useAppBootstrap';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 const FortuneApp = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [sessionInitialized, setSessionInitialized] = useState(false);
+  const { user, session } = useSubscription();
   const [activeTab, setActiveTab] = useState<'home' | 'insights'>('home');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSettingsPage, setShowSettingsPage] = useState(false);
@@ -30,158 +28,6 @@ const FortuneApp = () => {
   console.log('[AUTH] Bootstrap check user:', user);
   console.log('[BOOTSTRAP] Passing user to useAppBootstrap:', user);
   const bootstrapState = useAppBootstrap(user);
-
-  useEffect(() => {
-    let mounted = true;
-    let refreshInterval: NodeJS.Timeout;
-
-    const handleSessionError = async () => {
-      console.log('[AUTH] Session error detected, forcing logout');
-      try {
-        await supabase.auth.signOut();
-        localStorage.clear();
-      } catch (error) {
-        console.error('Error during forced signout:', error);
-      }
-      if (mounted) {
-        setSession(null);
-        setUser(null);
-        setSessionInitialized(true);
-        setAuthLoading(false);
-      }
-    };
-
-    const validateAndSetSession = async (session: Session | null) => {
-      if (session) {
-        // Basic validation for session
-        if (!session.access_token) {
-          console.error('[AUTH] Invalid session - missing access token');
-          await handleSessionError();
-          return false;
-        }
-        
-        // Check if token is expired (with 5-minute buffer)
-        const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-        const now = Date.now();
-        const fiveMinutes = 5 * 60 * 1000;
-        
-        if (expiresAt > 0 && now > (expiresAt - fiveMinutes)) {
-          console.log('[AUTH] Token expires soon, refreshing...');
-          try {
-            const { data: { session: refreshedSession }, error } = await supabase.auth.refreshSession();
-            if (error || !refreshedSession) {
-              console.error('[AUTH] Failed to refresh session:', error);
-              await handleSessionError();
-              return false;
-            }
-            session = refreshedSession;
-          } catch (error) {
-            console.error('[AUTH] Error refreshing session:', error);
-            await handleSessionError();
-            return false;
-          }
-        }
-      }
-
-      if (mounted) {
-        const newUser = session?.user ?? null;
-        setSession(session);
-        setUser(newUser);
-        setSessionInitialized(true);
-        setAuthLoading(false);
-        
-        console.log('[AUTH] Session state set:', {
-          hasSession: !!session,
-          hasUser: !!newUser,
-          userId: newUser?.id,
-          sessionInitialized: true
-        });
-
-        // Insert profile if not exists
-        if (newUser) {
-          const { data: existingProfile, error: fetchError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', newUser.id as string)
-            .maybeSingle();
-
-          if (!existingProfile) {
-            const { error: insertError } = await supabase
-              .from("profiles")
-              .insert({
-                user_id: newUser.id as string,
-                username: "anonymous",
-                avatar_url: "",
-                created_at: new Date().toISOString()
-              } as any);
-            if (insertError) {
-              console.error('[AUTH] Error inserting profile:', insertError);
-            }
-          }
-        }
-      }
-      
-      return true;
-    };
-
-    const initializeAuth = async () => {
-      try {
-        console.log('[AUTH] Initializing manual auth check...');
-        
-        // Set up auth state listener FIRST
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            console.log('[AUTH] State change event:', event, session?.user?.id);
-            await validateAndSetSession(session);
-          }
-        );
-
-        // THEN check for existing session
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('[AUTH] Error getting session:', error);
-          await handleSessionError();
-          return;
-        }
-
-        const isValid = await validateAndSetSession(session);
-        
-        if (isValid && session) {
-          // Set up periodic session refresh (every 50 minutes)
-          refreshInterval = setInterval(async () => {
-            console.log('[AUTH] Periodic session refresh...');
-            try {
-              const { data: { session: currentSession } } = await supabase.auth.getSession();
-              await validateAndSetSession(currentSession);
-            } catch (error) {
-              console.error('[AUTH] Periodic refresh failed:', error);
-              await handleSessionError();
-            }
-          }, 50 * 60 * 1000); // 50 minutes
-        }
-
-        return () => subscription.unsubscribe();
-      } catch (error) {
-        console.error('[AUTH] Failed to initialize auth:', error);
-        if (mounted) {
-          await handleSessionError();
-        }
-      }
-    };
-
-    const unsubscribe = initializeAuth();
-
-    return () => {
-      mounted = false;
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
-      if (unsubscribe) {
-        unsubscribe.then(unsub => unsub && unsub());
-      }
-    };
-  }, []);
 
   const handleFortuneAdded = () => {
     // Refetch app state when fortune is added
@@ -194,7 +40,7 @@ const FortuneApp = () => {
     setSelectedFortuneDate(date);
   };
 
-  if (authLoading) {
+  if (session === undefined) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="luxury-card p-8 text-center">
@@ -209,18 +55,6 @@ const FortuneApp = () => {
     return <SettingsPage onBack={() => setShowSettingsPage(false)} />;
   }
 
-  // Wait for session initialization before proceeding
-  if (!sessionInitialized) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="luxury-card p-8 text-center">
-          <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Initializing session...</p>
-        </div>
-      </div>
-    );
-  }
-
   // If session is initialized but no user, show auth page
   if (!user) {
     return <AuthPage />;
@@ -228,7 +62,6 @@ const FortuneApp = () => {
 
   // Debugging bootstrap state before loading/profile check
   console.log('[BOOTSTRAP DEBUG]', {
-    sessionInitialized,
     user,
     bootstrapLoading: bootstrapState?.loading,
     profile: bootstrapState?.profile,
