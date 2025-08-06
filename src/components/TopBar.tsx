@@ -16,11 +16,17 @@ export const TopBar = ({ onSettingsClick }: TopBarProps) => {
       </div>
       
       <button
-        onClick={onSettingsClick}
-        className="p-2 rounded-lg hover:bg-muted/50 transition-colors"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('Settings button clicked');
+          onSettingsClick();
+        }}
+        className="p-3 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-gold/30 focus:outline-none focus:ring-2 focus:ring-gold/50"
         aria-label="Settings"
+        type="button"
       >
-        <Gear size={24} className="text-foreground" />
+        <Gear size={24} className="text-foreground hover:text-gold transition-colors" />
       </button>
     </header>
   );
