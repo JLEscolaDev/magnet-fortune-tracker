@@ -12,6 +12,9 @@ interface SubscriptionContextType {
   user: User | null;
   authLoading: boolean;
   sessionInitialized: boolean;
+  userFeatures: any | null;
+  isTrialActive: boolean;
+  earlyBirdEligible: boolean;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -27,12 +30,24 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [sessionInitialized, setSessionInitialized] = useState(false);
+  const [userFeatures, setUserFeatures] = useState<any>(null);
 
   const fetchSubscription = async () => {
     try {
       setLoading(true);
       const activeSubscription = await getActiveSubscription(supabase);
       setSubscription(activeSubscription);
+      
+      // Also fetch user features if user is available
+      if (user) {
+        const { data: features } = await supabase
+          .from('user_features_v')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        setUserFeatures(features);
+      }
     } catch (error) {
       console.error('Error fetching subscription:', error);
       setSubscription(null);
@@ -112,6 +127,9 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     user,
     authLoading,
     sessionInitialized,
+    userFeatures,
+    isTrialActive: userFeatures?.is_trial_active || false,
+    earlyBirdEligible: userFeatures?.is_trial_active && !userFeatures?.early_bird_redeemed,
   };
 
   return (

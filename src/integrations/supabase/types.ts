@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -95,35 +95,38 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
-          created_at: string
+          created_at: string | null
           display_name: string | null
-          id: string
+          early_bird_redeemed: boolean | null
+          early_bird_seen: boolean | null
           level: number | null
           stripe_customer_id: string | null
           total_fortunes: number | null
-          updated_at: string
+          trial_ends_at: string | null
           user_id: string
         }
         Insert: {
           avatar_url?: string | null
-          created_at?: string
+          created_at?: string | null
           display_name?: string | null
-          id?: string
+          early_bird_redeemed?: boolean | null
+          early_bird_seen?: boolean | null
           level?: number | null
           stripe_customer_id?: string | null
           total_fortunes?: number | null
-          updated_at?: string
+          trial_ends_at?: string | null
           user_id: string
         }
         Update: {
           avatar_url?: string | null
-          created_at?: string
+          created_at?: string | null
           display_name?: string | null
-          id?: string
+          early_bird_redeemed?: boolean | null
+          early_bird_seen?: boolean | null
           level?: number | null
           stripe_customer_id?: string | null
           total_fortunes?: number | null
-          updated_at?: string
+          trial_ends_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -158,10 +161,13 @@ export type Database = {
           current_period_end: string
           current_period_start: string
           id: string
+          is_lifetime: boolean | null
           plan_id: string
           status: string
           stripe_customer_id: string | null
+          stripe_price_id: string | null
           stripe_subscription_id: string | null
+          tier: string | null
           updated_at: string
           user_id: string
         }
@@ -170,10 +176,13 @@ export type Database = {
           current_period_end: string
           current_period_start: string
           id?: string
+          is_lifetime?: boolean | null
           plan_id: string
           status: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
           stripe_subscription_id?: string | null
+          tier?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -182,10 +191,13 @@ export type Database = {
           current_period_end?: string
           current_period_start?: string
           id?: string
+          is_lifetime?: boolean | null
           plan_id?: string
           status?: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
           stripe_subscription_id?: string | null
+          tier?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -193,10 +205,28 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_features_v: {
+        Row: {
+          current_period_end: string | null
+          early_bird_redeemed: boolean | null
+          early_bird_seen: boolean | null
+          has_full_access: boolean | null
+          is_lifetime: boolean | null
+          is_trial_active: boolean | null
+          subscription_status: string | null
+          subscription_tier: string | null
+          total_fortunes: number | null
+          trial_ends_at: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      is_trial_active: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

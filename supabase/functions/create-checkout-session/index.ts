@@ -1,138 +1,162 @@
-// @ts-nocheck
-import { serve } from "std/http/server.ts";
-import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@14.21.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseService = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } }
+  );
+
   try {
-    // Get the authorization header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    logStep("Function started");
 
-    const SUPABASE_URL = process.env.SUPABASE_URL!;
-    const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
-    const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY!;
-    const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
-    // Initialize Supabase client with user's JWT
-    const supabaseUrl = SUPABASE_URL!;
-    const supabaseAnonKey = SUPABASE_ANON_KEY!;
-    
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("No authorization header provided");
 
-    // Get the current user
-    const { data: { user }, error: userError } = await authClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabaseService.auth.getUser(token);
+    if (userError) throw new Error(`Authentication error: ${userError.message}`);
+    const user = userData.user;
+    if (!user?.email) throw new Error("User not authenticated or email not available");
+    logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Parse request body
-    const { priceId, successUrl, cancelUrl } = await req.json();
-    if (!priceId) {
-      return new Response(
-        JSON.stringify({ error: 'Price ID is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const { plan, returnUrl } = await req.json();
+    if (!plan) throw new Error("Plan is required");
+    logStep("Request payload", { plan, returnUrl });
 
-    // Initialize Stripe
-    const stripeSecretKey = STRIPE_SECRET_KEY;
-    if (!stripeSecretKey) {
-      return new Response(
-        JSON.stringify({ error: 'Stripe secret key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const stripe = new Stripe(stripeSecretKey, { apiVersion: '2023-10-16' });
-
-    // Initialize service role client for DB operations
-    const serviceRoleKey = SUPABASE_SERVICE_ROLE_KEY!;
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey);
-
-    // Get or create Stripe customer
-    let { data: profile } = await serviceClient
-      .from('profiles')
-      .select('stripe_customer_id')
-      .eq('user_id', user.id)
+    // Get user profile and trial status
+    const { data: userFeatures, error: featuresError } = await supabaseService
+      .from("user_features_v")
+      .select("*")
+      .eq("user_id", user.id)
       .single();
 
-    let customerId = profile?.stripe_customer_id;
-
-    if (!customerId) {
-      // Create new Stripe customer
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: { supabase_user_id: user.id },
-      });
-
-      customerId = customer.id;
-
-      // Update profile with Stripe customer ID
-      await serviceClient
-        .from('profiles')
-        .update({ stripe_customer_id: customerId })
-        .eq('user_id', user.id);
+    if (featuresError) {
+      logStep("Error fetching user features", { error: featuresError });
+      throw new Error("Error fetching user features");
     }
 
-    // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
+    logStep("User features", userFeatures);
+
+    const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+
+    // Check if customer exists
+    let customerId = userFeatures?.stripe_customer_id;
+    if (!customerId) {
+      const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+      if (customers.data.length > 0) {
+        customerId = customers.data[0].id;
+        // Update profile with customer ID
+        await supabaseService
+          .from("profiles")
+          .update({ stripe_customer_id: customerId })
+          .eq("user_id", user.id);
+      }
+    }
+
+    // Plan to price mapping
+    const priceMap: { [key: string]: string } = {
+      'basic_28d': Deno.env.get("PRICE_BASIC_28D") || "",
+      'basic_annual': Deno.env.get("PRICE_BASIC_ANNUAL") || "",
+      'growth_28d': Deno.env.get("PRICE_GROWTH_28D") || "",
+      'growth_annual': Deno.env.get("PRICE_GROWTH_ANNUAL") || "",
+      'lifetime_oneoff': Deno.env.get("PRICE_LIFETIME_ONEOFF") || "",
+      'basic_annual_eb': Deno.env.get("PRICE_BASIC_ANNUAL_EB") || "",
+      'growth_annual_eb': Deno.env.get("PRICE_GROWTH_ANNUAL_EB") || "",
+    };
+
+    const priceId = priceMap[plan];
+    if (!priceId) throw new Error(`Invalid plan: ${plan}`);
+
+    // Check early bird eligibility
+    const isEarlyBird = plan.includes('_eb');
+    if (isEarlyBird) {
+      if (!userFeatures.is_trial_active || userFeatures.early_bird_redeemed) {
+        throw new Error("Early bird offer not available");
+      }
+    }
+
+    // Determine tier from plan
+    let tier = 'basic';
+    if (plan.includes('growth')) tier = 'growth';
+    else if (plan.includes('lifetime')) tier = 'lifetime';
+
+    const origin = req.headers.get("origin") || "http://localhost:3000";
+    const successUrl = returnUrl || `${origin}/billing/success`;
+    const cancelUrl = `${origin}/billing/cancel`;
+
+    // Create session based on plan type
+    let sessionConfig: any = {
       customer: customerId,
+      customer_email: customerId ? undefined : user.email,
       client_reference_id: user.id,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
       success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: {
         user_id: user.id,
+        tier: tier,
+        plan: plan,
       },
+    };
+
+    if (plan === 'lifetime_oneoff') {
+      // One-time payment
+      sessionConfig.mode = 'payment';
+      sessionConfig.line_items = [{
+        price: priceId,
+        quantity: 1,
+      }];
+    } else {
+      // Subscription
+      sessionConfig.mode = 'subscription';
+      sessionConfig.line_items = [{
+        price: priceId,
+        quantity: 1,
+      }];
+
+      // Add promotion code for early bird if using that method
+      const promoCode = isEarlyBird ? 
+        (plan.includes('basic') ? Deno.env.get("PROMO_EARLY_BIRD_BASIC_ANNUAL_CODE") : Deno.env.get("PROMO_EARLY_BIRD_GROWTH_ANNUAL_CODE"))
+        : null;
+      
+      if (promoCode && isEarlyBird) {
+        sessionConfig.discounts = [{ promotion_code: promoCode }];
+      }
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
+    logStep("Checkout session created", { sessionId: session.id, url: session.url });
+
+    return new Response(JSON.stringify({ url: session.url, sessionId: session.id }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
     });
 
-    return new Response(
-      JSON.stringify({ sessionId: session.id }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
-
   } catch (error) {
-    console.error('Error creating checkout session:', error);
-    
-    // Don't expose internal error details to client
-    const errorMessage = error instanceof Error && error.message.includes('Price') 
-      ? 'Invalid pricing information' 
-      : 'Unable to create checkout session';
-      
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logStep("ERROR", { message: errorMessage });
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
   }
 });
