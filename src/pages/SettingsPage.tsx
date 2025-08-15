@@ -82,13 +82,23 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
       } else {
         throw new Error('No portal URL returned');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Portal error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to open billing portal',
-        variant: 'destructive',
-      });
+      
+      // Check if user needs to subscribe first
+      if (error.message?.includes('No active subscription') || error.status === 400) {
+        setShowPricingDialog(true);
+        toast({
+          title: 'Subscription Required',
+          description: 'Please subscribe to manage your billing',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to open billing portal',
+          variant: 'destructive',
+        });
+      }
     }
   };
 

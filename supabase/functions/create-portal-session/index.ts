@@ -64,8 +64,11 @@ serve(async (req) => {
 
     if (!profile?.stripe_customer_id) {
       return new Response(
-        JSON.stringify({ error: 'No Stripe customer found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'No active subscription found. Please subscribe first.',
+          redirect: '/billing' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
