@@ -52,110 +52,120 @@ const FortuneApp = () => {
     );
   }
 
-  if (showSettingsPage) {
-    return <SettingsPage onBack={() => setShowSettingsPage(false)} />;
-  }
-
-  // If session is initialized but no user, show auth page
-  if (!user) {
-    return <AuthPage />;
-  }
-
-  // Debugging bootstrap state before loading/profile check
-  console.log('[BOOTSTRAP DEBUG]', {
-    user,
-    bootstrapLoading: bootstrapState?.loading,
-    profile: bootstrapState?.profile,
-    errors: bootstrapState?.errors
-  });
-
-  // Wait for bootstrap to complete or fail
-  if (!bootstrapState || bootstrapState.loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="luxury-card p-8 text-center max-w-md">
-          <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground mb-2">
-            {bootstrapState?.errors?.length ? "Error loading your profile" : "Loading your profile..."}
-          </p>
-          {bootstrapState?.retryCount > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Retry attempt {bootstrapState.retryCount + 1}/3
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // If bootstrap failed completely after all retries, logout and show auth page
-  if (bootstrapState.bootstrapFailed) {
-    console.log('[BOOTSTRAP] Bootstrap failed completely, signing out user');
-    supabase.auth.signOut();
-    return <AuthPage />;
-  }
-
-  // If no profile after successful bootstrap, something is wrong - logout
-  if (!bootstrapState.profile) {
-    console.log('[BOOTSTRAP] No profile found after bootstrap, signing out user');
-    supabase.auth.signOut();
-    return <AuthPage />;
-  }
-
   return (
     <SettingsProvider>
-      <AppStateProvider value={bootstrapState}>
-        <div className="min-h-screen bg-background text-foreground">
-          <div className="max-w-6xl mx-auto">
-            <TopBar onSettingsClick={() => setShowSettingsPage(true)} />
-            
-            <DesktopTabs
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              onAddFortuneClick={() => setAddFortuneOpen(true)}
-              selectedDate={selectedFortuneDate}
-            />
+      {showSettingsPage ? (
+        <SettingsPage onBack={() => setShowSettingsPage(false)} />
+      ) : (
+        <>
+          {/* If session is initialized but no user, show auth page */}
+          {!user && <AuthPage />}
+          
+          {user && (
+            <>
+              {/* Debugging bootstrap state before loading/profile check */}
+              {(() => {
+                console.log('[BOOTSTRAP DEBUG]', {
+                  user,
+                  bootstrapLoading: bootstrapState?.loading,
+                  profile: bootstrapState?.profile,
+                  errors: bootstrapState?.errors
+                });
+                
+                // Wait for bootstrap to complete or fail
+                if (!bootstrapState || bootstrapState.loading) {
+                  return (
+                    <div className="min-h-screen bg-background flex items-center justify-center">
+                      <div className="luxury-card p-8 text-center max-w-md">
+                        <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                        <p className="text-muted-foreground mb-2">
+                          {bootstrapState?.errors?.length ? "Error loading your profile" : "Loading your profile..."}
+                        </p>
+                        {bootstrapState?.retryCount > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Retry attempt {bootstrapState.retryCount + 1}/3
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+                
+                // If bootstrap failed completely after all retries, logout and show auth page
+                if (bootstrapState.bootstrapFailed) {
+                  console.log('[BOOTSTRAP] Bootstrap failed completely, signing out user');
+                  supabase.auth.signOut();
+                  return <AuthPage />;
+                }
+                
+                // If no profile after successful bootstrap, something is wrong - logout
+                if (!bootstrapState.profile) {
+                  console.log('[BOOTSTRAP] No profile found after bootstrap, signing out user');
+                  supabase.auth.signOut();
+                  return <AuthPage />;
+                }
+                
+                return null;
+              })()}
+              
+              {bootstrapState && !bootstrapState.loading && !bootstrapState.bootstrapFailed && bootstrapState.profile && (
+                <AppStateProvider value={bootstrapState}>
+                  <div className="min-h-screen bg-background text-foreground">
+                    <div className="max-w-6xl mx-auto">
+                      <TopBar onSettingsClick={() => setShowSettingsPage(true)} />
+                      
+                      <DesktopTabs
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                        onAddFortuneClick={() => setAddFortuneOpen(true)}
+                        selectedDate={selectedFortuneDate}
+                      />
 
-            <main className="relative">
-              {activeTab === 'home' && (
-                <HomeTab refreshTrigger={refreshTrigger} />
+                      <main className="relative">
+                        {activeTab === 'home' && (
+                          <HomeTab refreshTrigger={refreshTrigger} />
+                        )}
+                        {activeTab === 'insights' && (
+                          <InsightsTab 
+                            refreshTrigger={refreshTrigger} 
+                            onGlobalRefresh={handleFortuneAdded}
+                            selectedFortuneDate={selectedFortuneDate}
+                            onDateSelect={handleDateSelect}
+                          />
+                        )}
+                      </main>
+
+                      <TabBar
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                      />
+
+                      <FloatingActionButton 
+                        onClick={() => setAddFortuneOpen(true)} 
+                        selectedDate={null}
+                      />
+
+                      <SettingsDrawer
+                        isOpen={settingsOpen}
+                        onClose={() => setSettingsOpen(false)}
+                      />
+
+                      <AddFortuneModal
+                        isOpen={addFortuneOpen}
+                        onClose={() => setAddFortuneOpen(false)}
+                        onFortuneAdded={handleFortuneAdded}
+                        selectedDate={activeTab === 'home' ? null : selectedFortuneDate}
+                      />
+
+                      <DebugPanel user={user} />
+                    </div>
+                  </div>
+                </AppStateProvider>
               )}
-              {activeTab === 'insights' && (
-                <InsightsTab 
-                  refreshTrigger={refreshTrigger} 
-                  onGlobalRefresh={handleFortuneAdded}
-                  selectedFortuneDate={selectedFortuneDate}
-                  onDateSelect={handleDateSelect}
-                />
-              )}
-            </main>
-
-            <TabBar
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-            />
-
-            <FloatingActionButton 
-              onClick={() => setAddFortuneOpen(true)} 
-              selectedDate={null}
-            />
-
-            <SettingsDrawer
-              isOpen={settingsOpen}
-              onClose={() => setSettingsOpen(false)}
-            />
-
-            <AddFortuneModal
-              isOpen={addFortuneOpen}
-              onClose={() => setAddFortuneOpen(false)}
-              onFortuneAdded={handleFortuneAdded}
-              selectedDate={activeTab === 'home' ? null : selectedFortuneDate}
-            />
-
-            <DebugPanel user={user} />
-          </div>
-        </div>
-      </AppStateProvider>
+            </>
+          )}
+        </>
+      )}
     </SettingsProvider>
   );
 };
