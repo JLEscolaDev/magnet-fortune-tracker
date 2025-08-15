@@ -137,7 +137,7 @@ const FortuneApp = () => {
 
             <FloatingActionButton 
               onClick={() => setAddFortuneOpen(true)} 
-              selectedDate={selectedFortuneDate}
+              selectedDate={null}
             />
 
             <SettingsDrawer
@@ -149,7 +149,7 @@ const FortuneApp = () => {
               isOpen={addFortuneOpen}
               onClose={() => setAddFortuneOpen(false)}
               onFortuneAdded={handleFortuneAdded}
-              selectedDate={selectedFortuneDate}
+              selectedDate={activeTab === 'home' ? null : selectedFortuneDate}
             />
 
             <DebugPanel user={user} />

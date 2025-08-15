@@ -43,10 +43,10 @@ export const DesktopTabs = ({ activeTab, onTabChange, onAddFortuneClick, selecte
 
       <Button 
         onClick={onAddFortuneClick} 
-        className={`luxury-button ${selectedDate ? 'bg-emerald hover:bg-emerald/90 text-emerald-foreground' : ''}`}
+        className="luxury-button"
       >
         <Plus size={18} className="mr-2" />
-        {selectedDate ? `Track Fortune for ${selectedDate.toLocaleDateString()}` : 'Track Fortune'}
+        Track Fortune
       </Button>
     </div>
   );
