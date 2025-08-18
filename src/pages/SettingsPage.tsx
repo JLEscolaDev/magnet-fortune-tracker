@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
 import { CategoryManager } from '@/components/CategoryManager';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { PricingPage } from '@/components/billing/PricingPage';
+import { PricingModal } from '@/components/billing/PricingModal';
 import { useSettings } from '@/contexts/SettingsContext';
 
 interface SettingsPageProps {
@@ -301,11 +301,10 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
         </div>
       </div>
       
-      {showPricingDialog && (
-        <div className="fixed inset-0 z-50 bg-background">
-          <PricingPage onClose={() => setShowPricingDialog(false)} />
-        </div>
-      )}
+      <PricingModal 
+        isOpen={showPricingDialog} 
+        onClose={() => setShowPricingDialog(false)} 
+      />
     </div>
   );
 };

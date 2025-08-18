@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.validate-and-insert-fortune]
 verify_jwt = true
+
+[functions.list-pricing]
+verify_jwt = false

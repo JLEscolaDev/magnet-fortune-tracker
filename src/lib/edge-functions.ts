@@ -7,24 +7,36 @@ export interface EdgeFunctionResponse<T = any> {
 
 export const callEdge = async <T = any>(
   functionName: string,
-  body: any = {}
+  body: any = {},
+  requireAuth: boolean = true
 ): Promise<EdgeFunctionResponse<T>> => {
   try {
-    // Get current session token
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.access_token) {
-      throw new Error('No authentication token available');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (requireAuth) {
+      // Get current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No authentication token available');
+      }
+
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    } else {
+      // For optional auth, try to include token if available
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
     }
 
     const response = await fetch(
       `https://pegiensgnptpdnfopnoj.supabase.co/functions/v1/${functionName}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
+        headers,
         body: JSON.stringify(body),
       }
     );
