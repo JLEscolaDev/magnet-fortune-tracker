@@ -3,9 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Check, Crown, Sparkles, Lock, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Check, Crown, Sparkles, Lock, X, RefreshCw } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { callEdge } from '@/lib/edge-functions';
 import { toast } from 'sonner';
 
 interface PricingPageProps {
@@ -13,73 +13,67 @@ interface PricingPageProps {
 }
 
 export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
-  const { user, isActive, subscription } = useSubscription();
+  const { 
+    user, 
+    isActive, 
+    subscription, 
+    userFeatures, 
+    plansByCycle, 
+    plansLoading, 
+    earlyBirdEligible, 
+    hasActiveSub 
+  } = useSubscription();
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
-  const [userFeatures, setUserFeatures] = useState<any>(null);
   const [earlyBirdDismissed, setEarlyBirdDismissed] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      fetchUserFeatures();
+    if (userFeatures) {
+      setEarlyBirdDismissed(userFeatures?.early_bird_seen || false);
     }
-  }, [user]);
-
-  const fetchUserFeatures = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('user_features_v')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) throw error;
-      setUserFeatures(data);
-      setEarlyBirdDismissed(data?.early_bird_seen || false);
-    } catch (error) {
-      console.error('Error fetching user features:', error);
-    }
-  };
+  }, [userFeatures]);
 
   const dismissEarlyBird = async () => {
     if (!user) return;
     
     try {
-      await supabase
-        .from('profiles')
-        .update({ early_bird_seen: true })
-        .eq('user_id', user.id);
+      const { error } = await callEdge('update-profile', { 
+        updates: { early_bird_seen: true } 
+      });
       
+      if (error) throw new Error(error);
       setEarlyBirdDismissed(true);
     } catch (error) {
       console.error('Error dismissing early bird:', error);
+      toast.error('Failed to dismiss early bird offer');
     }
   };
 
-  const handleCheckout = async (plan: string) => {
+  const handleCheckout = async (priceId: string, isEarlyBird = false, tier?: string) => {
     if (!user) {
       toast.error('Please log in to subscribe');
       return;
     }
 
-    setLoading(prev => ({ ...prev, [plan]: true }));
+    const planKey = isEarlyBird ? `eb_${tier}` : priceId;
+    setLoading(prev => ({ ...prev, [planKey]: true }));
 
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-        body: { plan, returnUrl: window.location.origin + '/billing/success' }
-      });
+      const body = isEarlyBird 
+        ? { earlyBird: true, tier, returnUrl: window.location.origin + '/billing/success' }
+        : { priceId, returnUrl: window.location.origin + '/billing/success' };
 
-      if (error) throw error;
+      const { data, error } = await callEdge('create-checkout-session', body);
 
-      if (data.url) {
-        window.open(data.url, '_blank');
+      if (error) throw new Error(error);
+
+      if (data?.url) {
+        window.location.href = data.url;
       }
     } catch (error) {
       console.error('Error creating checkout session:', error);
       toast.error('Error starting checkout. Please try again.');
     } finally {
-      setLoading(prev => ({ ...prev, [plan]: false }));
+      setLoading(prev => ({ ...prev, [planKey]: false }));
     }
   };
 
@@ -87,12 +81,14 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('create-portal-session');
+      const { data, error } = await callEdge('create-portal-session', {
+        returnUrl: window.location.origin + '/settings'
+      });
 
-      if (error) throw error;
+      if (error) throw new Error(error);
 
-      if (data.url) {
-        window.open(data.url, '_blank');
+      if (data?.url) {
+        window.location.href = data.url;
       }
     } catch (error) {
       console.error('Error creating portal session:', error);
@@ -100,147 +96,76 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
     }
   };
 
-  const plans = {
-    '28d': [
-      {
-        id: 'basic_28d',
-        name: 'BASIC',
-        price: '€6.45',
-        period: 'every 28 days',
-        description: 'Essential fortune tracking',
-        features: [
-          'Daily fortune tracking',
-          'Simple charts & statistics',
-          'Achievement system',
-          'Settings & preferences'
-        ],
-        popular: false,
-        available: true
-      },
-      {
-        id: 'growth_28d',
-        name: 'GROWTH',
-        price: '€11.90',
-        period: 'every 28 days',
-        description: 'Enhanced tracking with extras',
-        features: [
-          'Everything in BASIC',
-          'Expanded charts & analytics',
-          'Photo uploads per fortune',
-          'Calendar review',
-          'Backfill previous days'
-        ],
-        popular: false,
-        available: true,
-        decoy: true
-      },
-      {
-        id: 'pro_28d',
-        name: 'PRO',
-        price: '€19.90',
-        period: 'every 28 days',
-        description: 'Advanced insights & support',
-        features: [
-          'Everything in GROWTH',
-          'Health/mood tracking',
-          'Pattern insights',
-          'Decision timing advice',
-          'Priority support'
-        ],
-        popular: false,
-        available: false,
-        locked: true
-      }
+  // Plan features mapping
+  const planFeatures = {
+    essential: [
+      'Daily fortune tracking',
+      'Simple charts & statistics', 
+      'Achievement system',
+      'Settings & preferences'
     ],
-    annual: [
-      {
-        id: 'basic_annual',
-        name: 'BASIC',
-        price: '€69',
-        period: 'per year',
-        description: 'Essential fortune tracking',
-        features: [
-          'Daily fortune tracking',
-          'Simple charts & statistics',
-          'Achievement system',
-          'Settings & preferences'
-        ],
-        popular: true,
-        available: true,
-        earlyBirdPrice: '€49',
-        earlyBirdId: 'basic_annual_eb'
-      },
-      {
-        id: 'growth_annual',
-        name: 'GROWTH',
-        price: '€119',
-        period: 'per year',
-        description: 'Enhanced tracking with extras',
-        features: [
-          'Everything in BASIC',
-          'Expanded charts & analytics',
-          'Photo uploads per fortune',
-          'Calendar review',
-          'Backfill previous days'
-        ],
-        popular: false,
-        available: true,
-        decoy: true,
-        earlyBirdPrice: '€89',
-        earlyBirdId: 'growth_annual_eb'
-      },
-      {
-        id: 'pro_annual',
-        name: 'PRO',
-        price: '€199',
-        period: 'per year',
-        description: 'Advanced insights & support',
-        features: [
-          'Everything in GROWTH',
-          'Health/mood tracking',
-          'Pattern insights',
-          'Decision timing advice',
-          'Priority support'
-        ],
-        popular: false,
-        available: false,
-        locked: true
-      }
-    ]
-  };
-
-  const lifetimePlan = {
-    id: 'lifetime_oneoff',
-    name: 'LIFETIME',
-    price: '€1,790',
-    period: 'one-time payment',
-    description: 'All content forever',
-    features: [
+    growth: [
+      'Everything in ESSENTIAL',
+      'Expanded charts & analytics',
+      'Photo uploads per fortune',
+      'Calendar review',
+      'Backfill previous days'
+    ],
+    pro: [
+      'Everything in GROWTH',
+      'Health/mood tracking',
+      'Pattern insights',
+      'Decision timing advice',
+      'Priority support'
+    ],
+    lifetime: [
       'Everything included',
       'Lifetime access',
       'All future features',
       'Priority support',
       'No recurring payments'
-    ],
-    popular: false,
-    available: true
+    ]
   };
 
-  const showEarlyBird = userFeatures?.is_trial_active && !userFeatures?.early_bird_redeemed && !earlyBirdDismissed;
+  const getPlanTier = (planName: string) => {
+    const name = planName.toLowerCase();
+    if (name.includes('essential')) return 'essential';
+    if (name.includes('growth')) return 'growth';
+    if (name.includes('pro')) return 'pro';
+    if (name.includes('lifetime')) return 'lifetime';
+    return 'essential';
+  };
+
+  const formatPlanName = (planName: string) => {
+    const tier = getPlanTier(planName);
+    return tier.toUpperCase();
+  };
+
+  const getPeriodText = (planName: string) => {
+    const name = planName.toLowerCase();
+    if (name.includes('28d')) return 'every 28 days';
+    if (name.includes('annual')) return 'per year'; 
+    if (name.includes('lifetime')) return 'one-time payment';
+    return 'per month';
+  };
+
+  const showEarlyBird = earlyBirdEligible && !earlyBirdDismissed;
 
   const renderPlanCard = (plan: any, tabType: string) => {
-    const isEarlyBird = showEarlyBird && plan.earlyBirdPrice && tabType === 'annual';
-    const currentPrice = isEarlyBird ? plan.earlyBirdPrice : plan.price;
-    const planId = isEarlyBird ? plan.earlyBirdId : plan.id;
+    const tier = getPlanTier(plan.name);
+    const isEarlyBird = showEarlyBird && tabType === 'annual' && tier !== 'lifetime';
+    const isPro = tier === 'pro';
+    const isLifetime = tier === 'lifetime';
+    const planKey = isEarlyBird ? `eb_${tier}` : plan.price_id;
 
     return (
-      <Card key={plan.id} className={`relative ${plan.popular ? 'ring-2 ring-primary' : ''} ${plan.decoy ? 'opacity-90' : ''}`}>
-        {plan.popular && (
+      <Card key={plan.id} className={`relative ${tier === 'essential' ? 'ring-2 ring-primary' : ''} ${tier === 'growth' ? 'opacity-90' : ''}`}>
+        {tier === 'essential' && (
           <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground">
             Most Popular
           </Badge>
         )}
-        {plan.decoy && (
+        {tier === 'growth' && (
           <Badge variant="outline" className="absolute -top-2 right-2 text-xs">
             Good, but not our best value
           </Badge>
@@ -248,24 +173,35 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
         {isEarlyBird && (
           <Badge className="absolute -top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white">
             <Sparkles className="w-3 h-3 mr-1" />
-            Early Bird
+            Founders Price
+          </Badge>
+        )}
+        {isLifetime && (
+          <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
+            <Crown className="w-3 h-3 mr-1" />
+            Ultimate Value
           </Badge>
         )}
         
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">{plan.name}</CardTitle>
-          <CardDescription className="text-sm">{plan.description}</CardDescription>
+          <CardTitle className="text-xl">{formatPlanName(plan.name)}</CardTitle>
+          <CardDescription className="text-sm">
+            {tier === 'essential' ? 'Essential fortune tracking' :
+             tier === 'growth' ? 'Enhanced tracking with extras' :
+             tier === 'pro' ? 'Advanced insights & support' :
+             'All content forever'}
+          </CardDescription>
           
           <div className="space-y-2">
             {isEarlyBird && (
-              <div className="text-sm text-muted-foreground line-through">
-                {plan.price}
+              <div className="text-sm text-muted-foreground">
+                <span className="text-xs">Limited-time offer</span>
               </div>
             )}
             <div className="text-3xl font-bold text-primary">
-              {currentPrice}
+              Coming from DB
               <span className="text-sm font-normal text-muted-foreground ml-1">
-                {plan.period}
+                {getPeriodText(plan.name)}
               </span>
             </div>
           </div>
@@ -273,7 +209,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
         
         <CardContent className="space-y-4">
           <ul className="space-y-2">
-            {plan.features.map((feature: string, index: number) => (
+            {planFeatures[tier as keyof typeof planFeatures]?.map((feature: string, index: number) => (
               <li key={index} className="flex items-center text-sm">
                 <Check className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
                 {feature}
@@ -281,12 +217,12 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
             ))}
           </ul>
           
-          {plan.locked ? (
+          {isPro ? (
             <Button disabled className="w-full">
               <Lock className="w-4 h-4 mr-2" />
               Coming Soon
             </Button>
-          ) : isActive ? (
+          ) : hasActiveSub ? (
             <Button 
               variant="outline" 
               className="w-full"
@@ -296,11 +232,12 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
             </Button>
           ) : (
             <Button
-              className="w-full"
-              onClick={() => handleCheckout(planId)}
-              disabled={loading[planId]}
+              className={`w-full ${isLifetime ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600' : ''}`}
+              onClick={() => handleCheckout(plan.price_id, isEarlyBird, tier)}
+              disabled={loading[planKey]}
             >
-              {loading[planId] ? 'Loading...' : 'Get Started'}
+              {loading[planKey] ? 'Loading...' : 
+               isLifetime ? 'Get Lifetime Access' : 'Get Started'}
             </Button>
           )}
         </CardContent>
@@ -308,55 +245,30 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
     );
   };
 
-  const renderLifetimeCard = () => (
-    <Card className="w-full max-w-md mx-auto relative">
-      <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
-        <Crown className="w-3 h-3 mr-1" />
-        Ultimate Value
-      </Badge>
-      
-      <CardHeader className="text-center">
-        <CardTitle className="text-xl">{lifetimePlan.name}</CardTitle>
-        <CardDescription className="text-sm">{lifetimePlan.description}</CardDescription>
-        
-        <div className="text-3xl font-bold text-primary">
-          {lifetimePlan.price}
-          <span className="text-sm font-normal text-muted-foreground ml-1">
-            {lifetimePlan.period}
-          </span>
+  if (plansLoading) {
+    return (
+      <div className="min-h-screen bg-background p-4 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading pricing plans...</p>
         </div>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        <ul className="space-y-2">
-          {lifetimePlan.features.map((feature, index) => (
-            <li key={index} className="flex items-center text-sm">
-              <Check className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
-              {feature}
-            </li>
-          ))}
-        </ul>
-        
-        {isActive ? (
-          <Button 
-            variant="outline" 
-            className="w-full"
-            onClick={handleManageBilling}
-          >
-            Manage Billing
+      </div>
+    );
+  }
+
+  if (plansByCycle['28d'].length === 0 && plansByCycle.annual.length === 0) {
+    return (
+      <div className="min-h-screen bg-background p-4 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-muted-foreground">No pricing plans available</p>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Retry
           </Button>
-        ) : (
-          <Button
-            className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
-            onClick={() => handleCheckout(lifetimePlan.id)}
-            disabled={loading[lifetimePlan.id]}
-          >
-            {loading[lifetimePlan.id] ? 'Loading...' : 'Get Lifetime Access'}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -405,24 +317,32 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
 
           <TabsContent value="28d" className="space-y-8">
             <div className="grid md:grid-cols-3 gap-6">
-              {plans['28d'].map(plan => renderPlanCard(plan, '28d'))}
+              {plansByCycle['28d'].map(plan => renderPlanCard(plan, '28d'))}
             </div>
             
-            <div className="text-center">
-              <h3 className="text-2xl font-bold mb-6">Or Go Lifetime</h3>
-              {renderLifetimeCard()}
-            </div>
+            {plansByCycle.lifetime && (
+              <div className="text-center">
+                <h3 className="text-2xl font-bold mb-6">Or Go Lifetime</h3>
+                <div className="w-full max-w-md mx-auto">
+                  {renderPlanCard(plansByCycle.lifetime, 'lifetime')}
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="annual" className="space-y-8">
             <div className="grid md:grid-cols-3 gap-6">
-              {plans.annual.map(plan => renderPlanCard(plan, 'annual'))}
+              {plansByCycle.annual.map(plan => renderPlanCard(plan, 'annual'))}
             </div>
             
-            <div className="text-center">
-              <h3 className="text-2xl font-bold mb-6">Or Go Lifetime</h3>
-              {renderLifetimeCard()}
-            </div>
+            {plansByCycle.lifetime && (
+              <div className="text-center">
+                <h3 className="text-2xl font-bold mb-6">Or Go Lifetime</h3>
+                <div className="w-full max-w-md mx-auto">
+                  {renderPlanCard(plansByCycle.lifetime, 'lifetime')}
+                </div>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 

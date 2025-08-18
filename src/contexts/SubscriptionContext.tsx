@@ -3,6 +3,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { getActiveSubscription, ActiveSubscription } from '@/integrations/supabase/subscriptions';
 import { Session, User } from '@supabase/supabase-js';
 
+interface Plan {
+  id: string;
+  name: string;
+  price_id: string;
+  level: number;
+  created_at: string | null;
+}
+
+interface PlansByCycle {
+  '28d': Plan[];
+  annual: Plan[];
+  lifetime?: Plan;
+}
+
 interface SubscriptionContextType {
   loading: boolean;
   isActive: boolean;
@@ -15,6 +29,9 @@ interface SubscriptionContextType {
   userFeatures: any | null;
   isTrialActive: boolean;
   earlyBirdEligible: boolean;
+  plansByCycle: PlansByCycle;
+  plansLoading: boolean;
+  hasActiveSub: boolean;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -31,6 +48,8 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const [authLoading, setAuthLoading] = useState(true);
   const [sessionInitialized, setSessionInitialized] = useState(false);
   const [userFeatures, setUserFeatures] = useState<any>(null);
+  const [plansByCycle, setPlansByCycle] = useState<PlansByCycle>({ '28d': [], annual: [] });
+  const [plansLoading, setPlansLoading] = useState(true);
 
   const fetchSubscription = async () => {
     try {
@@ -56,6 +75,37 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     }
   };
 
+  const fetchPlans = async () => {
+    try {
+      setPlansLoading(true);
+      const { data: plans, error } = await supabase
+        .from('plans')
+        .select('*')
+        .order('level', { ascending: true });
+
+      if (error) throw error;
+
+      // Group plans by cycle type
+      const plansByCycle: PlansByCycle = { '28d': [], annual: [] };
+      
+      plans?.forEach(plan => {
+        if (plan.name.toLowerCase().includes('28d')) {
+          plansByCycle['28d'].push(plan);
+        } else if (plan.name.toLowerCase().includes('annual')) {
+          plansByCycle.annual.push(plan);
+        } else if (plan.name.toLowerCase().includes('lifetime')) {
+          plansByCycle.lifetime = plan;
+        }
+      });
+
+      setPlansByCycle(plansByCycle);
+    } catch (error) {
+      console.error('Error fetching plans:', error);
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
   useEffect(() => {
     const getInitialSession = async () => {
       setAuthLoading(true);
@@ -76,6 +126,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
       if (event === 'SIGNED_OUT') {
         setSubscription(null); // clear on logout
+        setUserFeatures(null);
       }
     });
 
@@ -84,6 +135,11 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     return () => {
       listener.subscription.unsubscribe();
     };
+  }, []);
+
+  // Fetch plans on mount
+  useEffect(() => {
+    fetchPlans();
   }, []);
 
   // Manual refresh check every 5 minutes for subscription updates
@@ -130,6 +186,9 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     userFeatures,
     isTrialActive: userFeatures?.is_trial_active || false,
     earlyBirdEligible: userFeatures?.is_trial_active && !userFeatures?.early_bird_redeemed,
+    plansByCycle,
+    plansLoading,
+    hasActiveSub: userFeatures?.has_full_access || false,
   };
 
   return (

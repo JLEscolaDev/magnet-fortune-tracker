@@ -39,9 +39,9 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const { plan, returnUrl } = await req.json();
-    if (!plan) throw new Error("Plan is required");
-    logStep("Request payload", { plan, returnUrl });
+    const { plan, priceId, earlyBird, tier, returnUrl } = await req.json();
+    if (!plan && !priceId && !earlyBird) throw new Error("Plan, priceId, or earlyBird is required");
+    logStep("Request payload", { plan, priceId, earlyBird, tier, returnUrl });
 
     // Get user profile and trial status
     const { data: userFeatures, error: featuresError } = await supabaseService
@@ -73,32 +73,54 @@ serve(async (req) => {
       }
     }
 
-    // Plan to price mapping
-    const priceMap: { [key: string]: string } = {
-      'basic_28d': Deno.env.get("PRICE_BASIC_28D") || "",
-      'basic_annual': Deno.env.get("PRICE_BASIC_ANNUAL") || "",
-      'growth_28d': Deno.env.get("PRICE_GROWTH_28D") || "",
-      'growth_annual': Deno.env.get("PRICE_GROWTH_ANNUAL") || "",
-      'lifetime_oneoff': Deno.env.get("PRICE_LIFETIME_ONEOFF") || "",
-      'basic_annual_eb': Deno.env.get("PRICE_BASIC_ANNUAL_EB") || "",
-      'growth_annual_eb': Deno.env.get("PRICE_GROWTH_ANNUAL_EB") || "",
-    };
-
-    const priceId = priceMap[plan];
-    if (!priceId) throw new Error(`Invalid plan: ${plan}`);
+    // Determine price ID
+    let finalPriceId: string;
+    
+    if (earlyBird && tier) {
+      // Early bird pricing
+      const earlyBirdPriceMap: { [key: string]: string } = {
+        'essential': Deno.env.get("PRICE_ESSENTIAL_ANNUAL_EB") || "",
+        'growth': Deno.env.get("PRICE_GROWTH_ANNUAL_EB") || "",
+        'pro': Deno.env.get("PRICE_PRO_ANNUAL_EB") || "",
+      };
+      finalPriceId = earlyBirdPriceMap[tier];
+      if (!finalPriceId) throw new Error(`Invalid early bird tier: ${tier}`);
+    } else if (priceId) {
+      // Direct price ID
+      finalPriceId = priceId;
+    } else if (plan) {
+      // Legacy plan mapping
+      const priceMap: { [key: string]: string } = {
+        'basic_28d': Deno.env.get("PRICE_ESSENTIAL_28D") || "",
+        'basic_annual': Deno.env.get("PRICE_ESSENTIAL_ANNUAL") || "",
+        'growth_28d': Deno.env.get("PRICE_GROWTH_28D") || "",
+        'growth_annual': Deno.env.get("PRICE_GROWTH_ANNUAL") || "",
+        'lifetime_oneoff': Deno.env.get("PRICE_LIFETIME_ONEOFF") || "",
+        'basic_annual_eb': Deno.env.get("PRICE_ESSENTIAL_ANNUAL_EB") || "",
+        'growth_annual_eb': Deno.env.get("PRICE_GROWTH_ANNUAL_EB") || "",
+      };
+      finalPriceId = priceMap[plan];
+      if (!finalPriceId) throw new Error(`Invalid plan: ${plan}`);
+    } else {
+      throw new Error("No valid price identifier provided");
+    }
 
     // Check early bird eligibility
-    const isEarlyBird = plan.includes('_eb');
-    if (isEarlyBird) {
+    if (earlyBird) {
       if (!userFeatures.is_trial_active || userFeatures.early_bird_redeemed) {
         throw new Error("Early bird offer not available");
       }
     }
 
-    // Determine tier from plan
-    let tier = 'basic';
-    if (plan.includes('growth')) tier = 'growth';
-    else if (plan.includes('lifetime')) tier = 'lifetime';
+    // Determine tier
+    let finalTier = tier;
+    if (!finalTier && plan) {
+      if (plan.includes('growth')) finalTier = 'growth';
+      else if (plan.includes('lifetime')) finalTier = 'lifetime';
+      else finalTier = 'essential';
+    } else if (!finalTier) {
+      finalTier = 'essential';
+    }
 
     const origin = req.headers.get("origin") || "http://localhost:3000";
     const successUrl = returnUrl || `${origin}/billing/success`;
@@ -113,33 +135,35 @@ serve(async (req) => {
       cancel_url: cancelUrl,
       metadata: {
         user_id: user.id,
-        tier: tier,
-        plan: plan,
+        tier: finalTier,
+        plan: plan || `${finalTier}_${earlyBird ? 'annual_eb' : 'direct'}`,
       },
     };
 
-    if (plan === 'lifetime_oneoff') {
+    if (finalTier === 'lifetime') {
       // One-time payment
       sessionConfig.mode = 'payment';
       sessionConfig.line_items = [{
-        price: priceId,
+        price: finalPriceId,
         quantity: 1,
       }];
     } else {
       // Subscription
       sessionConfig.mode = 'subscription';
       sessionConfig.line_items = [{
-        price: priceId,
+        price: finalPriceId,
         quantity: 1,
       }];
 
-      // Add promotion code for early bird if using that method
-      const promoCode = isEarlyBird ? 
-        (plan.includes('basic') ? Deno.env.get("PROMO_EARLY_BIRD_BASIC_ANNUAL_CODE") : Deno.env.get("PROMO_EARLY_BIRD_GROWTH_ANNUAL_CODE"))
-        : null;
-      
-      if (promoCode && isEarlyBird) {
-        sessionConfig.discounts = [{ promotion_code: promoCode }];
+      // Add promotion code for early bird if using that method and available
+      if (earlyBird) {
+        const promoCode = finalTier === 'essential' ? 
+          Deno.env.get("PROMO_EARLY_BIRD_ESSENTIAL_ANNUAL_CODE") : 
+          Deno.env.get("PROMO_EARLY_BIRD_GROWTH_ANNUAL_CODE");
+        
+        if (promoCode) {
+          sessionConfig.discounts = [{ promotion_code: promoCode }];
+        }
       }
     }
 
