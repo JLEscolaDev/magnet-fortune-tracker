@@ -91,6 +91,14 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
   const freePlanStatus = useFreePlanLimits();
   const { activeSubscription, fortunesCountToday, addError } = useAppState();
 
+  // Debug logging
+  console.log('[ADD_FORTUNE_MODAL] Debug info:', {
+    freePlanStatus,
+    activeSubscription,
+    fortunesCountToday,
+    isLoading
+  });
+
   // Load custom categories on mount
   useEffect(() => {
     loadCategories();

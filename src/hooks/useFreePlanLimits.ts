@@ -113,7 +113,7 @@ export const useFreePlanLimits = (): FreePlanStatus => {
           }
         }
 
-        setStatus({
+        const newStatus = {
           isWithinTrialPeriod,
           totalFortunes: totalFortunes || 0,
           daysSinceSignup,
@@ -124,7 +124,23 @@ export const useFreePlanLimits = (): FreePlanStatus => {
           restrictionReason,
           restrictionMessage,
           loading: false,
+        };
+
+        console.log('[FREE_PLAN_LIMITS] Debug info:', {
+          signupDate,
+          daysSinceSignup,
+          isWithinTrialPeriod,
+          totalFortunes,
+          dailyFortunesAdded,
+          hasFullAccess,
+          canAddFortune,
+          restrictionReason,
+          restrictionMessage,
+          isActive,
+          SUBSCRIPTION_LIMITS
         });
+
+        setStatus(newStatus);
 
       } catch (error) {
         console.error('Error checking free plan limits:', error);
