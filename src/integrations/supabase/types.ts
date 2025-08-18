@@ -92,6 +92,30 @@ export type Database = {
         }
         Relationships: []
       }
+      plans: {
+        Row: {
+          created_at: string | null
+          id: string
+          level: number
+          name: string
+          price_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          level: number
+          name: string
+          price_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          level?: number
+          name?: string
+          price_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
