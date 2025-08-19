@@ -35,6 +35,7 @@ interface SubscriptionContextType {
   plansByCycle: PlansByCycle;
   plansLoading: boolean;
   hasActiveSub: boolean;
+  allPlans: Plan[];
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -53,6 +54,8 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const [userFeatures, setUserFeatures] = useState<any>(null);
   const [plansByCycle, setPlansByCycle] = useState<PlansByCycle>({ '28d': [], annual: [] });
   const [plansLoading, setPlansLoading] = useState(true);
+  const [allPlans, setAllPlans] = useState<Plan[]>([]);
+  const [earlyBirdEligible, setEarlyBirdEligible] = useState(false);
 
   const fetchSubscription = async () => {
     try {
@@ -60,7 +63,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
       const activeSubscription = await getActiveSubscription(supabase);
       setSubscription(activeSubscription);
       
-      // Also fetch user features if user is available
+      // Also fetch user features and profile info if user is available
       if (user) {
         const { data: features } = await supabase
           .from('user_features_v')
@@ -69,6 +72,26 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
           .single();
         
         setUserFeatures(features);
+
+        // Fetch profile data for Early Bird eligibility
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('created_at, trial_ends_at, early_bird_redeemed')
+          .eq('user_id', user.id)
+          .single();
+
+        if (profile) {
+          // Compute Early Bird eligibility
+          const now = new Date();
+          const trialEnd = profile.trial_ends_at ? new Date(profile.trial_ends_at) : null;
+          const createdAt = profile.created_at ? new Date(profile.created_at) : null;
+          const fallbackEnd = createdAt ? new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000) : null;
+          
+          const eligibleUntil = trialEnd || fallbackEnd;
+          const isEligible = eligibleUntil && now < eligibleUntil && !profile.early_bird_redeemed;
+          
+          setEarlyBirdEligible(!!isEligible);
+        }
       }
     } catch (error) {
       console.error('Error fetching subscription:', error);
@@ -108,6 +131,12 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
       });
 
       setPlansByCycle(plansByCycle);
+      setAllPlans(plans?.map((plan: any) => ({ 
+        ...plan, 
+        tier: plan.tier || getTierFromName(plan.name),
+        billing_period: plan.billing_period as '28d' | 'annual' | 'lifetime',
+        is_early_bird: plan.is_early_bird || false
+      })) || []);
     } catch (error) {
       console.error('Error fetching plans:', error);
     } finally {
@@ -202,10 +231,11 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     sessionInitialized,
     userFeatures,
     isTrialActive: userFeatures?.is_trial_active || false,
-    earlyBirdEligible: userFeatures?.early_bird_eligible || false,
+    earlyBirdEligible,
     plansByCycle,
     plansLoading,
     hasActiveSub: userFeatures?.has_full_access || false,
+    allPlans,
   };
 
   return (

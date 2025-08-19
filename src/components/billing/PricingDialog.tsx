@@ -35,7 +35,7 @@ interface PricingDialogProps {
 }
 
 export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose }) => {
-  const { user, hasActiveSub, plansByCycle, plansLoading, isTrialActive, earlyBirdEligible } = useSubscription();
+  const { user, hasActiveSub, plansByCycle, plansLoading, isTrialActive, earlyBirdEligible, allPlans } = useSubscription();
   
   const [plans, setPlans] = useState<PlanWithPrice[]>([]);
   const [loading, setLoading] = useState(false);
@@ -162,7 +162,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     }
   };
 
-  const formatPrice = (plan: PlanWithPrice) => {
+  const formatPrice = (plan: PlanWithPrice, includeUnit = true) => {
     if (!plan.priceData) return 'Loading...';
     
     const amount = (plan.priceData.unit_amount / 100).toFixed(2);
@@ -170,8 +170,20 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     
     if (plan.billing_period === 'lifetime') return `${symbol}${amount} one-time`;
     if (plan.billing_period === '28d') return `${symbol}${amount}`;
-    if (plan.billing_period === 'annual') return `${symbol}${amount} / year`;
+    if (plan.billing_period === 'annual') {
+      return includeUnit ? `${symbol}${amount} / year` : `${symbol}${amount}`;
+    }
     return `${symbol}${amount}`;
+  };
+
+  const getOriginalPrice = (ebPlan: PlanWithPrice) => {
+    // Find the normal annual plan of the same tier
+    const originalPlan = plans.find(p => 
+      p.billing_period === 'annual' && 
+      p.tier === ebPlan.tier && 
+      !p.is_early_bird
+    );
+    return originalPlan ? formatPrice(originalPlan, false) : null;
   };
 
   // Filter and organize plans for display
@@ -266,16 +278,30 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
              'All content forever'}
           </CardDescription>
           
-          <div className="space-y-2">
-            {plan.is_early_bird && (
-              <div className="text-sm text-muted-foreground">
-                <span className="text-xs">Limited-time offer</span>
-              </div>
-            )}
-            <div className="text-3xl font-bold text-primary">
-              {formatPrice(plan)}
+            <div className="space-y-2">
+              {plan.is_early_bird && earlyBirdEligible && tabType === 'annual' ? (
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">
+                    <span className="text-xs">Limited-time offer</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    {getOriginalPrice(plan) && (
+                      <span className="text-lg text-red-500 line-through">
+                        {getOriginalPrice(plan)}
+                      </span>
+                    )}
+                    <span className="text-3xl font-bold text-green-600">
+                      {formatPrice(plan, false)}
+                    </span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">/ year</div>
+                </div>
+              ) : (
+                <div className="text-3xl font-bold text-primary">
+                  {formatPrice(plan)}
+                </div>
+              )}
             </div>
-          </div>
         </CardHeader>
         
         <CardContent className="space-y-4">
