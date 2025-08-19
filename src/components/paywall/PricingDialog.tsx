@@ -12,7 +12,19 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Check, Crown, Sparkles, TrendingUp, Shield, Zap } from 'lucide-react';
-import { SUBSCRIPTION_LIMITS, PLAN_PRICES } from '@/config/limits';
+import { SUBSCRIPTION_LIMITS } from '@/config/limits';
+
+// ---- Local helpers for typing dynamic plan objects coming from context ----
+type PriceData = { unit_amount: number | null; currency: string };
+// NOTE: `SubscriptionContext` enriches plans at runtime with `priceData`,
+// but the exported `Plan` type doesn't declare it. We type it locally here
+// to keep this component strict without changing global types.
+interface PlanWithPrice {
+  tier?: string;
+  is_early_bird?: boolean;
+  price_id?: string;
+  priceData?: PriceData | null;
+}
 
 interface PricingDialogProps {
   open: boolean;
@@ -20,13 +32,38 @@ interface PricingDialogProps {
 }
 
 export const PricingDialog: React.FC<PricingDialogProps> = ({ open, onOpenChange }) => {
-  const { isActive, loading } = useSubscription();
+  const { isActive, loading, earlyBirdEligible, plansByCycle, plansLoading } = useSubscription();
 
-  const handleCheckout = (plan: string) => {
-    console.log(`Continue to checkout for plan: ${plan}`);
-    // TODO: Integrate with Stripe checkout
+  // Helper to format cents to currency text (EUR default)
+  const formatAmount = (amount?: number, currency: string = 'eur') => {
+    if (amount == null) return null;
+    const fmt = new Intl.NumberFormat('en', { style: 'currency', currency: currency.toUpperCase() });
+    return fmt.format(amount / 100);
   };
 
+  // Pull Pro pricing from Supabase plans (annual + early-bird + monthly)
+  const proMonthly = plansByCycle?.['28d']?.find(
+    (p: any) => p.tier?.toLowerCase?.() === 'pro' && !p.is_early_bird
+  ) as PlanWithPrice | undefined;
+  const proAnnual = plansByCycle?.annual?.find(
+    (p: any) => p.tier?.toLowerCase?.() === 'pro' && !p.is_early_bird
+  ) as PlanWithPrice | undefined;
+  const proAnnualEB = plansByCycle?.annual?.find(
+    (p: any) => p.tier?.toLowerCase?.() === 'pro' && p.is_early_bird
+  ) as PlanWithPrice | undefined;
+
+  // Safe formatter that understands our optional priceData
+  const priceText = (plan?: PlanWithPrice | null, period?: 'annual' | '28d') => {
+    if (!plan?.priceData || plan.priceData.unit_amount == null) return null;
+    const txt = formatAmount(plan.priceData.unit_amount, plan.priceData.currency);
+    return period === 'annual' ? `${txt} / year` : txt;
+  };
+
+  const monthlyText = priceText(proMonthly);
+  const annualText = priceText(proAnnual, 'annual');
+  const annualEBText = priceText(proAnnualEB, 'annual');
+
+  // Build cards (keep Free + dynamic Pro)
   const plans = [
     {
       id: 'free',
@@ -52,10 +89,10 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ open, onOpenChange
       buttonVariant: 'outline' as const,
     },
     {
-      id: 'pro',
+      id: proAnnualEB?.price_id || proAnnual?.price_id || 'pro',
       name: 'Pro',
-      price: '€9.99',
-      period: 'per month',
+      price: earlyBirdEligible && annualEBText ? annualEBText : (annualText || monthlyText || '—'),
+      period: earlyBirdEligible && annualEBText ? 'per year' : (annualText ? 'per year' : 'per month'),
       description: 'Unlock your full potential',
       current: isActive,
       popular: true,
@@ -71,11 +108,19 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ open, onOpenChange
         'Data backup & sync',
       ],
       buttonText: isActive ? 'Current Plan' : 'Continue to Checkout',
-      buttonDisabled: isActive,
-      buttonVariant: isActive ? 'outline' as const : 'default' as const,
+      buttonDisabled: isActive || plansLoading,
+      buttonVariant: isActive ? ('outline' as const) : ('default' as const),
       icon: Crown,
+      // Extra fields for rendering EB strike-through
+      _originalAnnualText: earlyBirdEligible && annualEBText && annualText ? annualText : null,
+      _isEarlyBird: !!(earlyBirdEligible && proAnnualEB),
     },
   ];
+
+  const handleCheckout = (plan: string) => {
+    console.log(`Continue to checkout for plan: ${plan}`);
+    // TODO: Integrate with Stripe checkout
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -124,11 +169,30 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ open, onOpenChange
                         Current
                       </Badge>
                     )}
+                    {plan._isEarlyBird && (
+                      <Badge className="ml-2 bg-amber-500 text-amber-50">Founders Price</Badge>
+                    )}
                   </div>
                   
                   <div className="mb-2">
-                    <span className="text-3xl font-bold">{plan.price}</span>
-                    <span className="text-muted-foreground ml-1">/{plan.period}</span>
+                    {plan._isEarlyBird && plan._originalAnnualText ? (
+                      <div className="flex items-baseline justify-center gap-2">
+                        <span className="text-muted-foreground line-through decoration-2 decoration-red-500">
+                          {plan._originalAnnualText}
+                        </span>
+                        <span className="text-emerald-500 text-3xl font-bold">
+                          {plan.price.toString().replace(' / year','')}
+                        </span>
+                        <span className="text-muted-foreground">/year</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-3xl font-bold">{plan.price}</span>
+                        {plan.period && (
+                          <span className="text-muted-foreground ml-1">/{plan.period}</span>
+                        )}
+                      </>
+                    )}
                   </div>
                   
                   <p className="text-sm text-muted-foreground">{plan.description}</p>

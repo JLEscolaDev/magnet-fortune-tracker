@@ -168,6 +168,18 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     };
   }, []);
 
+  // When user changes, (re)fetch subscription & user features
+  useEffect(() => {
+    if (user) {
+      // ensures we have earlyBirdEligible/isTrialActive as soon as the session is ready
+      fetchSubscription();
+    } else {
+      // clear feature flags on logout / no session
+      setUserFeatures(null);
+      setEarlyBirdEligible(false);
+    }
+  }, [user]);
+
   // Fetch plans on mount
   useEffect(() => {
     fetchPlans();
