@@ -37,22 +37,6 @@ interface PricingDialogProps {
 export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose }) => {
   const { user, hasActiveSub, plansByCycle, plansLoading, isTrialActive, earlyBirdEligible } = useSubscription();
   
-  // Debug log the subscription context values
-  useEffect(() => {
-    if (isOpen) {
-      console.log('[PRICING] Dialog opened with context values:', {
-        isTrialActive,
-        earlyBirdEligible,
-        hasActiveSub,
-        user: user?.email,
-        plansByCycle: {
-          '28d': Array.isArray(plansByCycle['28d']) ? plansByCycle['28d'].length : 0,
-          'annual': Array.isArray(plansByCycle.annual) ? plansByCycle.annual.length : 0,
-          'lifetime': plansByCycle.lifetime ? 1 : 0
-        }
-      });
-    }
-  }, [isOpen, isTrialActive, earlyBirdEligible, hasActiveSub, user, plansByCycle]);
   const [plans, setPlans] = useState<PlanWithPrice[]>([]);
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<{ [key: string]: boolean }>({});
@@ -192,35 +176,23 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
 
   // Filter and organize plans for display
   const getPlansForTab = (tab: '28d' | 'annual') => {
-    console.log('[PRICING] getPlansForTab called', { tab, earlyBirdEligible, totalPlans: plans.length });
-    const filteredPlans = plans.filter(p => p.billing_period === tab);
-    console.log('[PRICING] Filtered plans for tab', { tab, count: filteredPlans.length, plans: filteredPlans.map(p => ({ name: p.name, tier: p.tier, is_early_bird: p.is_early_bird })) });
-    
+    const candidates = plans.filter(p => p.billing_period === tab);
+
     if (tab === 'annual' && earlyBirdEligible) {
-      console.log('[PRICING] Processing early bird for annual tab');
-      // Replace normal annual plans with early bird variants if available
-      const processedPlans = filteredPlans.map(plan => {
-        if (!plan.is_early_bird) {
-          const ebVariant = plans.find(p => 
-            p.billing_period === 'annual' && 
-            p.is_early_bird && 
-            p.tier === plan.tier
-          );
-          console.log('[PRICING] Looking for EB variant', { originalPlan: plan.name, tier: plan.tier, foundEBVariant: ebVariant?.name });
-          return ebVariant || plan;
-        }
-        return plan;
-      }).filter((plan, index, self) => 
-        // Remove duplicates (keep early bird over normal)
-        index === self.findIndex(p => p.tier === plan.tier)
-      );
-      console.log('[PRICING] Final processed plans for annual tab', { plans: processedPlans.map(p => ({ name: p.name, tier: p.tier, is_early_bird: p.is_early_bird })) });
-      return processedPlans;
+      // For each tier, prefer the EB variant if it exists
+      const byTier = new Map<string, any>();
+      for (const p of candidates) {
+        const key = p.tier.toLowerCase();
+        const existing = byTier.get(key);
+        // prefer early-bird when eligible
+        if (!existing) byTier.set(key, p);
+        else if (!existing.is_early_bird && p.is_early_bird) byTier.set(key, p);
+      }
+      return Array.from(byTier.values());
     }
-    
-    const finalPlans = filteredPlans.filter(p => !p.is_early_bird);
-    console.log('[PRICING] Final plans for tab (no EB)', { tab, plans: finalPlans.map(p => ({ name: p.name, tier: p.tier, is_early_bird: p.is_early_bird })) });
-    return finalPlans;
+
+    // Monthly (28d): never show EB variants
+    return candidates.filter(p => !p.is_early_bird);
   };
 
   const lifetimePlan = plans.find(p => p.billing_period === 'lifetime');
@@ -272,7 +244,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
             Most Popular
           </Badge>
         )}
-        {plan.is_early_bird && (
+        {plan.is_early_bird && earlyBirdEligible && (
           <Badge className="absolute -top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white">
             <Sparkles className="w-3 h-3 mr-1" />
             Founders Price
@@ -363,7 +335,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
 
         <div className="p-6 space-y-8">
           {/* Early Bird Banner */}
-          {earlyBirdEligible && (
+          {earlyBirdEligible && activeTab === 'annual' && (
             <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
               <CardContent className="p-6">
                 <div className="flex items-center space-x-3">
@@ -448,17 +420,6 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
             </Tabs>
           )}
 
-          {/* Debug panel for development */}
-          {process.env.NODE_ENV === 'development' && plans.length > 0 && (
-            <details className="mt-8">
-              <summary className="cursor-pointer text-sm text-muted-foreground">
-                Debug: Show plan JSON
-              </summary>
-              <pre className="mt-2 text-xs bg-muted p-4 rounded overflow-auto">
-                {JSON.stringify({ plans, earlyBirdEligible, isTrialActive }, null, 2)}
-              </pre>
-            </details>
-          )}
         </div>
       </div>
     </div>

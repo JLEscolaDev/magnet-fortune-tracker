@@ -6,9 +6,10 @@ import { Session, User } from '@supabase/supabase-js';
 interface Plan {
   id: string;
   name: string;
+  tier: string;
   price_id: string;
   level: number;
-  billing_period: string;
+  billing_period: '28d' | 'annual' | 'lifetime';
   is_early_bird: boolean;
   created_at: string | null;
 }
@@ -91,12 +92,18 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
       const plansByCycle: PlansByCycle = { '28d': [], annual: [] };
       
       plans?.forEach((plan: any) => {
+        // Add tier field based on name if not present
+        const planWithTier = {
+          ...plan,
+          tier: plan.tier || getTierFromName(plan.name)
+        };
+        
         if (plan.billing_period === '28d') {
-          plansByCycle['28d'].push(plan);
+          plansByCycle['28d'].push(planWithTier);
         } else if (plan.billing_period === 'annual') {
-          plansByCycle.annual.push(plan);
+          plansByCycle.annual.push(planWithTier);
         } else if (plan.billing_period === 'lifetime') {
-          plansByCycle.lifetime = plan;
+          plansByCycle.lifetime = planWithTier;
         }
       });
 
@@ -106,6 +113,14 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     } finally {
       setPlansLoading(false);
     }
+  };
+
+  const getTierFromName = (name: string): string => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('essential')) return 'essential';
+    if (lowerName.includes('growth')) return 'growth';
+    if (lowerName.includes('pro')) return 'pro';
+    return 'unknown';
   };
 
   useEffect(() => {
@@ -187,7 +202,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     sessionInitialized,
     userFeatures,
     isTrialActive: userFeatures?.is_trial_active || false,
-    earlyBirdEligible: userFeatures?.is_trial_active && !userFeatures?.early_bird_redeemed,
+    earlyBirdEligible: userFeatures?.early_bird_eligible || false,
     plansByCycle,
     plansLoading,
     hasActiveSub: userFeatures?.has_full_access || false,
