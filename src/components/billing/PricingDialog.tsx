@@ -1,198 +1,438 @@
-import React, { useState } from 'react';
-import { useSubscription } from '@/contexts/SubscriptionContext';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { Check, Crown, Sparkles, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { redirectToCheckout } from '@/lib/stripe';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Check, Crown, Sparkles, Lock, X, RefreshCw } from 'lucide-react';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { callEdge } from '@/lib/edge-functions';
+import { toast } from 'sonner';
 
-interface PricingDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+interface PriceData {
+  price_id: string;
+  unit_amount: number;
+  currency: string;
+  type: string;
+  interval: string | null;
+  interval_count: number | null;
+  product_name: string;
 }
 
-export const PricingDialog: React.FC<PricingDialogProps> = ({ open, onOpenChange }) => {
-  const { isActive, loading: subscriptionLoading } = useSubscription();
-  const [loading, setLoading] = useState<string | null>(null);
-  const { toast } = useToast();
+interface PlanWithPrice {
+  id: string;
+  name: string;
+  price_id: string;
+  level: number;
+  billing_period: string;
+  is_early_bird: boolean;
+  tier: string;
+  priceData?: PriceData;
+}
 
-  const plans = [
-    {
-      id: 'monthly',
-      name: 'Pro Monthly',
-      price: '€9.99',
-      period: 'per month',
-      priceId: import.meta.env.VITE_STRIPE_PRICE_PRO_MONTHLY,
-      popular: true,
-      savings: null,
-    },
-    {
-      id: 'yearly',
-      name: 'Pro Yearly',
-      price: '€99.99',
-      period: 'per year',
-      priceId: import.meta.env.VITE_STRIPE_PRICE_PRO_YEARLY,
-      popular: false,
-      savings: 'Save 17%',
-    },
-  ];
+interface PricingDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
 
-  const features = [
-    'Unlimited daily fortunes',
-    'Up to 20 custom categories',
-    'Advanced statistics & insights',
-    'Export data (CSV, PDF)',
-    'Priority support',
-    'Advanced calendar features',
-    'Goal tracking & achievements',
-    'Data backup & sync',
-  ];
+export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose }) => {
+  const { user, hasActiveSub, plansByCycle, plansLoading, isTrialActive, earlyBirdEligible } = useSubscription();
+  const [plans, setPlans] = useState<PlanWithPrice[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState<{ [key: string]: boolean }>({});
+  const [error, setError] = useState<string | null>(null);
 
-  const handleCheckout = async (priceId: string, planName: string) => {
-    if (!priceId) {
-      toast({
-        title: 'Configuration Error',
-        description: 'Price ID not configured. Please contact support.',
-        variant: 'destructive',
-      });
-      return;
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
     }
+  }, [isOpen]);
 
+  // Process plans and fetch pricing when modal opens
+  useEffect(() => {
+    if (isOpen && !plansLoading) {
+      loadPricingData();
+    }
+  }, [isOpen, plansLoading, plansByCycle]);
+
+  const loadPricingData = async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(priceId);
+      // Combine all plans from plansByCycle
+      const allPlans: PlanWithPrice[] = [
+        ...plansByCycle['28d'].map(p => ({ ...p, tier: getTierFromName(p.name) })),
+        ...plansByCycle.annual.map(p => ({ ...p, tier: getTierFromName(p.name) })),
+        ...(plansByCycle.lifetime ? [{ ...plansByCycle.lifetime, tier: 'lifetime' }] : [])
+      ];
 
-      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-        body: {
-          priceId,
-          successUrl: `${window.location.origin}/billing/success`,
-          cancelUrl: `${window.location.origin}/billing/cancel`,
-        },
+      // Get unique price IDs
+      const priceIds = [...new Set(allPlans.map(p => p.price_id))];
+
+      // Fetch price data from Stripe
+      const { data: priceData, error } = await callEdge('get-prices', { price_ids: priceIds }, false);
+      
+      if (error) throw new Error(error);
+
+      // Map price data to plans
+      const plansWithPrices = allPlans.map(plan => {
+        const priceInfo = priceData?.find((p: PriceData) => p.price_id === plan.price_id);
+        return {
+          ...plan,
+          priceData: priceInfo
+        };
       });
 
-      if (error) throw error;
-
-      if (!data?.sessionId) {
-        throw new Error('No session ID returned from server');
-      }
-
-      await redirectToCheckout(data.sessionId);
+      setPlans(plansWithPrices);
     } catch (error) {
-      console.error('Checkout error:', error);
-      toast({
-        title: 'Checkout Error',
-        description: error instanceof Error ? error.message : 'Failed to start checkout process',
-        variant: 'destructive',
-      });
+      console.error('Error loading pricing data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load pricing');
     } finally {
-      setLoading(null);
+      setLoading(false);
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-center">
-            Choose Your Plan
-          </DialogTitle>
-          <DialogDescription className="text-center text-muted-foreground">
-            Upgrade to Pro and unlock unlimited fortunes and advanced features
-          </DialogDescription>
-        </DialogHeader>
+  const getTierFromName = (name: string): string => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('essential')) return 'essential';
+    if (lowerName.includes('growth')) return 'growth';
+    if (lowerName.includes('pro')) return 'pro';
+    return 'unknown';
+  };
 
-        <div className="grid md:grid-cols-2 gap-6 mt-6">
-          {plans.map((plan) => (
-            <Card 
-              key={plan.id} 
-              className={`relative transition-all duration-200 ${
-                plan.popular 
-                  ? 'border-primary shadow-lg scale-105' 
-                  : 'border-border hover:border-muted-foreground/30'
-              }`}
+  const handleCheckout = async (plan: PlanWithPrice) => {
+    if (!user) {
+      toast.error('Please log in to subscribe');
+      return;
+    }
+
+    const planKey = plan.price_id;
+    setCheckoutLoading(prev => ({ ...prev, [planKey]: true }));
+
+    try {
+      const body = plan.is_early_bird 
+        ? { 
+            priceId: plan.price_id,
+            earlyBird: true, 
+            tier: plan.tier, 
+            returnUrl: window.location.origin + '/billing/success' 
+          }
+        : { 
+            priceId: plan.price_id, 
+            returnUrl: window.location.origin + '/billing/success' 
+          };
+
+      const { data, error } = await callEdge('create-checkout-session', body);
+
+      if (error) throw new Error(error);
+
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      toast.error('Error starting checkout. Please try again.');
+    } finally {
+      setCheckoutLoading(prev => ({ ...prev, [planKey]: false }));
+    }
+  };
+
+  const handleManageBilling = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await callEdge('create-portal-session', {
+        returnUrl: window.location.origin + '/settings'
+      });
+
+      if (error) throw new Error(error);
+
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error('Error creating portal session:', error);
+      toast.error('Error opening billing portal. Please try again.');
+    }
+  };
+
+  const formatPrice = (plan: PlanWithPrice) => {
+    if (!plan.priceData) return 'Loading...';
+    
+    const amount = (plan.priceData.unit_amount / 100).toFixed(2);
+    const symbol = plan.priceData.currency === 'eur' ? '€' : '$';
+    
+    if (plan.billing_period === 'lifetime') return `${symbol}${amount} one-time`;
+    if (plan.billing_period === '28d') return `${symbol}${amount} every 28 days`;
+    if (plan.billing_period === 'annual') return `${symbol}${amount} / year`;
+    return `${symbol}${amount}`;
+  };
+
+  // Filter and organize plans for display
+  const getPlansForTab = (tab: '28d' | 'annual') => {
+    const filteredPlans = plans.filter(p => p.billing_period === tab);
+    
+    if (tab === 'annual' && earlyBirdEligible) {
+      // Replace normal annual plans with early bird variants if available
+      return filteredPlans.map(plan => {
+        if (!plan.is_early_bird) {
+          const ebVariant = plans.find(p => 
+            p.billing_period === 'annual' && 
+            p.is_early_bird && 
+            p.tier === plan.tier
+          );
+          return ebVariant || plan;
+        }
+        return plan;
+      }).filter((plan, index, self) => 
+        // Remove duplicates (keep early bird over normal)
+        index === self.findIndex(p => p.tier === plan.tier)
+      );
+    }
+    
+    return filteredPlans.filter(p => !p.is_early_bird);
+  };
+
+  const lifetimePlan = plans.find(p => p.billing_period === 'lifetime');
+
+  const planFeatures = {
+    essential: [
+      'Daily fortune tracking',
+      'Simple charts & statistics', 
+      'Achievement system',
+      'Settings & preferences'
+    ],
+    growth: [
+      'Everything in ESSENTIAL',
+      'Expanded charts & analytics',
+      'Photo uploads per fortune',
+      'Calendar review',
+      'Backfill previous days'
+    ],
+    pro: [
+      'Everything in GROWTH',
+      'Health/mood tracking',
+      'Pattern insights',
+      'Decision timing advice',
+      'Priority support'
+    ],
+    lifetime: [
+      'Everything included',
+      'Lifetime access',
+      'All future features',
+      'Priority support',
+      'No recurring payments'
+    ]
+  };
+
+  const renderPlanCard = (plan: PlanWithPrice, tabType: string) => {
+    const isPro = plan.tier === 'pro';
+    const isLifetime = plan.tier === 'lifetime';
+    const isEssential = plan.tier === 'essential';
+    const isGrowth = plan.tier === 'growth';
+    const planKey = plan.price_id;
+
+    // Check if Pro plan has price_id - if null, it's coming soon
+    const isProComingSoon = isPro && !plan.price_id;
+
+    return (
+      <Card key={plan.id} className={`relative ${isEssential ? 'ring-2 ring-primary' : ''}`}>
+        {isEssential && tabType === 'annual' && (
+          <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground">
+            Most Popular
+          </Badge>
+        )}
+        {plan.is_early_bird && (
+          <Badge className="absolute -top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white">
+            <Sparkles className="w-3 h-3 mr-1" />
+            Founders Price
+          </Badge>
+        )}
+        {isLifetime && (
+          <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
+            <Crown className="w-3 h-3 mr-1" />
+            Ultimate Value
+          </Badge>
+        )}
+        {isGrowth && (
+          <div className="absolute -top-2 right-2">
+            <Badge variant="outline" className="text-xs">
+              Decoy
+            </Badge>
+          </div>
+        )}
+        
+        <CardHeader className="text-center">
+          <CardTitle className="text-xl">{plan.tier.toUpperCase()}</CardTitle>
+          <CardDescription className="text-sm">
+            {plan.tier === 'essential' ? 'Essential fortune tracking' :
+             plan.tier === 'growth' ? 'Enhanced tracking with extras' :
+             plan.tier === 'pro' ? 'Advanced insights & support' :
+             'All content forever'}
+          </CardDescription>
+          
+          <div className="space-y-2">
+            {plan.is_early_bird && (
+              <div className="text-sm text-muted-foreground">
+                <span className="text-xs">Limited-time offer</span>
+              </div>
+            )}
+            <div className="text-3xl font-bold text-primary">
+              {formatPrice(plan)}
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="space-y-4">
+          <ul className="space-y-2">
+            {planFeatures[plan.tier as keyof typeof planFeatures]?.map((feature: string, index: number) => (
+              <li key={index} className="flex items-center text-sm">
+                <Check className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                {feature}
+              </li>
+            ))}
+          </ul>
+          
+          {isProComingSoon ? (
+            <Button disabled className="w-full">
+              <Lock className="w-4 h-4 mr-2" />
+              Coming Soon
+            </Button>
+          ) : hasActiveSub ? (
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleManageBilling}
             >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <Badge className="bg-gradient-to-r from-primary to-accent text-primary-foreground px-3 py-1">
-                    <Sparkles className="w-3 h-3 mr-1" />
-                    Most Popular
-                  </Badge>
-                </div>
-              )}
+              Manage Billing
+            </Button>
+          ) : (
+            <Button
+              className={`w-full ${isLifetime ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600' : ''}`}
+              onClick={() => handleCheckout(plan)}
+              disabled={checkoutLoading[planKey] || !plan.priceData}
+            >
+              {checkoutLoading[planKey] ? 'Loading...' : 
+               isLifetime ? 'Get Lifetime Access' : 'Get Started'}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
-              <CardHeader className="text-center pb-4">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <div className="bg-gradient-to-r from-primary to-accent p-2 rounded-full">
-                    <Crown className="w-5 h-5 text-primary-foreground" />
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative max-h-[85vh] w-full max-w-6xl overflow-y-auto rounded-xl bg-background mx-4">
+        <div className="sticky top-0 z-10 bg-background border-b px-6 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Choose Your Plan</h1>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+
+        <div className="p-6 space-y-8">
+          {/* Early Bird Banner */}
+          {earlyBirdEligible && (
+            <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-3">
+                  <Sparkles className="w-6 h-6 text-orange-500" />
+                  <div>
+                    <h3 className="font-semibold text-orange-900">Founders Offer</h3>
+                    <p className="text-orange-700">
+                      Save now before your free period ends! Get annual plans at special early-bird prices.
+                    </p>
                   </div>
-                  <h3 className="text-xl font-semibold">{plan.name}</h3>
-                </div>
-                
-                <div className="mb-2">
-                  <span className="text-3xl font-bold">{plan.price}</span>
-                  <span className="text-muted-foreground ml-1">/{plan.period}</span>
-                  {plan.savings && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {plan.savings}
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-
-              <CardContent className="pt-0">
-                <Button
-                  className={`w-full mb-6 ${
-                    plan.popular 
-                      ? 'bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90' 
-                      : ''
-                  }`}
-                  disabled={isActive || subscriptionLoading || loading === plan.priceId}
-                  onClick={() => handleCheckout(plan.priceId, plan.name)}
-                >
-                  {loading === plan.priceId ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : isActive ? (
-                    'Current Plan'
-                  ) : (
-                    'Continue to Checkout'
-                  )}
-                </Button>
-
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm text-foreground flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald" />
-                    What's included:
-                  </h4>
-                  
-                  <ul className="space-y-2">
-                    {features.map((feature, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm">
-                        <Check className="w-4 h-4 text-emerald mt-0.5 flex-shrink-0" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+          )}
 
-        <div className="mt-6 text-center text-xs text-muted-foreground">
-          All prices exclude applicable taxes. You can cancel your subscription at any time.
+          {loading || plansLoading ? (
+            <div className="text-center space-y-4">
+              <RefreshCw className="w-8 h-8 animate-spin mx-auto text-primary" />
+              <p className="text-muted-foreground">Loading pricing plans...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center space-y-4">
+              <p className="text-muted-foreground">{error}</p>
+              <Button variant="outline" onClick={loadPricingData}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          ) : plans.length === 0 ? (
+            <div className="text-center space-y-4">
+              <p className="text-muted-foreground">No pricing plans available</p>
+              <Button variant="outline" onClick={loadPricingData}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          ) : (
+            <Tabs defaultValue="annual" className="space-y-8">
+              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+                <TabsTrigger value="28d">Every 28 Days</TabsTrigger>
+                <TabsTrigger value="annual">Annual</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="28d" className="space-y-8">
+                <div className="grid md:grid-cols-3 gap-6">
+                  {getPlansForTab('28d').map(plan => renderPlanCard(plan, '28d'))}
+                </div>
+                
+                {lifetimePlan && (
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold mb-6">Or Go Lifetime</h3>
+                    <div className="w-full max-w-md mx-auto">
+                      {renderPlanCard(lifetimePlan, 'lifetime')}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="annual" className="space-y-8">
+                <div className="grid md:grid-cols-3 gap-6">
+                  {getPlansForTab('annual').map(plan => renderPlanCard(plan, 'annual'))}
+                </div>
+                
+                {lifetimePlan && (
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold mb-6">Or Go Lifetime</h3>
+                    <div className="w-full max-w-md mx-auto">
+                      {renderPlanCard(lifetimePlan, 'lifetime')}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
+
+          {/* Debug panel for development */}
+          {process.env.NODE_ENV === 'development' && plans.length > 0 && (
+            <details className="mt-8">
+              <summary className="cursor-pointer text-sm text-muted-foreground">
+                Debug: Show plan JSON
+              </summary>
+              <pre className="mt-2 text-xs bg-muted p-4 rounded overflow-auto">
+                {JSON.stringify({ plans, earlyBirdEligible, isTrialActive }, null, 2)}
+              </pre>
+            </details>
+          )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };

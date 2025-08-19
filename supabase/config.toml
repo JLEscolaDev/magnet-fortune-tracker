@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.list-pricing]
 verify_jwt = false
+
+[functions.get-prices]
+verify_jwt = false

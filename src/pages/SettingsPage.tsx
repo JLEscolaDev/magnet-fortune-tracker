@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
 import { CategoryManager } from '@/components/CategoryManager';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { PricingModal } from '@/components/billing/PricingModal';
+import { PricingDialog } from '@/components/billing/PricingDialog';
 import { useSettings } from '@/contexts/SettingsContext';
 
 interface SettingsPageProps {
@@ -301,7 +301,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
         </div>
       </div>
       
-      <PricingModal 
+      <PricingDialog 
         isOpen={showPricingDialog} 
         onClose={() => setShowPricingDialog(false)} 
       />

@@ -8,6 +8,8 @@ interface Plan {
   name: string;
   price_id: string;
   level: number;
+  billing_period: string;
+  is_early_bird: boolean;
   created_at: string | null;
 }
 
@@ -85,15 +87,15 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
       if (error) throw error;
 
-      // Group plans by cycle type
+      // Group plans by billing_period  
       const plansByCycle: PlansByCycle = { '28d': [], annual: [] };
       
-      plans?.forEach(plan => {
-        if (plan.name.toLowerCase().includes('28d')) {
+      plans?.forEach((plan: any) => {
+        if (plan.billing_period === '28d') {
           plansByCycle['28d'].push(plan);
-        } else if (plan.name.toLowerCase().includes('annual')) {
+        } else if (plan.billing_period === 'annual') {
           plansByCycle.annual.push(plan);
-        } else if (plan.name.toLowerCase().includes('lifetime')) {
+        } else if (plan.billing_period === 'lifetime') {
           plansByCycle.lifetime = plan;
         }
       });
