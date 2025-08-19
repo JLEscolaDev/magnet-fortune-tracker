@@ -83,14 +83,22 @@ serve(async (req) => {
       }
     }
 
+    // If still no customer ID, create a new customer in Stripe
     if (!customerId) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'No active subscription found. Please subscribe first.',
-          redirect: '/pricing' 
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          user_id: user.id,
+        },
+      });
+      
+      customerId = customer.id;
+      
+      // Update profile with the new customer ID
+      await serviceClient
+        .from('profiles')
+        .update({ stripe_customer_id: customerId })
+        .eq('user_id', user.id);
     }
 
     // Parse request body for return URL
