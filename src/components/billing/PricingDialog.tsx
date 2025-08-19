@@ -176,14 +176,14 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     return `${symbol}${amount}`;
   };
 
-  const getOriginalPrice = (ebPlan: PlanWithPrice) => {
+  const getOriginalAnnualPrice = (ebPlan: PlanWithPrice) => {
     // Find the normal annual plan of the same tier
     const originalPlan = plans.find(p => 
       p.billing_period === 'annual' && 
       p.tier === ebPlan.tier && 
       !p.is_early_bird
     );
-    return originalPlan ? formatPrice(originalPlan, false) : null;
+    return originalPlan ? formatPrice(originalPlan).replace(' / year', '') : null;
   };
 
   // Filter and organize plans for display
@@ -279,25 +279,20 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
           </CardDescription>
           
             <div className="space-y-2">
-              {plan.is_early_bird && earlyBirdEligible && tabType === 'annual' ? (
+              {activeTab === 'annual' && earlyBirdEligible && plan.is_early_bird ? (
                 <div className="space-y-1">
-                  <div className="text-sm text-muted-foreground">
-                    <span className="text-xs">Limited-time offer</span>
+                  {getOriginalAnnualPrice(plan) && (
+                    <div className="text-sm text-red-400 line-through text-center">
+                      {getOriginalAnnualPrice(plan)} / year
+                    </div>
+                  )}
+                  <div className="text-3xl font-extrabold text-emerald-400 text-center">
+                    {formatPrice(plan).replace(' / year', '')}
+                    <span className="text-base font-semibold text-emerald-300"> / year</span>
                   </div>
-                  <div className="flex items-center justify-center gap-2">
-                    {getOriginalPrice(plan) && (
-                      <span className="text-lg text-red-500 line-through">
-                        {getOriginalPrice(plan)}
-                      </span>
-                    )}
-                    <span className="text-3xl font-bold text-green-600">
-                      {formatPrice(plan, false)}
-                    </span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">/ year</div>
                 </div>
               ) : (
-                <div className="text-3xl font-bold text-primary">
+                <div className="text-3xl font-extrabold text-primary text-center">
                   {formatPrice(plan)}
                 </div>
               )}
