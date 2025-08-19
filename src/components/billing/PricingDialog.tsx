@@ -36,6 +36,23 @@ interface PricingDialogProps {
 
 export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose }) => {
   const { user, hasActiveSub, plansByCycle, plansLoading, isTrialActive, earlyBirdEligible } = useSubscription();
+  
+  // Debug log the subscription context values
+  useEffect(() => {
+    if (isOpen) {
+      console.log('[PRICING] Dialog opened with context values:', {
+        isTrialActive,
+        earlyBirdEligible,
+        hasActiveSub,
+        user: user?.email,
+        plansByCycle: {
+          '28d': Array.isArray(plansByCycle['28d']) ? plansByCycle['28d'].length : 0,
+          'annual': Array.isArray(plansByCycle.annual) ? plansByCycle.annual.length : 0,
+          'lifetime': plansByCycle.lifetime ? 1 : 0
+        }
+      });
+    }
+  }, [isOpen, isTrialActive, earlyBirdEligible, hasActiveSub, user, plansByCycle]);
   const [plans, setPlans] = useState<PlanWithPrice[]>([]);
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<{ [key: string]: boolean }>({});
@@ -175,17 +192,21 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
 
   // Filter and organize plans for display
   const getPlansForTab = (tab: '28d' | 'annual') => {
+    console.log('[PRICING] getPlansForTab called', { tab, earlyBirdEligible, totalPlans: plans.length });
     const filteredPlans = plans.filter(p => p.billing_period === tab);
+    console.log('[PRICING] Filtered plans for tab', { tab, count: filteredPlans.length, plans: filteredPlans.map(p => ({ name: p.name, tier: p.tier, is_early_bird: p.is_early_bird })) });
     
     if (tab === 'annual' && earlyBirdEligible) {
+      console.log('[PRICING] Processing early bird for annual tab');
       // Replace normal annual plans with early bird variants if available
-      return filteredPlans.map(plan => {
+      const processedPlans = filteredPlans.map(plan => {
         if (!plan.is_early_bird) {
           const ebVariant = plans.find(p => 
             p.billing_period === 'annual' && 
             p.is_early_bird && 
             p.tier === plan.tier
           );
+          console.log('[PRICING] Looking for EB variant', { originalPlan: plan.name, tier: plan.tier, foundEBVariant: ebVariant?.name });
           return ebVariant || plan;
         }
         return plan;
@@ -193,9 +214,13 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
         // Remove duplicates (keep early bird over normal)
         index === self.findIndex(p => p.tier === plan.tier)
       );
+      console.log('[PRICING] Final processed plans for annual tab', { plans: processedPlans.map(p => ({ name: p.name, tier: p.tier, is_early_bird: p.is_early_bird })) });
+      return processedPlans;
     }
     
-    return filteredPlans.filter(p => !p.is_early_bird);
+    const finalPlans = filteredPlans.filter(p => !p.is_early_bird);
+    console.log('[PRICING] Final plans for tab (no EB)', { tab, plans: finalPlans.map(p => ({ name: p.name, tier: p.tier, is_early_bird: p.is_early_bird })) });
+    return finalPlans;
   };
 
   const lifetimePlan = plans.find(p => p.billing_period === 'lifetime');
