@@ -40,6 +40,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<{ [key: string]: boolean }>({});
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('annual');
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -167,7 +168,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     const symbol = plan.priceData.currency === 'eur' ? '€' : '$';
     
     if (plan.billing_period === 'lifetime') return `${symbol}${amount} one-time`;
-    if (plan.billing_period === '28d') return `${symbol}${amount} every 28 days`;
+    if (plan.billing_period === '28d') return `${symbol}${amount}`;
     if (plan.billing_period === 'annual') return `${symbol}${amount} / year`;
     return `${symbol}${amount}`;
   };
@@ -368,7 +369,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
           ) : error ? (
             <div className="text-center space-y-4">
               <p className="text-muted-foreground">{error}</p>
-              <Button variant="outline" onClick={loadPricingData}>
+              <Button variant="outline" onClick={() => { setError(null); loadPricingData(); }}>
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Retry
               </Button>
@@ -376,17 +377,26 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
           ) : plans.length === 0 ? (
             <div className="text-center space-y-4">
               <p className="text-muted-foreground">No pricing plans available</p>
-              <Button variant="outline" onClick={loadPricingData}>
+              <Button variant="outline" onClick={() => { setError(null); loadPricingData(); }}>
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Retry
               </Button>
             </div>
           ) : (
-            <Tabs defaultValue="annual" className="space-y-8">
+            <Tabs defaultValue="annual" className="space-y-8" onValueChange={setActiveTab}>
               <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
-                <TabsTrigger value="28d">Every 28 Days</TabsTrigger>
+                <TabsTrigger value="28d">Recurrent</TabsTrigger>
                 <TabsTrigger value="annual">Annual</TabsTrigger>
               </TabsList>
+
+              {/* Explanatory text for recurrent plans */}
+              {activeTab === '28d' && (
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground font-light">
+                    Charged every 28 days (≈13 renewals per year)
+                  </p>
+                </div>
+              )}
 
               <TabsContent value="28d" className="space-y-8">
                 <div className="grid md:grid-cols-3 gap-6">
