@@ -40,7 +40,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<{ [key: string]: boolean }>({});
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('annual');
+  const [activeTab, setActiveTab] = useState('28d');
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -259,13 +259,6 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
             Ultimate Value
           </Badge>
         )}
-        {isGrowth && (
-          <div className="absolute -top-2 right-2">
-            <Badge variant="outline" className="text-xs">
-              Decoy
-            </Badge>
-          </div>
-        )}
         
         <CardHeader className="text-center">
           <CardTitle className="text-xl">{plan.tier.toUpperCase()}</CardTitle>
@@ -383,7 +376,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
               </Button>
             </div>
           ) : (
-            <Tabs defaultValue="annual" className="space-y-8" onValueChange={setActiveTab}>
+            <Tabs defaultValue="28d" className="space-y-8" onValueChange={setActiveTab}>
               <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
                 <TabsTrigger value="28d">Recurrent</TabsTrigger>
                 <TabsTrigger value="annual">Annual</TabsTrigger>
@@ -393,7 +386,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
               {activeTab === '28d' && (
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground font-light">
-                    Charged every 28 days (≈13 renewals per year)
+                    Charged every 28 days
                   </p>
                 </div>
               )}
