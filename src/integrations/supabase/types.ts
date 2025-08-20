@@ -229,7 +229,7 @@ export type Database = {
       }
     }
     Views: {
-      user_features_v: {
+      user_features: {
         Row: {
           current_period_end: string | null
           early_bird_redeemed: boolean | null

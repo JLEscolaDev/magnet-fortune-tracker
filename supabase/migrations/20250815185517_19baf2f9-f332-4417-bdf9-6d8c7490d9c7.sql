@@ -116,7 +116,7 @@ AS $$
 $$;
 
 -- View derivada sin RLS (con GRANTS)
-CREATE OR REPLACE VIEW public.user_features_v
+CREATE OR REPLACE VIEW public.user_features
 AS
 SELECT
   p.user_id,
@@ -140,8 +140,8 @@ LEFT JOIN public.subscriptions s
  AND (s.status = 'active' OR s.is_lifetime = true);
 
 -- Quita permisos por defecto y da SELECT a 'authenticated'
-REVOKE ALL ON public.user_features_v FROM PUBLIC;
-GRANT SELECT ON public.user_features_v TO authenticated;
+REVOKE ALL ON public.user_features FROM PUBLIC;
+GRANT SELECT ON public.user_features TO authenticated;
 
 -- Trigger de usuario nuevo (actualizado)
 CREATE OR REPLACE FUNCTION public.handle_new_user()

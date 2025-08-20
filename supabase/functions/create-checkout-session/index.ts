@@ -45,7 +45,7 @@ serve(async (req) => {
 
     // Get user profile and trial status
     const { data: userFeatures, error: featuresError } = await supabaseService
-      .from("user_features_v")
+      .from("user_features")
       .select("*")
       .eq("user_id", user.id)
       .single();

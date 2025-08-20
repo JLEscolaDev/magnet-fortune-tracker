@@ -58,7 +58,7 @@ serve(async (req) => {
 
     // Get user features to check for stripe_customer_id
     const { data: userFeatures } = await serviceClient
-      .from('user_features_v')
+      .from('user_features')
       .select('stripe_customer_id, has_active_subscription')
       .eq('user_id', user.id)
       .single();

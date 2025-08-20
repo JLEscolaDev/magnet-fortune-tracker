@@ -42,7 +42,7 @@ serve(async (req) => {
           console.log('[LIST-PRICING] Authenticated user found:', userData.user.id);
           
           const { data: features } = await supabaseClient
-            .from('user_features_v')
+            .from('user_features')
             .select('is_trial_active, early_bird_redeemed')
             .eq('user_id', userData.user.id)
             .single();

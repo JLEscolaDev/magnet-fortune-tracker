@@ -66,7 +66,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         // Also fetch user features if user is available
         if (user) {
           const { data: features, error } = await supabase
-            .from('user_features_v')
+            .from('user_features')
             .select('*')
             .eq('user_id', user.id)
             .single();
