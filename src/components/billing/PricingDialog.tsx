@@ -236,11 +236,11 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
       'Priority support'
     ],
     lifetime: [
-      'Everything included',
-      'Lifetime access',
-      'All future features',
-      'Priority support',
-      'No recurring payments'
+      'Everything included!',
+      'Lifetime access!',
+      'All features available to date!',
+      'Priority support!',
+      'No recurring payments!'
     ]
   };
 
