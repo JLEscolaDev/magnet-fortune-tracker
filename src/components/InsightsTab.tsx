@@ -6,8 +6,9 @@ import { DateDetailsModal } from '@/components/DateDetailsModal';
 import { ImprovedStatistics } from '@/components/ImprovedStatistics';
 import { Fortune, Achievement } from '@/types/fortune';
 import { AchievementCard } from '@/components/AchievementCard';
-import { supabase } from '@/integrations/supabase/client';
+import { getFortunesByUser } from '@/lib/fortunes';
 import { useAppState } from '@/contexts/AppStateContext';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   CalendarDots, 
   ChartBar, 
@@ -218,25 +219,15 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
 
       console.log('[QUERY:fortunes] Fetching all fortunes for insights');
 
-      const { data: fortunesData, error } = await supabase
-        .from('fortunes')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.warn(`[QUERY:fortunes] Error fetching fortunes for insights: ${error.message}`);
-        addError('insights-fortunes', error.message);
-      } else if (fortunesData) {
-        setFortunes(fortunesData);
+      const fortunesData = await getFortunesByUser(user.id);
+      setFortunes(fortunesData);
         
-        // Filter fortunes for selected date
-        if (selectedDate) {
-          const dateFortunes = fortunesData.filter(fortune =>
-            isSameDay(new Date(fortune.created_at), selectedDate)
-          );
-          setSelectedDateFortunes(dateFortunes);
-        }
+      // Filter fortunes for selected date
+      if (selectedDate) {
+        const dateFortunes = fortunesData.filter(fortune =>
+          isSameDay(new Date(fortune.created_at), selectedDate)
+        );
+        setSelectedDateFortunes(dateFortunes);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';

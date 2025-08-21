@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { LuxuryAvatarSection } from './LuxuryAvatarSection';
 import { FortuneList } from './FortuneList';
 import { Fortune } from '@/types/fortune';
-import { supabase } from '@/integrations/supabase/client';
+import { getFortunesForDateRange } from '@/lib/fortunes';
 import { useAppState } from '@/contexts/AppStateContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface HomeTabProps {
   refreshTrigger: number;
@@ -30,20 +31,14 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
       const startOfDayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
       const endOfDayUTC = new Date(startOfDayUTC.getTime() + 24 * 60 * 60 * 1000);
 
-      const { data: fortunesData, error } = await supabase
-        .from('fortunes')
-        .select('*')
-        .eq('user_id', user.id as any)
-        .gte('created_at', startOfDayUTC.toISOString())
-        .lt('created_at', endOfDayUTC.toISOString())
-        .order('created_at', { ascending: false });
+      const fortunesData = await getFortunesForDateRange(
+        user.id as any,
+        startOfDayUTC.toISOString(),
+        endOfDayUTC.toISOString()
+      );
 
-      if (error) {
-        console.warn(`[QUERY:fortunes] Error fetching recent fortunes: ${error.message}`);
-      } else if (fortunesData) {
-        setRecentFortunes(fortunesData as unknown as Fortune[]);
-        console.log(`[QUERY:fortunes] Fetched ${fortunesData.length} recent fortunes`);
-      }
+      setRecentFortunes(fortunesData as unknown as Fortune[]);
+      console.log(`[QUERY:fortunes] Fetched ${fortunesData.length} recent fortunes`);
     } catch (error) {
       console.error('[QUERY:fortunes] Error in fetchRecentFortunes:', error);
     } finally {

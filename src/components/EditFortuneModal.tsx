@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Fortune, FortuneCategory, CategoryData } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
+import { updateFortune } from "@/lib/fortunes";
 import { useToast } from '@/hooks/use-toast';
 import { sanitizeText, validateNumericValue, validateCategory, formRateLimiter } from '@/lib/security';
 import { Loader2 } from 'lucide-react';
@@ -106,12 +107,7 @@ export const EditFortuneModal = ({ isOpen, onClose, fortune, onFortuneUpdated }:
         updateData.fortune_value = null;
       }
 
-      const { error } = await supabase
-        .from('fortunes')
-        .update(updateData)
-        .eq('id', fortune.id);
-
-      if (error) throw error;
+      await updateFortune(fortune.id, updateData);
 
       toast({
         title: "Fortune updated successfully!",

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { getFortunesCount, getFortunesForDateRange } from '@/lib/fortunes';
 import { Profile, Subscription } from '@/types/fortune';
 // @ts-expect-error temporary workaround for module resolution
 import type { Database } from '@/types/database.types';
@@ -137,36 +138,21 @@ export const useAppBootstrap = (user: User | null) => {
       logWithPrefix('Fetching fortune counts', { userId });
 
       // Get total fortunes count
-      const { count: totalCount, error: totalError } = await supabase
-        .from('fortunes')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId as unknown as Database['public']['Tables']['fortunes']['Row']['user_id']);
-
-      if (totalError) {
-        console.warn(`[QUERY:fortunes] Error fetching total count: ${totalError.message}`);
-        addError('fortunes-count-total', totalError.message);
-      } else {
-        logWithPrefix('Total fortunes count fetched', { totalCount });
-      }
+      const totalCount = await getFortunesCount(userId);
+      logWithPrefix('Total fortunes count fetched', { totalCount });
 
       // Get today's fortunes count (UTC midnight boundary)
       const today = new Date();
       const startOfDayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
       const endOfDayUTC = new Date(startOfDayUTC.getTime() + 24 * 60 * 60 * 1000);
 
-      const { count: todayCount, error: todayError } = await supabase
-        .from('fortunes')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId as unknown as Database['public']['Tables']['fortunes']['Row']['user_id'])
-        .gte('created_at', startOfDayUTC.toISOString())
-        .lt('created_at', endOfDayUTC.toISOString());
-
-      if (todayError) {
-        console.warn(`[QUERY:fortunes] Error fetching today count: ${todayError.message}`);
-        addError('fortunes-count-today', todayError.message);
-      } else {
-        logWithPrefix('Today fortunes count fetched', { todayCount });
-      }
+      const todayFortunes = await getFortunesForDateRange(
+        userId,
+        startOfDayUTC.toISOString(),
+        endOfDayUTC.toISOString()
+      );
+      const todayCount = todayFortunes.length;
+      logWithPrefix('Today fortunes count fetched', { todayCount });
 
       logWithPrefix('Fortune counts completed', { total: totalCount, today: todayCount });
       return { total: totalCount || 0, today: todayCount || 0 };

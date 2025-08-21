@@ -12,7 +12,7 @@ import {
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { EditFortuneModal } from '@/components/EditFortuneModal';
-import { supabase } from '@/integrations/supabase/client';
+import { deleteFortune } from '@/lib/fortunes';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { TransitionGroup, CSSTransition } from 'react-transition-group';
@@ -105,12 +105,7 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
     // Wait for animation to complete
     setTimeout(async () => {
       try {
-        const { error } = await supabase
-          .from('fortunes')
-          .delete()
-          .eq('id', fortuneId);
-
-        if (error) throw error;
+        await deleteFortune(fortuneId);
 
         toast({
           title: "Fortune deleted",
