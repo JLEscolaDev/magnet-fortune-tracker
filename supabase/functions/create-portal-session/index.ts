@@ -4,14 +4,31 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0?target=deno";
 
+/**
+ * Required secrets (supabase functions secrets set ...):
+ *  - SUPABASE_URL
+ *  - SUPABASE_ANON_KEY
+ *  - SUPABASE_SERVICE_ROLE_KEY
+ *  - STRIPE_SECRET_KEY (test or live depending on project)
+ *  - SITE_URL (optional, e.g. https://app.yourdomain.com)
+ */
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  if (req.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   try {
@@ -56,25 +73,33 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Get user features to check for stripe_customer_id
-    const { data: userFeatures } = await serviceClient
-      .from('user_features')
-      .select('stripe_customer_id, has_active_subscription')
+    // Fetch profile fields (preferred source of truth)
+    const { data: profile, error: profileErr } = await serviceClient
+      .from('profiles')
+      .select('display_name, stripe_customer_id')
       .eq('user_id', user.id)
       .single();
 
-    let customerId = userFeatures?.stripe_customer_id;
+    let customerId = profile?.stripe_customer_id ?? null;
+
+    // Fallback: try the user_features view only if not in profiles
+    if (!customerId) {
+      const { data: uf } = await serviceClient
+        .from('user_features')
+        .select('stripe_customer_id')
+        .eq('user_id', user.id)
+        .single();
+      customerId = uf?.stripe_customer_id ?? null;
+    }
 
     // If no customer ID in our database, try to find existing customer in Stripe
     if (!customerId) {
-      const customers = await stripe.customers.list({ 
-        email: user.email, 
-        limit: 1 
+      const customers = await stripe.customers.list({
+        email: user.email,
+        limit: 1
       });
-      
       if (customers.data.length > 0) {
         customerId = customers.data[0].id;
-        
         // Update profile with the found customer ID
         await serviceClient
           .from('profiles')
@@ -86,14 +111,13 @@ serve(async (req) => {
     // If still no customer ID, create a new customer in Stripe
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email: user.email,
+        email: user.email ?? undefined,
+        name: profile?.display_name ?? undefined,
         metadata: {
-          user_id: user.id,
+          supabase_user_id: user.id,
         },
       });
-      
       customerId = customer.id;
-      
       // Update profile with the new customer ID
       await serviceClient
         .from('profiles')
@@ -101,13 +125,23 @@ serve(async (req) => {
         .eq('user_id', user.id);
     }
 
-    // Parse request body for return URL
-    const { returnUrl } = await req.json().catch(() => ({}));
+    // Parse request body for return URL (support both snake_case and camelCase)
+    const body = await req.json().catch(() => ({}));
+    const siteUrl =
+      Deno.env.get('SITE_URL') ||
+      Deno.env.get('APP_URL') ||
+      Deno.env.get('NEXT_PUBLIC_SITE_URL') ||
+      null;
+
+    const computedReturnUrl =
+      body.return_url ??
+      body.returnUrl ??
+      (siteUrl ? `${siteUrl.replace(/\/$/, '')}/settings` : 'https://example.com/settings');
     
     // Create Stripe portal session
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: returnUrl || `${new URL(req.url).origin}/`,
+      return_url: computedReturnUrl,
     });
 
     return new Response(

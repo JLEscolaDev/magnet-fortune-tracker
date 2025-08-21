@@ -20,6 +20,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const { soundEnabled, setSoundEnabled, animationsEnabled, setAnimationsEnabled, hapticsEnabled, setHapticsEnabled, currency, setCurrency } = useSettings();
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showPricingDialog, setShowPricingDialog] = useState(false);
+  const [openingPortal, setOpeningPortal] = useState(false);
   const { toast } = useToast();
   const { isActive, subscription } = useSubscription();
 
@@ -71,22 +72,18 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
 
   const handleManageBilling = async () => {
     try {
+      setOpeningPortal(true);
       const { data, error } = await supabase.functions.invoke('create-portal-session', {
-        body: { returnUrl: window.location.origin + '/settings' },
+        body: { return_url: `${window.location.origin}/settings` },
       });
 
       if (error) throw error;
+      if (!data?.url) throw new Error('No portal URL returned');
 
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error('No portal URL returned');
-      }
+      window.location.href = data.url;
     } catch (error: any) {
       console.error('Portal error:', error);
-      
-      // Check if user needs to subscribe first
-      if (error.message?.includes('No active subscription') || error.status === 400) {
+      if (error?.message?.includes('No active subscription') || error?.status === 400) {
         setShowPricingDialog(true);
         toast({
           title: 'Subscription Required',
@@ -99,6 +96,8 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
           variant: 'destructive',
         });
       }
+    } finally {
+      setOpeningPortal(false);
     }
   };
 
@@ -264,8 +263,9 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
                   variant="outline"
                   onClick={handleManageBilling}
                   className="w-full justify-start"
+                  disabled={openingPortal}
                 >
-                  Manage Billing
+                  {openingPortal ? 'Opening…' : 'Manage Billing'}
                 </Button>
               </div>
             ) : (
