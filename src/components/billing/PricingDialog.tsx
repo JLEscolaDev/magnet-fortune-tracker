@@ -26,6 +26,7 @@ interface PlanWithPrice {
   billing_period: string;
   is_early_bird: boolean;
   tier: string;
+  visibility?: 'visible' | 'hidden' | 'teaser';
   priceData?: PriceData;
 }
 
@@ -188,7 +189,11 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
 
   // Filter and organize plans for display
   const getPlansForTab = (tab: '28d' | 'annual') => {
-    const candidates = plans.filter(p => p.billing_period === tab);
+    // First filter by visibility - exclude hidden plans
+    const candidates = plans.filter(p => 
+      p.billing_period === tab && 
+      (p as any).visibility !== 'hidden'
+    );
 
     if (tab === 'annual' && earlyBirdEligible) {
       // For each tier, prefer the EB variant if it exists
@@ -207,7 +212,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     return candidates.filter(p => !p.is_early_bird);
   };
 
-  const lifetimePlan = plans.find(p => p.billing_period === 'lifetime');
+  const lifetimePlan = plans.find(p => p.billing_period === 'lifetime' && (p as any).visibility !== 'hidden');
 
   const planFeatures = {
     essential: [
@@ -245,12 +250,24 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     const isEssential = plan.tier === 'essential';
     const isGrowth = plan.tier === 'growth';
     const planKey = plan.price_id;
+    const isTeaser = plan.visibility === 'teaser';
 
     // Check if Pro plan has price_id - if null, it's coming soon
     const isProComingSoon = isPro && !plan.price_id;
 
     return (
-      <Card key={plan.id} className={`relative ${isEssential ? 'ring-2 ring-primary' : ''}`}>
+      <Card key={plan.id} className={`relative ${isEssential ? 'ring-2 ring-primary' : ''} ${isTeaser ? 'overflow-hidden' : ''}`}>
+        {isTeaser && (
+          <div className="absolute inset-0 bg-black/60 z-10 flex items-center justify-center backdrop-blur-sm">
+            <div className="text-center text-white p-6">
+              <Lock className="w-12 h-12 mx-auto mb-3 text-white/80" />
+              <h3 className="text-lg font-semibold mb-2">Coming Soon</h3>
+              <p className="text-sm text-white/80">
+                This plan will be available in the future. Stay tuned!
+              </p>
+            </div>
+          </div>
+        )}
         {isEssential && tabType === 'annual' && (
           <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground">
             Most Popular
@@ -309,7 +326,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
             ))}
           </ul>
           
-          {isProComingSoon ? (
+          {isTeaser || isProComingSoon ? (
             <Button disabled className="w-full">
               <Lock className="w-4 h-4 mr-2" />
               Coming Soon

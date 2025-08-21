@@ -11,6 +11,7 @@ interface Plan {
   level: number;
   billing_period: '28d' | 'annual' | 'lifetime';
   is_early_bird: boolean;
+  visibility: 'visible' | 'hidden' | 'teaser';
   created_at: string | null;
 }
 
