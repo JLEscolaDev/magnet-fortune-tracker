@@ -20,7 +20,7 @@ export async function createFortune(
     p_text: text,
     p_category: category,
     p_fortune_level: Math.floor(value) || 0,
-    p_created_at: createdAtISO ? new Date(createdAtISO) : null,
+    p_created_at: createdAtISO ? createdAtISO : null,
   });
   if (error) {
     console.error('[RPC] fortune_put error:', error);
@@ -34,8 +34,8 @@ export async function getFortunesForDateRange(
   endISO?: string | null
 ): Promise<FortuneRecord[]> {
   const { data, error } = await (supabase.rpc as any)('fortune_list', {
-    p_from: startISO ? new Date(startISO) : null,
-    p_to: endISO ? new Date(endISO) : null,
+    p_from: startISO,
+    p_to: endISO,
   });
   if (error) {
     console.error('[RPC] fortune_list error:', error);
