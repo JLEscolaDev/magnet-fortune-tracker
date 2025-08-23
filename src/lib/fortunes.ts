@@ -1,10 +1,12 @@
 import { supabase } from '@/integrations/supabase/client';
 
 // Create a new fortune (encryption happens automatically on DB trigger)
-export async function createFortune(text: string, createdAt?: string) {
+export async function createFortune(text: string, createdAt?: string, category?: string, fortuneValue?: number) {
   const { data, error } = await (supabase.rpc as any)('fortune_put', {
-    _text: text,
-    _created_at: createdAt ?? null
+    p_text: text,
+    p_category: category ?? null,
+    p_fortune_level: 0,
+    p_created_at: createdAt ?? null
   });
 
   if (error) throw error;
@@ -14,8 +16,8 @@ export async function createFortune(text: string, createdAt?: string) {
 // Get fortunes for date range (decrypted)
 export async function getFortunesForDateRange(startISO?: string, endISO?: string) {
   const { data, error } = await (supabase.rpc as any)('fortune_list', {
-    _start: startISO ?? null,
-    _end: endISO ?? null
+    p_from: startISO ?? null,
+    p_to: endISO ?? null
   });
 
   if (error) throw error;
