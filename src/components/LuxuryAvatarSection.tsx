@@ -32,11 +32,15 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
   useEffect(() => {
     const fetchAvatar = async () => {
       try {
-        const { data: avatarData } = await supabase
+        const { data: avatarData, error } = await supabase
           .from('avatars')
           .select('*')
           .eq('level', currentLevel)
-          .single();
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error fetching avatar:', error);
+        }
 
         if (avatarData) {
           setAvatar(avatarData);
