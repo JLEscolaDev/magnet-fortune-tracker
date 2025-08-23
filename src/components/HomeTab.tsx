@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { LuxuryAvatarSection } from './LuxuryAvatarSection';
 import { FortuneList } from './FortuneList';
 import { Fortune } from '@/types/fortune';
-import { getFortunesForDateRange } from '@/lib/fortunes';
+import { getTodayFortunesUTC, FortuneRecord } from '@/lib/fortunes';
 import { useAppState } from '@/contexts/AppStateContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -12,7 +12,7 @@ interface HomeTabProps {
 
 export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
   const { profile, fortunesCountTotal, loading: appLoading } = useAppState();
-  const [recentFortunes, setRecentFortunes] = useState<Fortune[]>([]);
+  const [recentFortunes, setRecentFortunes] = useState<FortuneRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchRecentFortunes = async () => {
@@ -24,22 +24,13 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
         return;
       }
 
-      console.log('[QUERY:fortunes] Fetching today\'s fortunes');
-
-      // Get today's fortunes only (UTC midnight boundary)
-      const today = new Date();
-      const startOfDayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-      const endOfDayUTC = new Date(startOfDayUTC.getTime() + 24 * 60 * 60 * 1000);
-
-      const fortunesData = await getFortunesForDateRange(
-        startOfDayUTC.toISOString(),
-        endOfDayUTC.toISOString()
-      );
-
-      setRecentFortunes(fortunesData as unknown as Fortune[]);
-      console.log(`[QUERY:fortunes] Fetched ${fortunesData.length} recent fortunes`);
+      console.log("[QUERY:fortunes] Fetching today's fortunes");
+      const fortunes = await getTodayFortunesUTC();
+      setRecentFortunes(fortunes);
+      console.log(`[QUERY:fortunes] Fetched ${fortunes?.length ?? 0} recent fortunes`);
     } catch (error) {
       console.error('[QUERY:fortunes] Error in fetchRecentFortunes:', error);
+      setRecentFortunes([]);
     } finally {
       setLoading(false);
     }
@@ -99,7 +90,7 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
         onLevelUp={handleLevelUp}
       />
       <FortuneList 
-        fortunes={recentFortunes} 
+        fortunes={recentFortunes as any} 
         title="Today's Fortunes"
         onFortunesUpdated={fetchRecentFortunes}
       />

@@ -1,31 +1,58 @@
 import { supabase } from '@/integrations/supabase/client';
 
-// Create a new fortune (encryption happens automatically on DB trigger)
-export async function createFortune(text: string, createdAt?: string, category?: string, fortuneValue?: number) {
+export type FortuneRecord = {
+  id: string;
+  user_id: string;
+  text: string;
+  category: string;
+  created_at: string;
+  fortune_level?: number | null;
+  fortune_value?: number | null;
+};
+
+export async function createFortune(
+  text: string,
+  category: string,
+  value: number = 0,
+  createdAtISO?: string
+) {
   const { data, error } = await (supabase.rpc as any)('fortune_put', {
     p_text: text,
-    p_category: category ?? null,
-    p_fortune_level: 0,
-    p_created_at: createdAt ?? null
+    p_category: category,
+    p_fortune_value: value,
+    p_created_at: createdAtISO ?? new Date().toISOString(),
   });
-
-  if (error) throw error;
+  if (error) {
+    console.error('[RPC] fortune_put error:', error);
+    throw error;
+  }
   return data;
 }
 
-// Get fortunes for date range (decrypted)
-export async function getFortunesForDateRange(startISO?: string, endISO?: string) {
+export async function getFortunesForDateRange(
+  startISO?: string | null,
+  endISO?: string | null
+): Promise<FortuneRecord[]> {
   const { data, error } = await (supabase.rpc as any)('fortune_list', {
     p_from: startISO ?? null,
-    p_to: endISO ?? null
+    p_to: endISO ?? null,
   });
+  if (error) {
+    console.error('[RPC] fortune_list error:', error);
+    throw error;
+  }
+  return (data || []) as FortuneRecord[];
+}
 
-  if (error) throw error;
-  return (data || []).map((f: any) => ({
-    id: f.id,
-    created_at: f.created_at,
-    text: f.text // text is already plaintext
-  }));
+export async function getTodayFortunesUTC(): Promise<FortuneRecord[]> {
+  const now = new Date();
+  const start = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  ));
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return getFortunesForDateRange(start.toISOString(), end.toISOString());
 }
 
 // Get fortune counts
@@ -58,17 +85,12 @@ export async function deleteFortune(id: string) {
   if (error) throw error;
 }
 
-export async function getFortunesByUser(userId: string) {
-  const { data, error } = await (supabase.rpc as any)('fortune_list');
+export async function getFortunesByUser(userId: string): Promise<FortuneRecord[]> {
+  const { data, error } = await (supabase.rpc as any)('fortune_list', {
+    p_from: null,
+    p_to: null,
+  });
 
   if (error) throw error;
-  return (data || []).map((f: any) => ({
-    id: f.id,
-    user_id: f.user_id,
-    text: f.text,
-    category: f.category,
-    fortune_level: f.fortune_level,
-    fortune_value: f.fortune_value,
-    created_at: f.created_at,
-  }));
+  return (data || []) as FortuneRecord[];
 }

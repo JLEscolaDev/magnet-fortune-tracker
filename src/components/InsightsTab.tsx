@@ -6,7 +6,7 @@ import { DateDetailsModal } from '@/components/DateDetailsModal';
 import { ImprovedStatistics } from '@/components/ImprovedStatistics';
 import { Fortune, Achievement } from '@/types/fortune';
 import { AchievementCard } from '@/components/AchievementCard';
-import { getFortunesByUser } from '@/lib/fortunes';
+import { getFortunesForDateRange } from '@/lib/fortunes';
 import { useAppState } from '@/contexts/AppStateContext';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -219,15 +219,15 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
 
       console.log('[QUERY:fortunes] Fetching all fortunes for insights');
 
-      const fortunesData = await getFortunesByUser(user.id);
-      setFortunes(fortunesData);
+      const fortunesData = await getFortunesForDateRange();
+      setFortunes(fortunesData as any);
         
       // Filter fortunes for selected date
       if (selectedDate) {
         const dateFortunes = fortunesData.filter(fortune =>
           isSameDay(new Date(fortune.created_at), selectedDate)
         );
-        setSelectedDateFortunes(dateFortunes);
+        setSelectedDateFortunes(dateFortunes as any);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
