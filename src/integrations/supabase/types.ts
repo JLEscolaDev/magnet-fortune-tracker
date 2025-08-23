@@ -66,53 +66,68 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          enc_ver: number | null
           fortune_level: number | null
           fortune_value: number | null
           id: string
           text: string
+          text_iv: string | null
           user_id: string
         }
         Insert: {
           category: string
           created_at?: string
+          enc_ver?: number | null
           fortune_level?: number | null
           fortune_value?: number | null
           id?: string
           text: string
+          text_iv?: string | null
           user_id: string
         }
         Update: {
           category?: string
           created_at?: string
+          enc_ver?: number | null
           fortune_level?: number | null
           fortune_value?: number | null
           id?: string
           text?: string
+          text_iv?: string | null
           user_id?: string
         }
         Relationships: []
       }
       plans: {
         Row: {
+          billing_period: string | null
           created_at: string | null
           id: string
+          is_early_bird: boolean | null
           level: number
           name: string
           price_id: string
+          visibility: Database["public"]["Enums"]["Visibility"]
         }
         Insert: {
+          billing_period?: string | null
           created_at?: string | null
           id?: string
+          is_early_bird?: boolean | null
           level: number
           name: string
           price_id: string
+          visibility?: Database["public"]["Enums"]["Visibility"]
         }
         Update: {
+          billing_period?: string | null
           created_at?: string | null
           id?: string
+          is_early_bird?: boolean | null
           level?: number
           name?: string
           price_id?: string
+          visibility?: Database["public"]["Enums"]["Visibility"]
         }
         Relationships: []
       }
@@ -229,31 +244,136 @@ export type Database = {
       }
     }
     Views: {
+      available_plans_v: {
+        Row: {
+          billing_period: string | null
+          is_early_bird: boolean | null
+          level: number | null
+          name: string | null
+          price_id: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          display_name: string | null
+          level: number | null
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          display_name?: string | null
+          level?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          display_name?: string | null
+          level?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_features: {
         Row: {
-          current_period_end: string | null
+          created_at: string | null
+          early_bird_eligible: boolean | null
           early_bird_redeemed: boolean | null
           early_bird_seen: boolean | null
-          has_full_access: boolean | null
-          is_lifetime: boolean | null
           is_trial_active: boolean | null
-          subscription_status: string | null
-          subscription_tier: string | null
-          total_fortunes: number | null
           trial_ends_at: string | null
           user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          early_bird_eligible?: never
+          early_bird_redeemed?: never
+          early_bird_seen?: never
+          is_trial_active?: never
+          trial_ends_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          early_bird_eligible?: never
+          early_bird_redeemed?: never
+          early_bird_seen?: never
+          is_trial_active?: never
+          trial_ends_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
     }
     Functions: {
+      _enc_key_for: {
+        Args: { uid: string }
+        Returns: string
+      }
+      derive_passphrase: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      fortune_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      fortune_decrypt: {
+        Args: { _id: string }
+        Returns: {
+          category: string
+          created_at: string
+          fortune_level: number
+          id: string
+          text: string
+        }[]
+      }
+      fortune_get: {
+        Args: { _id: string }
+        Returns: {
+          category: string
+          created_at: string
+          fortune_level: number
+          id: string
+          text: string
+        }[]
+      }
+      fortune_list: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          category: string
+          created_at: string
+          fortune_level: number
+          id: string
+          text: string
+          user_id: string
+        }[]
+      }
+      fortune_put: {
+        Args:
+          | {
+              p_category: string
+              p_created_at: string
+              p_fortune_value: number
+              p_text: string
+            }
+          | {
+              p_category?: string
+              p_created_at?: string
+              p_fortune_level?: number
+              p_text: string
+            }
+        Returns: Json
+      }
       is_trial_active: {
         Args: { p_user_id: string }
         Returns: boolean
       }
     }
     Enums: {
-      [_ in never]: never
+      Visibility: "hidden" | "teaser" | "visible"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -380,6 +500,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      Visibility: ["hidden", "teaser", "visible"],
+    },
   },
 } as const
