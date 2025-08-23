@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getFortunesCount, getFortunesForDateRange } from '@/lib/fortunes';
+import { getFortuneCounts, getFortunesForDateRange } from '@/lib/fortunes';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { SUBSCRIPTION_LIMITS } from '@/config/limits';
 
@@ -69,20 +69,10 @@ export const useFreePlanLimits = (): FreePlanStatus => {
         const daysSinceSignup = Math.floor((Date.now() - signupDate.getTime()) / (1000 * 60 * 60 * 24));
         const isWithinTrialPeriod = daysSinceSignup < SUBSCRIPTION_LIMITS.FREE_TRIAL_DAYS;
 
-        // Get total fortunes count
-        const totalFortunes = await getFortunesCount(user.id);
-
-        // Get today's fortunes count
-        const today = new Date();
-        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-
-        const todayFortunes = await getFortunesForDateRange(
-          user.id,
-          startOfDay.toISOString(),
-          endOfDay.toISOString()
-        );
-        const dailyFortunesAdded = todayFortunes.length;
+        // Get fortune counts using RPC
+        const fortuneCounts = await getFortuneCounts();
+        const totalFortunes = fortuneCounts.total;
+        const dailyFortunesAdded = fortuneCounts.today;
 
         // Determine if user has full access
         const hasFullAccess = isWithinTrialPeriod && (totalFortunes || 0) < SUBSCRIPTION_LIMITS.FREE_TRIAL_FORTUNE_LIMIT;

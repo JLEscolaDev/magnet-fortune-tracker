@@ -1,77 +1,44 @@
-import { supabase } from "@/integrations/supabase/client";
-import type { Fortune } from "@/types/fortune";
+import { supabase } from '@/integrations/supabase/client';
 
 // Create a new fortune (encryption happens automatically on DB trigger)
-export async function createFortune(
-  userId: string, 
-  text: string, 
-  category: string, 
-  fortuneValue?: number | null,
-  createdAt?: string
-) {
-  const insertData: any = {
-    user_id: userId,
-    text,
-    category,
-  };
-
-  if (fortuneValue !== undefined) {
-    insertData.fortune_value = fortuneValue;
-  }
-
-  if (createdAt) {
-    insertData.created_at = createdAt;
-  }
-
-  const { data, error } = await supabase
-    .from("fortunes")
-    .insert([insertData])
-    .select()
-    .single();
+export async function createFortune(text: string, createdAt?: string) {
+  const { data, error } = await (supabase.rpc as any)('fortune_put', {
+    _text: text,
+    _created_at: createdAt ?? null
+  });
 
   if (error) throw error;
   return data;
 }
 
-// Get a single fortune by ID (decrypted text)
-export async function getFortune(id: string): Promise<Fortune | null> {
-  const { data, error } = await (supabase.rpc as any)("fortune_decrypt", { _id: id });
+// Get fortunes for date range (decrypted)
+export async function getFortunesForDateRange(startISO?: string, endISO?: string) {
+  const { data, error } = await (supabase.rpc as any)('fortune_list', {
+    _start: startISO ?? null,
+    _end: endISO ?? null
+  });
 
   if (error) throw error;
-  if (!data || data.length === 0) return null;
-
-  return {
-    id: data[0].id,
-    user_id: data[0].user_id,
-    text: data[0].text, // decrypted text
-    category: data[0].category,
-    fortune_level: data[0].fortune_level,
-    fortune_value: data[0].fortune_value,
-    created_at: data[0].created_at,
-  };
-}
-
-// Get all fortunes for a user (decrypted)
-export async function getFortunesByUser(userId: string): Promise<Fortune[]> {
-  const { data, error } = await (supabase.rpc as any)("fortune_list");
-
-  if (error) throw error;
-  return data.map((f: any) => ({
+  return (data || []).map((f: any) => ({
     id: f.id,
-    user_id: f.user_id,
-    text: f.text, // decrypted text
-    category: f.category,
-    fortune_level: f.fortune_level,
-    fortune_value: f.fortune_value,
     created_at: f.created_at,
+    text: f.text // text is already plaintext
   }));
 }
 
-// Update a fortune
-export async function updateFortune(
-  id: string, 
-  updates: Partial<{ text: string; category: string; fortune_value: number | null }>
-) {
+// Get fortune counts
+export async function getFortuneCounts() {
+  const { data, error } = await (supabase.rpc as any)('fortune_counts');
+
+  if (error) throw error;
+  return {
+    total: data?.total || 0,
+    today: data?.today || 0
+  };
+}
+
+// Legacy compatibility functions
+export async function updateFortune(id: string, updates: any) {
   const { error } = await supabase
     .from('fortunes')
     .update(updates)
@@ -80,7 +47,6 @@ export async function updateFortune(
   if (error) throw error;
 }
 
-// Delete a fortune
 export async function deleteFortune(id: string) {
   const { error } = await supabase
     .from('fortunes')
@@ -90,26 +56,17 @@ export async function deleteFortune(id: string) {
   if (error) throw error;
 }
 
-// Get fortune count for a user
-export async function getFortunesCount(userId: string): Promise<number> {
-  const { count, error } = await supabase
-    .from('fortunes')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId);
+export async function getFortunesByUser(userId: string) {
+  const { data, error } = await (supabase.rpc as any)('fortune_list');
 
   if (error) throw error;
-  return count || 0;
-}
-
-// Get fortunes for date range
-export async function getFortunesForDateRange(
-  userId: string, 
-  startDate: string, 
-  endDate: string
-): Promise<Fortune[]> {
-  const fortunes = await getFortunesByUser(userId);
-  return fortunes.filter(fortune => {
-    const fortuneDate = fortune.created_at;
-    return fortuneDate >= startDate && fortuneDate < endDate;
-  });
+  return (data || []).map((f: any) => ({
+    id: f.id,
+    user_id: f.user_id,
+    text: f.text,
+    category: f.category,
+    fortune_level: f.fortune_level,
+    fortune_value: f.fortune_value,
+    created_at: f.created_at,
+  }));
 }

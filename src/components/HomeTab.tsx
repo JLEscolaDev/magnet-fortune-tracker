@@ -32,7 +32,6 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
       const endOfDayUTC = new Date(startOfDayUTC.getTime() + 24 * 60 * 60 * 1000);
 
       const fortunesData = await getFortunesForDateRange(
-        user.id as any,
         startOfDayUTC.toISOString(),
         endOfDayUTC.toISOString()
       );

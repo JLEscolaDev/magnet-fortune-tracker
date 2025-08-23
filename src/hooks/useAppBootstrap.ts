@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { getFortunesCount, getFortunesForDateRange } from '@/lib/fortunes';
+import { getFortuneCounts } from '@/lib/fortunes';
 import { Profile, Subscription } from '@/types/fortune';
 // @ts-expect-error temporary workaround for module resolution
 import type { Database } from '@/types/database.types';
@@ -137,21 +137,10 @@ export const useAppBootstrap = (user: User | null) => {
       
       logWithPrefix('Fetching fortune counts', { userId });
 
-      // Get total fortunes count
-      const totalCount = await getFortunesCount(userId);
-      logWithPrefix('Total fortunes count fetched', { totalCount });
-
-      // Get today's fortunes count (UTC midnight boundary)
-      const today = new Date();
-      const startOfDayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-      const endOfDayUTC = new Date(startOfDayUTC.getTime() + 24 * 60 * 60 * 1000);
-
-      const todayFortunes = await getFortunesForDateRange(
-        userId,
-        startOfDayUTC.toISOString(),
-        endOfDayUTC.toISOString()
-      );
-      const todayCount = todayFortunes.length;
+      // Get fortune counts using RPC
+      const fortuneCounts = await getFortuneCounts();
+      const totalCount = fortuneCounts.total;
+      const todayCount = fortuneCounts.today;
       logWithPrefix('Today fortunes count fetched', { todayCount });
 
       logWithPrefix('Fortune counts completed', { total: totalCount, today: todayCount });

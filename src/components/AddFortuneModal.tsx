@@ -11,6 +11,7 @@ import { sanitizeText, validateNumericValue, validateCategory, formRateLimiter }
 import { useFreePlanLimits } from '@/hooks/useFreePlanLimits';
 import { useAppState } from '@/contexts/AppStateContext';
 import { SUBSCRIPTION_LIMITS } from '@/config/limits';
+import { createFortune } from '@/lib/fortunes';
 import confetti from 'canvas-confetti';
 
 interface AddFortuneModalProps {
@@ -198,35 +199,8 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
         return;
       }
 
-      const fortuneData = {
-        text: sanitizedText,
-        category: validatedCategory,
-        fortune_value: validatedValue,
-        created_at: selectedDate?.toISOString()
-      };
-
-      // Use the backend validation function for defense in depth
-      const { data: insertResult, error } = await supabase.functions.invoke('validate-and-insert-fortune', {
-        body: fortuneData
-      });
-
-      if (error) {
-        // Handle specific error codes from the backend
-      if (error.message?.includes('FREE_DAILY_LIMIT_REACHED')) {
-        addError('fortune-submission', 'Daily limit reached during server validation');
-        toast({
-          title: "Daily limit reached",
-          description: "Your free plan now limits you to 1 fortune per day. Upgrade to Pro for unlimited access!",
-          variant: "destructive",
-        });
-        return;
-      }
-        throw error;
-      }
-
-      if (!insertResult?.success) {
-        throw new Error(insertResult?.error || 'Failed to add fortune');
-      }
+      // Use the simplified RPC-based function
+      await createFortune(sanitizedText, selectedDate?.toISOString());
 
       // Success animations and feedback - conditional based on category
       if (category === 'Wealth') {
