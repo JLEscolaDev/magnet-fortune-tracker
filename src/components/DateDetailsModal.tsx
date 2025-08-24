@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, CurrencyDollar, Heart, HeartStraight, Sparkle, PencilSimple, Trash } from '@phosphor-icons/react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Fortune } from '@/types/fortune';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
