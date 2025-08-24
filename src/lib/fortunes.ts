@@ -18,6 +18,7 @@ export async function addFortune(
     p_text: text,
     p_category: category ?? null,
     p_level: level ?? null,
+    p_created_at: selectedDate?.toISOString() ?? null,
   });
 
   if (error) {

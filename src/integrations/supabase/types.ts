@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_secrets: {
+        Row: {
+          created_at: string | null
+          key: string
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          key: string
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          key?: string
+          value?: string
+        }
+        Relationships: []
+      }
       avatars: {
         Row: {
           created_at: string
@@ -95,6 +113,42 @@ export type Database = {
           text?: string
           text_iv?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      fortunes_backup_20250824: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          enc_ver: number | null
+          fortune_level: number | null
+          fortune_value: number | null
+          id: string | null
+          text: string | null
+          text_iv: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          enc_ver?: number | null
+          fortune_level?: number | null
+          fortune_value?: number | null
+          id?: string | null
+          text?: string | null
+          text_iv?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          enc_ver?: number | null
+          fortune_level?: number | null
+          fortune_value?: number | null
+          id?: string | null
+          text?: string | null
+          text_iv?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -308,12 +362,43 @@ export type Database = {
       }
     }
     Functions: {
+      _detect_fortune_cipher: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          key_source: string
+          ok: boolean
+          sample: string
+        }[]
+      }
       _enc_key_for: {
         Args: { uid: string }
         Returns: string
       }
+      _recrypt_legacy_to_appkey: {
+        Args: { batch_size?: number }
+        Returns: number
+      }
       derive_passphrase: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      derive_passphrase_for: {
+        Args: { _uid: string }
+        Returns: string
+      }
+      encrypt_with_app_key: {
+        Args: { plain: string }
+        Returns: string
+      }
+      fortune_add: {
+        Args:
+          | {
+              p_category?: string
+              p_created_at?: string
+              p_level?: number
+              p_text: string
+            }
+          | { p_category?: string; p_level?: number; p_text: string }
         Returns: string
       }
       fortune_counts: {
@@ -330,6 +415,10 @@ export type Database = {
           text: string
         }[]
       }
+      fortune_delete: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       fortune_get: {
         Args: { _id: string }
         Returns: {
@@ -341,7 +430,7 @@ export type Database = {
         }[]
       }
       fortune_list: {
-        Args: { p_from: string; p_to: string }
+        Args: Record<PropertyKey, never> | { p_from: string; p_to: string }
         Returns: {
           category: string
           created_at: string
@@ -352,24 +441,62 @@ export type Database = {
         }[]
       }
       fortune_put: {
-        Args:
-          | {
-              p_category: string
-              p_created_at: string
-              p_fortune_value: number
-              p_text: string
-            }
-          | {
-              p_category?: string
-              p_created_at?: string
-              p_fortune_level?: number
-              p_text: string
-            }
+        Args: {
+          p_category: string
+          p_created_at?: string
+          p_fortune_value: number
+          p_text: string
+        }
         Returns: Json
+      }
+      fortune_update: {
+        Args: {
+          p_category?: string
+          p_id: string
+          p_level?: number
+          p_text: string
+        }
+        Returns: undefined
+      }
+      get_app_enc_key: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_private_enc_salt: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       is_trial_active: {
         Args: { p_user_id: string }
         Returns: boolean
+      }
+      try_base64_text: {
+        Args: { s: string }
+        Returns: string
+      }
+      try_decrypt_auto: {
+        Args: { _uid: string; armor: string }
+        Returns: string
+      }
+      try_decrypt_maybe_base64: {
+        Args: { armor: string }
+        Returns: string
+      }
+      try_decrypt_with_derived: {
+        Args: { _uid: string; armor: string }
+        Returns: string
+      }
+      try_decrypt_with_key: {
+        Args: { armor: string; k: string }
+        Returns: string
+      }
+      try_decrypt_with_user_salt: {
+        Args: { _uid: string; armor: string; salt: string }
+        Returns: string
+      }
+      try_double_decrypt: {
+        Args: { armor: string; k_inner: string; k_outer: string }
+        Returns: string
       }
     }
     Enums: {
