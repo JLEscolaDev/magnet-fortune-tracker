@@ -223,11 +223,6 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
                 </div>
                 <p className="text-sm leading-relaxed">{fortune.text}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  {Number(fortune.fortune_level) > 0 && (
-                    <div className="text-xs text-muted-foreground">
-                      Level: {Number(fortune.fortune_level)}
-                    </div>
-                  )}
                   {valueCategories.has(fortune.category) && Number(fortune.fortune_value) > 0 && (
                     <div className="text-xs text-gold font-medium">
                       {Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(Number(fortune.fortune_value))}
