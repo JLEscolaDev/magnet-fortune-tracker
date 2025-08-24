@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, CurrencyDollar, Heart, HeartStraight, Sparkle, PencilSimple, Trash } from '@phosphor-icons/react';
+import { supabase } from '@/lib/supabase';
 import { Fortune } from '@/types/fortune';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,34 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deletingFortunes, setDeletingFortunes] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  // Categories that allow a numeric value (user custom + built-in defaults)
+  const [valueCategories, setValueCategories] = useState<Set<string>>(new Set(['Wealth']));
+  
+  useEffect(() => {
+    if (!isOpen) return;
+    (async () => {
+      try {
+        // Fetch user's custom categories that explicitly allow numeric values
+        const { data, error } = await supabase
+          .from('custom_categories')
+          .select('name, has_numeric_value')
+          .eq('has_numeric_value', true);
+  
+        if (!error && Array.isArray(data)) {
+          const withValue = data
+            .filter((c: any) => c.has_numeric_value)
+            .map((c: any) => c.name)
+            .filter((n: any) => typeof n === 'string' && n.length > 0);
+  
+          // Add built-in category that supports values
+          setValueCategories(new Set(['Wealth', ...withValue]));
+        }
+      } catch {
+        // ignore – if it fails, we only keep the default
+      }
+    })();
+  }, [isOpen]);
 
   if (!isOpen || !date) return null;
 
@@ -194,14 +223,14 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
                 </div>
                 <p className="text-sm leading-relaxed">{fortune.text}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  {fortune.fortune_level && (
+                  {Number(fortune.fortune_level) > 0 && (
                     <div className="text-xs text-muted-foreground">
-                      Level: {fortune.fortune_level}
+                      Level: {Number(fortune.fortune_level)}
                     </div>
                   )}
-                  {fortune.category === 'Wealth' && fortune.fortune_value && fortune.fortune_value > 0 && (
+                  {valueCategories.has(fortune.category) && Number(fortune.fortune_value) > 0 && (
                     <div className="text-xs text-gold font-medium">
-                      ${fortune.fortune_value}
+                      {Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(Number(fortune.fortune_value))}
                     </div>
                   )}
                 </div>
