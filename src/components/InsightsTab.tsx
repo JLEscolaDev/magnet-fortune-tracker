@@ -6,7 +6,7 @@ import { DateDetailsModal } from '@/components/DateDetailsModal';
 import { ImprovedStatistics } from '@/components/ImprovedStatistics';
 import { Fortune, Achievement } from '@/types/fortune';
 import { AchievementCard } from '@/components/AchievementCard';
-import { getFortunesForDateRange } from '@/lib/fortunes';
+import { getFortunesListPaginated } from '@/lib/fortunes';
 import { useAppState } from '@/contexts/AppStateContext';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -219,7 +219,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
 
       console.log('[QUERY:fortunes] Fetching all fortunes for insights');
 
-      const fortunesData = await getFortunesForDateRange();
+      const fortunesData = await getFortunesListPaginated();
       setFortunes(fortunesData as any);
         
       // Filter fortunes for selected date

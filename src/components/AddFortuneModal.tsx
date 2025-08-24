@@ -11,7 +11,7 @@ import { sanitizeText, validateNumericValue, validateCategory, formRateLimiter }
 import { useFreePlanLimits } from '@/hooks/useFreePlanLimits';
 import { useAppState } from '@/contexts/AppStateContext';
 import { SUBSCRIPTION_LIMITS } from '@/config/limits';
-import { createFortune } from '@/lib/fortunes';
+import { addFortune } from '@/lib/fortunes';
 import confetti from 'canvas-confetti';
 
 interface AddFortuneModalProps {
@@ -200,7 +200,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
       }
 
       // Use the simplified RPC-based function
-      await createFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate?.toISOString());
+      await addFortune(sanitizedText, validatedCategory, validatedValue || 0);
 
       // Success animations and feedback - conditional based on category
       if (category === 'Wealth') {

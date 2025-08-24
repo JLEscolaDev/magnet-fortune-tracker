@@ -1,11 +1,11 @@
 export interface Fortune {
   id: string;
   user_id: string;
-  text: string;
-  category: string; // Changed from FortuneCategory to string to match DB
-  fortune_level?: number | null;
-  fortune_value?: number | null;
-  created_at: string;
+  text: string | null;       // plain text when recoverable; otherwise original blob
+  category: string | null;
+  created_at: string;        // ISO
+  fortune_level: number | null;
+  fortune_value?: number | null; // Keep for backward compatibility
 }
 
 export type FortuneCategory = 'Wealth' | 'Health' | 'Love' | 'Opportunity' | 'Other' | string;

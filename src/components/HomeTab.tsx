@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { LuxuryAvatarSection } from './LuxuryAvatarSection';
 import { FortuneList } from './FortuneList';
 import { Fortune } from '@/types/fortune';
-import { getTodayFortunesUTC, FortuneRecord } from '@/lib/fortunes';
+import { getTodayFortunes, FortuneRecord } from '@/lib/fortunes';
 import { useAppState } from '@/contexts/AppStateContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -25,7 +25,7 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
       }
 
       console.log("[QUERY:fortunes] Fetching today's fortunes");
-      const fortunes = await getTodayFortunesUTC();
+      const fortunes = await getTodayFortunes();
       setRecentFortunes(fortunes);
       console.log(`[QUERY:fortunes] Fetched ${fortunes?.length ?? 0} recent fortunes`);
     } catch (error) {
