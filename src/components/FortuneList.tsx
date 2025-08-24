@@ -211,7 +211,7 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                     {getCategoryIcon(fortune.category)}
                     {fortune.category}
                   </span>
-                  {fortune.fortune_value && (
+                  {fortune.category === 'Wealth' && fortune.fortune_value && fortune.fortune_value > 0 && (
                     <span className="text-xs text-gold font-medium">
                       ${fortune.fortune_value}
                     </span>
