@@ -199,8 +199,8 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
         return;
       }
 
-      // Use the simplified RPC-based function
-      await addFortune(sanitizedText, validatedCategory, validatedValue || 0);
+      // Use the simplified RPC-based function with selected date
+      await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate);
 
       // Success animations and feedback - conditional based on category
       if (category === 'Wealth') {

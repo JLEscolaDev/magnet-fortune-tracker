@@ -9,8 +9,11 @@ export const looksLegacy = (text?: string | null): boolean =>
 export async function addFortune(
   text: string,
   category?: string | null,
-  level?: number | null
+  level?: number | null,
+  selectedDate?: Date | null
 ): Promise<string> {
+  console.log('[FORTUNES:addFortune] Adding fortune with RPC', { selectedDate });
+  
   const { data, error } = await (supabase.rpc as any)('fortune_add', {
     p_text: text,
     p_category: category ?? null,

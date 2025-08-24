@@ -199,7 +199,7 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
                       Level: {fortune.fortune_level}
                     </div>
                   )}
-                  {fortune.fortune_value && (
+                  {fortune.fortune_value && fortune.fortune_value > 0 && (
                     <div className="text-xs text-gold font-medium">
                       ${fortune.fortune_value}
                     </div>
