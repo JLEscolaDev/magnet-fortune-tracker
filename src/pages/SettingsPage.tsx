@@ -97,17 +97,10 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
     }
   };
 
-  const handleAvatarUpload = () => {
+  const handleGenerateReports = () => {
     toast({
-      title: "Coming Soon",
-      description: "Avatar upload functionality will be available soon",
-    });
-  };
-
-  const handleGenerateAvatar = () => {
-    toast({
-      title: "Coming Soon",
-      description: "AI avatar generation will be available soon",
+      title: "Generating Reports",
+      description: "Your progress reports are being generated...",
     });
   };
 
@@ -159,7 +152,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
         </div>
 
         <div className="space-y-6">
-          {/* Avatar Section */}
+          {/* User Profile Section */}
           <div className="luxury-card p-6">
             <h3 className="text-lg font-heading font-medium mb-4">Avatar</h3>
             <div className="relative h-[40vh] w-[40vh] mx-auto rounded-full overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl mb-4">
@@ -196,24 +189,16 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
+            {isActive && (
               <Button 
                 variant="outline" 
-                onClick={handleAvatarUpload}
-                className="flex-1"
+                onClick={handleGenerateReports}
+                className="w-full"
               >
-                <Upload size={16} className="mr-2" />
-                Upload
+                <ChartLine size={16} className="mr-2" />
+                Generate Progress Reports
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={handleGenerateAvatar}
-                className="flex-1"
-              >
-                <Camera size={16} className="mr-2" />
-                Generate AI
-              </Button>
-            </div>
+            )}
           </div>
 
           {/* Preferences */}
