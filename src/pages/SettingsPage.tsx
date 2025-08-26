@@ -182,7 +182,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
           {/* User Profile Section */}
           <div className="luxury-card p-6">
             <h3 className="text-lg font-heading font-medium mb-4">{userEmail ?? 'Profile'}</h3>
-            <div className="relative h-[40vh] w-[40vh] mx-auto rounded-full overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl mb-4">
+            <div className="relative w-full max-w-[280px] sm:max-w-[340px] md:max-w-[40vh] aspect-square mx-auto rounded-full overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl mb-4">
               {/* Background Avatar Image */}
               <div className="absolute inset-0">
                 {avatar?.url ? (
