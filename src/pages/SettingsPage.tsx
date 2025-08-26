@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, Upload, Camera, SignOut } from '@phosphor-icons/react';
+import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, SignOut, ChartLine } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,7 +22,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const [showPricingDialog, setShowPricingDialog] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
   const { toast } = useToast();
-  const { isActive, subscription } = useSubscription();
+  const { isActive, subscription, user } = useSubscription();
 
   const isDarkMode = theme === 'dark';
 
@@ -56,17 +56,10 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
     }
   };
 
-  const handleAvatarUpload = () => {
+  const handleGenerateReports = () => {
     toast({
-      title: "Coming Soon",
-      description: "Avatar upload functionality will be available soon",
-    });
-  };
-
-  const handleGenerateAvatar = () => {
-    toast({
-      title: "Coming Soon",
-      description: "AI avatar generation will be available soon",
+      title: "Generating Reports",
+      description: "Your progress reports are being generated...",
     });
   };
 
@@ -118,36 +111,28 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
         </div>
 
         <div className="space-y-6">
-          {/* Avatar Section */}
+          {/* User Profile Section */}
           <div className="luxury-card p-6">
-            <h3 className="text-lg font-heading font-medium mb-4">Avatar</h3>
+            <h3 className="text-lg font-heading font-medium mb-4">{user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Profile'}</h3>
             <div className="flex items-center gap-4 mb-4">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold to-emerald flex items-center justify-center text-2xl">
                 🎯
               </div>
               <div className="flex-1">
-                <p className="font-medium">Fortune Seeker</p>
+                <p className="font-medium">{user?.email}</p>
                 <p className="text-sm text-muted-foreground">Level 1</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            {isActive && (
               <Button 
                 variant="outline" 
-                onClick={handleAvatarUpload}
-                className="flex-1"
+                onClick={handleGenerateReports}
+                className="w-full"
               >
-                <Upload size={16} className="mr-2" />
-                Upload
+                <ChartLine size={16} className="mr-2" />
+                Generate Progress Reports
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={handleGenerateAvatar}
-                className="flex-1"
-              >
-                <Camera size={16} className="mr-2" />
-                Generate AI
-              </Button>
-            </div>
+            )}
           </div>
 
           {/* Preferences */}
