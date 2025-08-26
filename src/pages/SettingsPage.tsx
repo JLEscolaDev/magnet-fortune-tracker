@@ -10,7 +10,6 @@ import { CategoryManager } from '@/components/CategoryManager';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PricingDialog } from '@/components/billing/PricingDialog';
 import { useSettings } from '@/contexts/SettingsContext';
-import { useAppState } from '@/contexts/AppStateContext';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -24,7 +23,6 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const [openingPortal, setOpeningPortal] = useState(false);
   const { toast } = useToast();
   const { isActive, subscription, user } = useSubscription();
-  const { profile } = useAppState();
 
   const isDarkMode = theme === 'dark';
 
@@ -118,9 +116,9 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
             <h3 className="text-lg font-heading font-medium mb-4">{user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Profile'}</h3>
             <div className="flex items-center gap-4 mb-4">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold to-emerald flex items-center justify-center text-2xl overflow-hidden">
-                {profile?.avatar_url ? (
+                {user?.user_metadata?.avatar_url ? (
                   <img 
-                    src={profile.avatar_url} 
+                    src={user.user_metadata.avatar_url} 
                     alt="Avatar" 
                     className="w-full h-full object-cover"
                   />
