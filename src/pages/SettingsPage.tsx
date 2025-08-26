@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, Upload, Camera, SignOut } from '@phosphor-icons/react';
+import { useState, useEffect, useContext } from 'react';
+import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, Upload, Camera, SignOut, Crown, Trophy } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,6 +10,7 @@ import { CategoryManager } from '@/components/CategoryManager';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PricingDialog } from '@/components/billing/PricingDialog';
 import { useSettings } from '@/contexts/SettingsContext';
+import { AppStateContext } from '@/contexts/AppStateContext';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -17,14 +18,54 @@ interface SettingsPageProps {
 
 export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const { theme, setTheme } = useTheme();
+  const isDarkMode = theme === 'dark';
   const { soundEnabled, setSoundEnabled, animationsEnabled, setAnimationsEnabled, hapticsEnabled, setHapticsEnabled, currency, setCurrency } = useSettings();
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showPricingDialog, setShowPricingDialog] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
   const { toast } = useToast();
   const { isActive, subscription } = useSubscription();
+  // Type-safe optional access to AppState. If the provider is not present, appState will be null.
+  type AppStateLike = {
+    profile?: { level?: number | null } | null;
+  };
+  const appState = useContext(AppStateContext as any) as AppStateLike | null;
+  const profile = appState?.profile || null;
+  const currentLevel = profile?.level ?? 1;
 
-  const isDarkMode = theme === 'dark';
+  // Avatar + level for Settings preview (reuse AppState to avoid stale level 1)
+  const [avatar, setAvatar] = useState<{ url: string | null; title: string | null } | null>(null);
+
+  useEffect(() => {
+    const level = profile?.level ?? 1;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        // Fetch avatar for the current level
+        const { data: av, error } = await supabase
+          .from('avatars')
+          .select('url,title')
+          .eq('level', level)
+          .single();
+
+        if (error) {
+          console.warn('Settings avatar fetch error:', error);
+        }
+        if (!cancelled) {
+          setAvatar(av ? { url: av.url, title: av.title } : null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.warn('Settings avatar preview load failed:', e);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.level]);
 
   const handleLogout = async () => {
     try {
@@ -121,13 +162,38 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
           {/* Avatar Section */}
           <div className="luxury-card p-6">
             <h3 className="text-lg font-heading font-medium mb-4">Avatar</h3>
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold to-emerald flex items-center justify-center text-2xl">
-                🎯
+            <div className="relative h-[40vh] w-[40vh] mx-auto rounded-full overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl mb-4">
+              {/* Background Avatar Image */}
+              <div className="absolute inset-0">
+                {avatar?.url ? (
+                  // GIFs animate automatically with <img>
+                  <img
+                    src={avatar.url}
+                    alt={avatar.title || 'Avatar'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-emerald via-emerald/80 to-gold flex items-center justify-center">
+                    <Crown size={64} weight="fill" className="text-ivory opacity-80" />
+                  </div>
+                )}
               </div>
-              <div className="flex-1">
-                <p className="font-medium">Fortune Seeker</p>
-                <p className="text-sm text-muted-foreground">Level 1</p>
+
+              {/* Subtle ring */}
+              <div className="absolute inset-0 rounded-full border-2 border-gold/40 pointer-events-none" />
+
+              {/* Dark gradient overlay to improve text contrast */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+              {/* Content overlay */}
+              <div className="absolute bottom-0 left-0 right-0 p-4 text-center">
+                <h3 className="font-heading text-base font-semibold text-white mb-1 drop-shadow-lg">
+                  {avatar?.title || 'Fortune Seeker'}
+                </h3>
+                <div className="flex items-center justify-center gap-2">
+                  <Trophy size={14} className="text-gold drop-shadow-lg" />
+                  <span className="text-gold font-semibold text-xs drop-shadow-lg">Level {currentLevel}</span>
+                </div>
               </div>
             </div>
             <div className="flex gap-2">

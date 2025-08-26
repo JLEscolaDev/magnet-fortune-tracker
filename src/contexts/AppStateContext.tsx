@@ -13,7 +13,7 @@ interface AppStateContextType {
   refetch: () => Promise<void>;
 }
 
-const AppStateContext = createContext<AppStateContextType | undefined>(undefined);
+export const AppStateContext = createContext<AppStateContextType | undefined>(undefined);
 
 interface AppStateProviderProps {
   children: ReactNode;
