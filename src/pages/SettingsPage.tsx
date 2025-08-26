@@ -115,12 +115,20 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
           <div className="luxury-card p-6">
             <h3 className="text-lg font-heading font-medium mb-4">{user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Profile'}</h3>
             <div className="flex items-center gap-4 mb-4">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold to-emerald flex items-center justify-center text-2xl">
-                🎯
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold to-emerald flex items-center justify-center text-2xl overflow-hidden">
+                {user?.user_metadata?.avatar_url ? (
+                  <img 
+                    src={user.user_metadata.avatar_url} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span>🎯</span>
+                )}
               </div>
               <div className="flex-1">
-                <p className="font-medium">{user?.email}</p>
-                <p className="text-sm text-muted-foreground">Level 1</p>
+                <p className="font-medium pl-2">{user?.email}</p>
+                <p className="text-sm text-muted-foreground pl-2">Level 1</p>
               </div>
             </div>
             {isActive && (
