@@ -1,5 +1,5 @@
-import { useState, useEffect, useContext } from 'react';
-import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, Upload, Camera, SignOut, Crown, Trophy } from '@phosphor-icons/react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, Upload, Camera, SignOut, Crown, Trophy, ChartLine } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,7 +10,7 @@ import { CategoryManager } from '@/components/CategoryManager';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PricingDialog } from '@/components/billing/PricingDialog';
 import { useSettings } from '@/contexts/SettingsContext';
-import { AppStateContext } from '@/contexts/AppStateContext';
+import { useAppState } from '@/contexts/AppStateContext';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -25,19 +25,46 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const [openingPortal, setOpeningPortal] = useState(false);
   const { toast } = useToast();
   const { isActive, subscription } = useSubscription();
-  // Type-safe optional access to AppState. If the provider is not present, appState will be null.
-  type AppStateLike = {
-    profile?: { level?: number | null } | null;
-  };
-  const appState = useContext(AppStateContext as any) as AppStateLike | null;
-  const profile = appState?.profile || null;
-  const currentLevel = profile?.level ?? 1;
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [fallbackProfile, setFallbackProfile] = useState<any>(null);
+  // Safely consume AppState if the provider exists; fall back gracefully when absent.
+  let appState: any = null;
+  try {
+    appState = useAppState();
+  } catch (_) {
+    appState = null;
+  }
+  const profile = appState?.profile ?? null;
+  const effectiveProfile = profile ?? fallbackProfile;
+  const currentLevel = effectiveProfile?.level ?? 1;
+  const displayName = effectiveProfile?.display_name ?? effectiveProfile?.displayName ?? userEmail ?? 'Fortune Seeker';
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!cancelled) setUserEmail(user?.email ?? null);
+        if (!profile && user?.id) {
+          const { data: p } = await supabase
+            .from('profiles')
+            .select('display_name, level')
+            .eq('user_id', user.id)
+            .single();
+          if (!cancelled) setFallbackProfile(p ?? null);
+        }
+      } catch (_) {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [profile]);
 
   // Avatar + level for Settings preview (reuse AppState to avoid stale level 1)
   const [avatar, setAvatar] = useState<{ url: string | null; title: string | null } | null>(null);
 
   useEffect(() => {
-    const level = profile?.level ?? 1;
+    const level = effectiveProfile?.level ?? 1;
 
     let cancelled = false;
     (async () => {
@@ -65,7 +92,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
     return () => {
       cancelled = true;
     };
-  }, [profile?.level]);
+  }, [effectiveProfile?.level]);
 
   const handleLogout = async () => {
     try {
@@ -154,7 +181,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
         <div className="space-y-6">
           {/* User Profile Section */}
           <div className="luxury-card p-6">
-            <h3 className="text-lg font-heading font-medium mb-4">Avatar</h3>
+            <h3 className="text-lg font-heading font-medium mb-4">{userEmail ?? 'Profile'}</h3>
             <div className="relative h-[40vh] w-[40vh] mx-auto rounded-full overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl mb-4">
               {/* Background Avatar Image */}
               <div className="absolute inset-0">
@@ -181,8 +208,9 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
               {/* Content overlay */}
               <div className="absolute bottom-0 left-0 right-0 p-4 text-center">
                 <h3 className="font-heading text-base font-semibold text-white mb-1 drop-shadow-lg">
-                  {avatar?.title || 'Fortune Seeker'}
+                  {displayName}
                 </h3>
+                <p className="text-xs text-white/80 mb-1">{avatar?.title ?? 'Adventurer'}</p>
                 <div className="flex items-center justify-center gap-2">
                   <Trophy size={14} className="text-gold drop-shadow-lg" />
                   <span className="text-gold font-semibold text-xs drop-shadow-lg">Level {currentLevel}</span>
