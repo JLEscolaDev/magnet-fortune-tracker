@@ -36,7 +36,7 @@ export const DailyQuote = () => {
       
       // First, get total count of quotes
       const { count, error: countError } = await supabase
-        .from('quotes_master')
+        .from('quotes_master' as any)
         .select('*', { count: 'exact', head: true });
 
       if (countError || !count || count === 0) {
@@ -50,7 +50,7 @@ export const DailyQuote = () => {
 
       // Fetch the specific quote at that index
       const { data: quotes, error } = await supabase
-        .from('quotes_master')
+        .from('quotes_master' as any)
         .select('id, text_en, text_es, author, source')
         .range(quoteIndex, quoteIndex)
         .limit(1);
@@ -61,7 +61,7 @@ export const DailyQuote = () => {
       }
 
       if (quotes && quotes.length > 0) {
-        setQuote(quotes[0]);
+        setQuote(quotes[0] as unknown as Quote);
       }
     } catch (error) {
       console.error('Error in fetchDailyQuote:', error);

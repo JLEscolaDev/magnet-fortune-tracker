@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LuxuryAvatarSection } from './LuxuryAvatarSection';
 import { FortuneList } from './FortuneList';
+import { DailyQuote } from './DailyQuote';
 import { Fortune } from '@/types/fortune';
 import { getTodayFortunes, FortuneRecord } from '@/lib/fortunes';
 import { useAppState } from '@/contexts/AppStateContext';
@@ -89,6 +90,7 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
         fortuneCount={fortunesCountTotal}
         onLevelUp={handleLevelUp}
       />
+      <DailyQuote />
       <FortuneList 
         fortunes={recentFortunes as any} 
         title="Today's Fortunes"
