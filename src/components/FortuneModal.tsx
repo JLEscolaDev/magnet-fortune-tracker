@@ -556,7 +556,7 @@ export const FortuneModal = ({
           <Button
             type="submit"
             disabled={isLoading || !text.trim() || !category || (!isEditMode && !activeSubscription && !freePlanStatus.canAddFortune)}
-            className="luxury-button w-full"
+            className={isEditMode ? "w-full" : "luxury-button w-full"}
           >
             {!isEditMode && !activeSubscription && !freePlanStatus.canAddFortune ? (
               <div className="flex items-center gap-2">
