@@ -88,6 +88,7 @@ export async function getFortuneCounts() {
   };
 }
 
+
 // Legacy compatibility functions (keeping for backward compatibility)
 export async function createFortune(
   text: string,

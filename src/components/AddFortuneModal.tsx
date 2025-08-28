@@ -89,6 +89,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
   const [impactLevel, setImpactLevel] = useState<string>('small_step');
   const [isLoading, setIsLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryData[]>(defaultCategories);
+  const [bigWinsCount, setBigWinsCount] = useState<number>(0);
   const { toast } = useToast();
   const freePlanStatus = useFreePlanLimits();
   const { activeSubscription, fortunesCountToday, addError } = useAppState();
@@ -101,10 +102,35 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
     isLoading
   });
 
-  // Load custom categories on mount
+  // Load custom categories and big wins count on mount
   useEffect(() => {
     loadCategories();
+    loadBigWinsCount();
   }, []);
+
+  const loadBigWinsCount = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const now = new Date();
+      const startOfYear = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+      const endOfYear = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 1));
+
+      // Use the fortune_list RPC and filter on client side to avoid TypeScript issues
+      const { data } = await (supabase.rpc as any)('fortune_list', {
+        p_from: startOfYear.toISOString(),
+        p_to: endOfYear.toISOString()
+      });
+
+      if (data) {
+        const bigWins = data.filter((fortune: any) => fortune.impact_level === 'big_win');
+        setBigWinsCount(bigWins.length);
+      }
+    } catch (error) {
+      console.error('Error loading big wins count:', error);
+    }
+  };
 
   const loadCategories = async () => {
     try {
@@ -343,9 +369,9 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
               {/* Impact Level Selector */}
               <div className="flex gap-2">
                 {[
-                  { value: 'small_step', label: 'Small Step', icon: TrendUp, size: 16, barHeight: 'h-2' },
-                  { value: 'milestone', label: 'Milestone', icon: Star, size: 20, barHeight: 'h-4' },
-                  { value: 'big_win', label: 'Big Win', icon: Trophy, size: 24, barHeight: 'h-6' }
+                  { value: 'small_step', label: 'Small Step', icon: TrendUp, size: 16, barWidth: 'w-1/4' },
+                  { value: 'milestone', label: 'Milestone', icon: Star, size: 20, barWidth: 'w-1/2' },
+                  { value: 'big_win', label: 'Big Win', icon: Trophy, size: 24, barWidth: 'w-full' }
                 ].map((level) => {
                   const Icon = level.icon;
                   const isSelected = impactLevel === level.value;
@@ -376,10 +402,10 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
                       </div>
                       
                       {/* Animated progress bar */}
-                      <div className="absolute bottom-0 left-0 w-full bg-muted/20">
+                      <div className="absolute bottom-0 left-0 w-full bg-muted/20 h-2">
                         <div 
-                          className={`${level.barHeight} bg-gradient-to-r from-muted-foreground/40 to-muted-foreground/60 transition-all duration-500 ${
-                            isSelected ? 'w-full opacity-100' : 'w-0 opacity-30'
+                          className={`h-full bg-gradient-to-r from-muted-foreground/40 to-muted-foreground/60 transition-all duration-500 ${
+                            isSelected ? `${level.barWidth} opacity-100` : 'w-0 opacity-30'
                           }`}
                         />
                       </div>
@@ -413,7 +439,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
               {impactLevel === 'big_win' && (
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground">
-                    You can only have 5 big wins per year to keep it real • <span className="text-primary font-medium">Check your progress in insights</span>
+                    You can only have 5 big wins per year to keep it real • <span className="text-primary font-medium">{bigWinsCount}/5 used this year</span>
                   </p>
                 </div>
               )}
