@@ -69,6 +69,10 @@ All colors MUST be HSL.
     --health: 0 84% 60%;     /* Bright red for health */
     --love: 330 81% 60%;     /* Pink for love */
     --opportunity: 142 71% 45%; /* Green for opportunity */
+    
+    /* Fortune item colors */
+    --fortune-item: 0 0% 25%;  /* Dark gray for fortune items */
+    --fortune-item-foreground: 0 0% 98%; /* White text on dark gray */
   }
 
   .dark {
@@ -115,6 +119,10 @@ All colors MUST be HSL.
     --health: 0 84% 60%;     /* Bright red for health */
     --love: 330 81% 60%;     /* Pink for love */
     --opportunity: 142 71% 45%; /* Green for opportunity */
+    
+    /* Fortune item colors */
+    --fortune-item: 0 0% 25%;  /* Dark gray for fortune items */
+    --fortune-item-foreground: 0 0% 98%; /* White text on dark gray */
   }
 }
 
