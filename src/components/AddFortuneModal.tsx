@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Sparkle, CurrencyDollar, Crown, Lock } from '@phosphor-icons/react';
+import { X, Plus, Sparkle, CurrencyDollar, Crown, Lock, TrendUp, Trophy, Star } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { FortuneCategory, CategoryData } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -336,37 +335,79 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">
+            <label className="block text-sm font-medium mb-3">
               Impact Level
             </label>
-            <ToggleGroup 
-              type="single" 
-              value={impactLevel} 
-              onValueChange={(value) => value && setImpactLevel(value)}
-              className="grid grid-cols-3 gap-2 w-full"
-            >
-              <ToggleGroupItem 
-                value="small_step" 
-                className="text-xs px-2 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:bg-muted"
-                aria-pressed={impactLevel === 'small_step'}
-              >
-                Pequeño avance
-              </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="milestone" 
-                className="text-xs px-2 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:bg-muted"
-                aria-pressed={impactLevel === 'milestone'}
-              >
-                Hito importante
-              </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="big_win" 
-                className="text-xs px-2 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:bg-muted"
-                aria-pressed={impactLevel === 'big_win'}
-              >
-                Gran victoria
-              </ToggleGroupItem>
-            </ToggleGroup>
+            <div className="space-y-3">
+              {/* Impact Level Selector */}
+              <div className="flex gap-2">
+                {[
+                  { value: 'small_step', label: 'Pequeño avance', icon: TrendUp, size: 16, barHeight: 'h-2' },
+                  { value: 'milestone', label: 'Hito importante', icon: Star, size: 20, barHeight: 'h-4' },
+                  { value: 'big_win', label: 'Gran victoria', icon: Trophy, size: 24, barHeight: 'h-6' }
+                ].map((level) => {
+                  const Icon = level.icon;
+                  const isSelected = impactLevel === level.value;
+                  return (
+                    <button
+                      key={level.value}
+                      type="button"
+                      onClick={() => setImpactLevel(level.value)}
+                      className={`flex-1 relative overflow-hidden rounded-lg border-2 transition-all duration-300 ${
+                        isSelected 
+                          ? 'border-primary bg-primary/10 scale-105' 
+                          : 'border-border bg-background hover:border-primary/50 hover:bg-muted/50'
+                      }`}
+                      aria-pressed={isSelected}
+                    >
+                      <div className="p-3 flex flex-col items-center gap-2">
+                        <Icon 
+                          size={level.size} 
+                          className={`transition-all duration-300 ${
+                            isSelected ? 'text-primary animate-pulse' : 'text-muted-foreground'
+                          }`} 
+                        />
+                        <span className={`text-xs font-medium transition-colors duration-300 ${
+                          isSelected ? 'text-primary' : 'text-muted-foreground'
+                        }`}>
+                          {level.label}
+                        </span>
+                      </div>
+                      
+                      {/* Animated progress bar */}
+                      <div className="absolute bottom-0 left-0 w-full bg-muted/30">
+                        <div 
+                          className={`${level.barHeight} bg-gradient-to-r from-primary to-accent transition-all duration-500 ${
+                            isSelected ? 'w-full opacity-100' : 'w-0 opacity-50'
+                          }`}
+                        />
+                      </div>
+                      
+                      {/* Glow effect for selected item */}
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 animate-pulse" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              {/* Visual impact indicator */}
+              <div className="flex items-center justify-center gap-1">
+                {[1, 2, 3].map((step) => (
+                  <div
+                    key={step}
+                    className={`rounded-full transition-all duration-300 ${
+                      (impactLevel === 'small_step' && step === 1) ||
+                      (impactLevel === 'milestone' && step <= 2) ||
+                      (impactLevel === 'big_win' && step <= 3)
+                        ? 'bg-gradient-to-r from-primary to-accent w-3 h-3 animate-scale-in'
+                        : 'bg-muted w-2 h-2'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Numeric Value Input - Show only if category has numeric value */}
