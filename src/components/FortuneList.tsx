@@ -50,15 +50,15 @@ interface FortuneListProps {
 const getCategoryIcon = (category: string) => {
   switch (category) {
     case 'Wealth':
-      return <CurrencyDollar size={16} className="text-gold" />;
+      return <CurrencyDollar size={16} className="text-white" />;
     case 'Health':
-      return <HeartStraight size={16} className="text-red-400" />;
+      return <HeartStraight size={16} className="text-white" />;
     case 'Love':
-      return <Heart size={16} className="text-pink-400" />;
+      return <Heart size={16} className="text-white" />;
     case 'Opportunity':
-      return <Sparkle size={16} className="text-emerald" />;
+      return <Sparkle size={16} className="text-white" />;
     default:
-      return <Question size={16} className="text-muted-foreground" />;
+      return <Question size={16} className="text-white" />;
   }
 };
 
