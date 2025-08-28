@@ -10,7 +10,8 @@ export async function addFortune(
   text: string,
   category?: string | null,
   level?: number | null,
-  selectedDate?: Date | null
+  selectedDate?: Date | null,
+  impactLevel?: string | null
 ): Promise<string> {
   console.log('[FORTUNES:addFortune] Adding fortune with RPC', { selectedDate });
   
@@ -19,6 +20,7 @@ export async function addFortune(
     p_category: category ?? null,
     p_level: level ?? null,
     p_created_at: selectedDate?.toISOString() ?? null,
+    p_impact_level: impactLevel ?? null,
   });
 
   if (error) {

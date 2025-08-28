@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { FortuneCategory, CategoryData } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -86,6 +87,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
   const [text, setText] = useState('');
   const [category, setCategory] = useState<FortuneCategory>('');
   const [fortuneValue, setFortuneValue] = useState('');
+  const [impactLevel, setImpactLevel] = useState<string>('small_step');
   const [isLoading, setIsLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryData[]>(defaultCategories);
   const { toast } = useToast();
@@ -199,8 +201,8 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
         return;
       }
 
-      // Use the simplified RPC-based function with selected date
-      await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate);
+      // Use the simplified RPC-based function with selected date and impact level
+      await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
 
       // Success animations and feedback - conditional based on category
       if (category === 'Wealth') {
@@ -217,6 +219,7 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
       setText('');
       setCategory('');
       setFortuneValue('');
+      setImpactLevel('small_step');
       onFortuneAdded();
       onClose();
     } catch (error) {
@@ -330,6 +333,40 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
                 Please select a category to continue
               </p>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Impact Level
+            </label>
+            <ToggleGroup 
+              type="single" 
+              value={impactLevel} 
+              onValueChange={(value) => value && setImpactLevel(value)}
+              className="grid grid-cols-3 gap-2 w-full"
+            >
+              <ToggleGroupItem 
+                value="small_step" 
+                className="text-xs px-2 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:bg-muted"
+                aria-pressed={impactLevel === 'small_step'}
+              >
+                Pequeño avance
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="milestone" 
+                className="text-xs px-2 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:bg-muted"
+                aria-pressed={impactLevel === 'milestone'}
+              >
+                Hito importante
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="big_win" 
+                className="text-xs px-2 py-2 h-auto data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:bg-muted"
+                aria-pressed={impactLevel === 'big_win'}
+              >
+                Gran victoria
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
 
           {/* Numeric Value Input - Show only if category has numeric value */}
