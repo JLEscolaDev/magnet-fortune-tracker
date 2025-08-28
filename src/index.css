@@ -15,34 +15,28 @@ All colors MUST be HSL.
     --ivory: 48 44% 93%;           /* #F2F0E8*/
     --sapphire: 220 90% 40%;       /* #1E40AF - For selected dates */
     
-    /* Dark Blue Gradient Palette inspired by uploaded reference */
-    --deep-blue: 230 88% 20%;      /* #010D64 - Deep blue */
-    --darker-blue: 230 90% 15%;    /* #01084b - Darker blue */ 
-    --navy-dark: 230 95% 10%;      /* #000532 - Very dark navy */
-    --almost-black: 230 98% 6%;    /* #000319 - Almost black blue */
-    
     /* Custom Green for Selected Dates #6B8F71 */
     --selected-green: 146 18% 49%;        /* #6B8F71 */
     --selected-green-border: 146 25% 35%; /* Darker green border */
     
     /* Light Mode Design System Colors */
     --background: 0 0% 100%;           /* Pure white background */
-    --foreground: var(--deep-blue);    /* Deep blue text */
+    --foreground: 20 14.3% 4.1%;      /* Very dark text for high contrast */
 
     --card: 0 0% 100%;                 /* White cards */
-    --card-foreground: var(--deep-blue); /* Deep blue text on cards */
+    --card-foreground: 20 14.3% 4.1%; /* Dark text on cards */
 
     --popover: 0 0% 100%;              /* White popover */
-    --popover-foreground: var(--deep-blue); /* Deep blue text in popover */
+    --popover-foreground: 20 14.3% 4.1%; /* Dark text in popover */
 
     --primary: var(--emerald);         /* Emerald green */
     --primary-foreground: 0 0% 98%;    /* Almost white text on primary */
 
-    --secondary: var(--darker-blue);   /* Darker blue secondary */
-    --secondary-foreground: 0 0% 98%;  /* Light text on dark blue */
+    --secondary: 60 4.8% 95.9%;        /* Very light gray */
+    --secondary-foreground: 24 9.8% 10%; /* Dark text on secondary */
 
-    --muted: var(--navy-dark);         /* Very dark navy for muted elements */
-    --muted-foreground: 0 0% 90%;      /* Light text on dark navy */
+    --muted: 0 0% 88%;                 /* Darker gray for muted elements */
+    --muted-foreground: 25 5.3% 44.7%; /* Medium gray text */
 
     --accent: var(--gold);             /* Gold accent */
     --accent-foreground: var(--rich-black); /* Dark text on gold */
@@ -50,8 +44,8 @@ All colors MUST be HSL.
     --destructive: 0 84.2% 60.2%;      /* Red for destructive actions */
     --destructive-foreground: 0 0% 98%; /* White text on red */
 
-    --border: var(--deep-blue);        /* Deep blue borders */
-    --input: 230 50% 96%;              /* Very light blue input background */
+    --border: 20 5.9% 90%;             /* Light gray borders */
+    --input: 20 5.9% 90%;              /* Light gray input background */
     --ring: var(--gold);               /* Gold focus ring */
 
     --radius: 1.125rem;                /* 18px border radius */
