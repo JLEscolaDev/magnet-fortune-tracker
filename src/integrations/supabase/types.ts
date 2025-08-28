@@ -88,6 +88,7 @@ export type Database = {
           fortune_level: number | null
           fortune_value: number | null
           id: string
+          impact_level: Database["public"]["Enums"]["fortune_impact_level"]
           text: string
           text_iv: string | null
           user_id: string
@@ -99,6 +100,7 @@ export type Database = {
           fortune_level?: number | null
           fortune_value?: number | null
           id?: string
+          impact_level?: Database["public"]["Enums"]["fortune_impact_level"]
           text: string
           text_iv?: string | null
           user_id: string
@@ -110,6 +112,7 @@ export type Database = {
           fortune_level?: number | null
           fortune_value?: number | null
           id?: string
+          impact_level?: Database["public"]["Enums"]["fortune_impact_level"]
           text?: string
           text_iv?: string | null
           user_id?: string
@@ -221,6 +224,36 @@ export type Database = {
           total_fortunes?: number | null
           trial_ends_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      quotes_master: {
+        Row: {
+          author: string | null
+          created_at: string
+          id: string
+          source: string | null
+          tags: string[] | null
+          text_en: string
+          text_es: string | null
+        }
+        Insert: {
+          author?: string | null
+          created_at?: string
+          id?: string
+          source?: string | null
+          tags?: string[] | null
+          text_en: string
+          text_es?: string | null
+        }
+        Update: {
+          author?: string | null
+          created_at?: string
+          id?: string
+          source?: string | null
+          tags?: string[] | null
+          text_en?: string
+          text_es?: string | null
         }
         Relationships: []
       }
@@ -395,6 +428,13 @@ export type Database = {
           | {
               p_category?: string
               p_created_at?: string
+              p_impact_level?: Database["public"]["Enums"]["fortune_impact_level"]
+              p_level?: number
+              p_text: string
+            }
+          | {
+              p_category?: string
+              p_created_at?: string
               p_level?: number
               p_text: string
             }
@@ -500,6 +540,7 @@ export type Database = {
       }
     }
     Enums: {
+      fortune_impact_level: "small_step" | "milestone" | "big_win"
       Visibility: "hidden" | "teaser" | "visible"
     }
     CompositeTypes: {
@@ -628,6 +669,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      fortune_impact_level: ["small_step", "milestone", "big_win"],
       Visibility: ["hidden", "teaser", "visible"],
     },
   },
