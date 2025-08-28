@@ -375,17 +375,17 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
                       </div>
                       
                       {/* Animated progress bar */}
-                      <div className="absolute bottom-0 left-0 w-full bg-muted/30">
+                      <div className="absolute bottom-0 left-0 w-full bg-muted/20">
                         <div 
-                          className={`${level.barHeight} bg-gradient-to-r from-primary to-accent transition-all duration-500 ${
-                            isSelected ? 'w-full opacity-100' : 'w-0 opacity-50'
+                          className={`${level.barHeight} bg-gradient-to-r from-muted-foreground/30 to-muted-foreground/50 transition-all duration-500 ${
+                            isSelected ? 'w-full opacity-100' : 'w-0 opacity-30'
                           }`}
                         />
                       </div>
                       
-                      {/* Glow effect for selected item */}
+                      {/* Subtle glow effect for selected item */}
                       {isSelected && (
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 animate-pulse" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5" />
                       )}
                     </button>
                   );
