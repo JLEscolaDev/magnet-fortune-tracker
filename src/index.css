@@ -135,8 +135,13 @@ All colors MUST be HSL.
 
 @layer components {
   .luxury-card {
-    @apply rounded-[18px] border border-gold/30 bg-card transition-all duration-200 ease-out;
+    @apply rounded-[18px] border border-gold/30 transition-all duration-200 ease-out;
+    background: hsl(0 0% 97%); /* Softer off-white background in light mode */
     box-shadow: var(--gold-glow);
+  }
+  
+  .dark .luxury-card {
+    background: hsl(var(--rich-black)); /* Rich black background in dark mode */
   }
   
   .luxury-button {
