@@ -24,6 +24,9 @@ export default {
 				'emerald': 'hsl(var(--emerald))',
 				'gold': 'hsl(var(--gold))',
 				'ivory': 'hsl(var(--ivory))',
+				'health': 'hsl(var(--health))',
+				'love': 'hsl(var(--love))',
+				'opportunity': 'hsl(var(--opportunity))',
 				
 				// Design System
 				border: 'hsl(var(--border))',

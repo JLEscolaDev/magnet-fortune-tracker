@@ -19,87 +19,89 @@ All colors MUST be HSL.
     --selected-green: 146 18% 49%;        /* #6B8F71 */
     --selected-green-border: 146 25% 35%; /* Darker green border */
     
-    /* Design System Colors */
-    --background: var(--rich-black);
-    --foreground: var(--ivory);
+    /* Light Mode Design System Colors */
+    --background: 0 0% 100%;           /* Pure white background */
+    --foreground: 20 14.3% 4.1%;      /* Very dark text for high contrast */
 
-    --card: var(--rich-black);
-    --card-foreground: var(--ivory);
+    --card: 0 0% 100%;                 /* White cards */
+    --card-foreground: 20 14.3% 4.1%; /* Dark text on cards */
 
-    --popover: var(--rich-black);
-    --popover-foreground: var(--ivory);
+    --popover: 0 0% 100%;              /* White popover */
+    --popover-foreground: 20 14.3% 4.1%; /* Dark text in popover */
 
-    --primary: var(--emerald);
-    --primary-foreground: var(--ivory);
+    --primary: var(--emerald);         /* Emerald green */
+    --primary-foreground: 0 0% 98%;    /* Almost white text on primary */
 
-    --secondary: 22 6% 12%;
-    --secondary-foreground: var(--ivory);
+    --secondary: 60 4.8% 95.9%;        /* Very light gray */
+    --secondary-foreground: 24 9.8% 10%; /* Dark text on secondary */
 
-    --muted: 22 6% 8%;
-    --muted-foreground: 22 6% 70%;
+    --muted: 60 4.8% 95.9%;            /* Light gray for muted elements */
+    --muted-foreground: 25 5.3% 44.7%; /* Medium gray text */
 
-    --accent: var(--gold);
-    --accent-foreground: var(--rich-black);
+    --accent: var(--gold);             /* Gold accent */
+    --accent-foreground: var(--rich-black); /* Dark text on gold */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: var(--ivory);
+    --destructive: 0 84.2% 60.2%;      /* Red for destructive actions */
+    --destructive-foreground: 0 0% 98%; /* White text on red */
 
-    --border: var(--gold);
-    --input: 22 6% 8%;
-    --ring: var(--gold);
+    --border: 20 5.9% 90%;             /* Light gray borders */
+    --input: 20 5.9% 90%;              /* Light gray input background */
+    --ring: var(--gold);               /* Gold focus ring */
 
-    --radius: 1.125rem;             /* 18px border radius */
+    --radius: 1.125rem;                /* 18px border radius */
     
     /* Luxury Effects */
     --gold-glow: 0 0 8px hsl(var(--gold) / 0.2);
     --gold-border: 1px solid hsl(var(--gold) / 0.3);
     --transition-smooth: all 200ms ease-out;
 
+    /* Sidebar colors for light mode */
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Category colors for light mode */
+    --health: 0 84% 60%;     /* Bright red for health */
+    --love: 330 81% 60%;     /* Pink for love */
+    --opportunity: 142 71% 45%; /* Green for opportunity */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark Mode Colors */
+    --background: var(--rich-black);   /* Rich black background */
+    --foreground: var(--ivory);        /* Ivory text */
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: var(--rich-black);         /* Black cards */
+    --card-foreground: var(--ivory);   /* Ivory text on cards */
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: var(--rich-black);      /* Black popover */
+    --popover-foreground: var(--ivory); /* Ivory text in popover */
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: var(--emerald);         /* Keep emerald green */
+    --primary-foreground: var(--ivory); /* Ivory text on primary */
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 22 6% 12%;            /* Very dark gray */
+    --secondary-foreground: var(--ivory); /* Ivory text on secondary */
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 22 6% 8%;                 /* Dark muted background */
+    --muted-foreground: 22 6% 70%;     /* Light gray text */
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: var(--gold);             /* Gold accent */
+    --accent-foreground: var(--rich-black); /* Dark text on gold */
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%;      /* Red for destructive actions */
+    --destructive-foreground: var(--ivory); /* Ivory text on red */
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: var(--gold);             /* Gold borders */
+    --input: 22 6% 8%;                 /* Dark input background */
+    --ring: var(--gold);               /* Gold focus ring */
+
+    /* Dark mode sidebar */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -108,6 +110,11 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Category colors for dark mode */
+    --health: 0 84% 60%;     /* Bright red for health */
+    --love: 330 81% 60%;     /* Pink for love */
+    --opportunity: 142 71% 45%; /* Green for opportunity */
   }
 }
 
