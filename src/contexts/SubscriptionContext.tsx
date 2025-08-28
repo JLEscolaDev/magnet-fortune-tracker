@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getActiveSubscription, ActiveSubscription } from '@/integrations/supabase/subscriptions';
 import { Session, User } from '@supabase/supabase-js';
@@ -218,9 +218,22 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
   // Real-time updates removed - using auth state changes for subscription updates
 
+  const isActive = useMemo(() => {
+    const sub = subscription as any;
+    if (!sub) return false;
+    if (sub.is_lifetime) return true;
+    if (!sub.current_period_end) return false;
+
+    const endTs = typeof sub.current_period_end === 'string'
+      ? Date.parse(sub.current_period_end)
+      : new Date(sub.current_period_end).getTime();
+
+    return Number.isFinite(endTs) && endTs > Date.now();
+  }, [subscription]);
+
   const value: SubscriptionContextType = {
     loading,
-    isActive: subscription !== null,
+    isActive,
     subscription,
     refetch: fetchSubscription,
     session,
@@ -232,7 +245,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     earlyBirdEligible,
     plansByCycle,
     plansLoading,
-    hasActiveSub: userFeatures?.has_full_access || false,
+    hasActiveSub: isActive || (userFeatures?.has_full_access ?? false),
     allPlans,
   };
 

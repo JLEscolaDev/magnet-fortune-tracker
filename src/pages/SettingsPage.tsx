@@ -217,16 +217,27 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
                 </div>
               </div>
             </div>
-            {isActive && (
-              <Button 
-                variant="outline" 
-                onClick={handleGenerateReports}
-                className="w-full"
+            <div className="space-y-3">
+            {isActive ? (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={handleGenerateReports}
+                  className="w-full justify-center"
+                >
+                  <ChartLine size={16} className="mr-2" />
+                  Generate Progress Reports
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => setShowPricingDialog(true)}
+                className="w-full justify-center"
               >
-                <ChartLine size={16} className="mr-2" />
-                Generate Progress Reports
+                Upgrade to Pro
               </Button>
             )}
+          </div>
           </div>
 
           {/* Preferences */}
