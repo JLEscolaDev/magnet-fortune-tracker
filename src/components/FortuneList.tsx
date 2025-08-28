@@ -11,7 +11,7 @@ import {
   Trash
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
-import { EditFortuneModal } from '@/components/EditFortuneModal';
+import { FortuneModal } from '@/components/FortuneModal';
 import { deleteFortune } from '@/lib/fortunes';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -246,11 +246,12 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
         ))}
       </TransitionGroup>
 
-      <EditFortuneModal
+      <FortuneModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         fortune={editingFortune}
         onFortuneUpdated={handleFortuneUpdated}
+        mode="edit"
       />
     </div>
   );

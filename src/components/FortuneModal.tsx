@@ -4,30 +4,33 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FortuneCategory, CategoryData } from '@/types/fortune';
+import { FortuneCategory, CategoryData, Fortune } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { sanitizeText, validateNumericValue, validateCategory, formRateLimiter } from '@/lib/security';
 import { useFreePlanLimits } from '@/hooks/useFreePlanLimits';
 import { useAppState } from '@/contexts/AppStateContext';
 import { SUBSCRIPTION_LIMITS } from '@/config/limits';
-import { addFortune } from '@/lib/fortunes';
+import { addFortune, updateFortune } from '@/lib/fortunes';
 import confetti from 'canvas-confetti';
 
-interface AddFortuneModalProps {
+interface FortuneModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onFortuneAdded: () => void;
+  onFortuneAdded?: () => void;
+  onFortuneUpdated?: () => void;
   selectedDate?: Date | null;
+  fortune?: Fortune | null; // If provided, we're in edit mode
+  mode?: 'create' | 'edit'; // Explicit mode specification
 }
 
-  const defaultCategories: CategoryData[] = [
-    { name: 'Wealth', hasNumericValue: true, color: 'hsl(var(--gold))' },
-    { name: 'Health', hasNumericValue: false, color: 'hsl(var(--health))' },
-    { name: 'Love', hasNumericValue: false, color: 'hsl(var(--love))' },
-    { name: 'Opportunity', hasNumericValue: false, color: 'hsl(var(--opportunity))' },
-    { name: 'Other', hasNumericValue: false, color: 'hsl(var(--muted-foreground))' }
-  ];
+const defaultCategories: CategoryData[] = [
+  { name: 'Wealth', hasNumericValue: true, color: 'hsl(var(--gold))' },
+  { name: 'Health', hasNumericValue: false, color: 'hsl(var(--health))' },
+  { name: 'Love', hasNumericValue: false, color: 'hsl(var(--love))' },
+  { name: 'Opportunity', hasNumericValue: false, color: 'hsl(var(--opportunity))' },
+  { name: 'Other', hasNumericValue: false, color: 'hsl(var(--muted-foreground))' }
+];
 
 const shootCoins = () => {
   const colors = ['#D6B94C', '#FFD700', '#F2F0E8'];
@@ -82,7 +85,18 @@ const shootConfetti = () => {
   }
 };
 
-export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate }: AddFortuneModalProps) => {
+export const FortuneModal = ({ 
+  isOpen, 
+  onClose, 
+  onFortuneAdded, 
+  onFortuneUpdated, 
+  selectedDate, 
+  fortune, 
+  mode 
+}: FortuneModalProps) => {
+  // Determine if we're in edit mode
+  const isEditMode = mode === 'edit' || !!fortune;
+  
   const [text, setText] = useState('');
   const [category, setCategory] = useState<FortuneCategory>('');
   const [fortuneValue, setFortuneValue] = useState('');
@@ -94,19 +108,41 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
   const freePlanStatus = useFreePlanLimits();
   const { activeSubscription, fortunesCountToday, addError } = useAppState();
 
-  // Debug logging
-  console.log('[ADD_FORTUNE_MODAL] Debug info:', {
-    freePlanStatus,
-    activeSubscription,
-    fortunesCountToday,
-    isLoading
-  });
+  // Debug logging (only for create mode)
+  if (!isEditMode) {
+    console.log('[FORTUNE_MODAL] Debug info:', {
+      freePlanStatus,
+      activeSubscription,
+      fortunesCountToday,
+      isLoading
+    });
+  }
 
   // Load custom categories and big wins count on mount
   useEffect(() => {
-    loadCategories();
-    loadBigWinsCount();
-  }, []);
+    if (isOpen) {
+      loadCategories();
+      if (!isEditMode) {
+        loadBigWinsCount();
+      }
+    }
+  }, [isOpen, isEditMode]);
+
+  // Populate form when editing
+  useEffect(() => {
+    if (isEditMode && fortune && isOpen) {
+      setText(fortune.text || '');
+      setCategory(fortune.category as FortuneCategory || '');
+      setFortuneValue(fortune.fortune_value ? String(fortune.fortune_value) : '');
+      setImpactLevel(fortune.impact_level || 'small_step');
+    } else if (!isEditMode) {
+      // Reset form for create mode
+      setText('');
+      setCategory('');
+      setFortuneValue('');
+      setImpactLevel('small_step');
+    }
+  }, [isEditMode, fortune, isOpen]);
 
   const loadBigWinsCount = async () => {
     try {
@@ -155,7 +191,6 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
     }
   };
 
-
   const getCurrentCategory = () => {
     return categories.find(cat => cat.name === category) || defaultCategories[0];
   };
@@ -164,7 +199,8 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
     e.preventDefault();
     
     // Rate limiting check
-    if (!formRateLimiter.canProceed('add-fortune')) {
+    const rateLimitKey = isEditMode ? 'edit-fortune' : 'add-fortune';
+    if (!formRateLimiter.canProceed(rateLimitKey)) {
       toast({
         title: "Too many requests",
         description: "Please wait a moment before submitting again",
@@ -173,18 +209,19 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
       return;
     }
 
-    // Check free plan limits before submission - but allow Pro users to bypass
-    const hasActiveSubscription = activeSubscription !== null;
-    if (!hasActiveSubscription && !freePlanStatus.canAddFortune) {
-      // Fallback check using app state if freePlanStatus is not accurate
-      const dailyLimit = fortunesCountToday >= SUBSCRIPTION_LIMITS.FREE_RESTRICTED_DAILY_LIMIT;
-      if (dailyLimit) {
-        toast({
-          title: "Daily limit reached",
-          description: "Your free plan now limits you to 1 fortune per day. Upgrade to Pro for unlimited access!",
-          variant: "destructive",
-        });
-        return;
+    // For create mode, check free plan limits
+    if (!isEditMode) {
+      const hasActiveSubscription = activeSubscription !== null;
+      if (!hasActiveSubscription && !freePlanStatus.canAddFortune) {
+        const dailyLimit = fortunesCountToday >= SUBSCRIPTION_LIMITS.FREE_RESTRICTED_DAILY_LIMIT;
+        if (dailyLimit) {
+          toast({
+            title: "Daily limit reached",
+            description: "Your free plan now limits you to 1 fortune per day. Upgrade to Pro for unlimited access!",
+            variant: "destructive",
+          });
+          return;
+        }
       }
     }
     
@@ -227,39 +264,72 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
         return;
       }
 
-      // Use the simplified RPC-based function with selected date and impact level
-      await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
+      if (isEditMode && fortune) {
+        // Update existing fortune
+        const updateData: any = {
+          text: sanitizedText,
+          category: validatedCategory,
+        };
 
-      // Success animations and feedback - conditional based on category
-      if (category === 'Wealth') {
-        shootCoins();
+        // Only include fortune_value if the category supports numeric values
+        if (getCurrentCategory().hasNumericValue) {
+          updateData.fortune_value = validatedValue;
+        } else {
+          updateData.fortune_value = null;
+        }
+
+        // Include impact_level if it exists
+        if (impactLevel) {
+          updateData.impact_level = impactLevel;
+        }
+
+        await updateFortune(fortune.id, updateData);
+
+        toast({
+          title: "Fortune Updated! ✨",
+          description: "Your fortune has been successfully updated",
+        });
+
+        onFortuneUpdated?.();
       } else {
-        shootConfetti();
-      }
-      
-      toast({
-        title: "Fortune Tracked! ✨",
-        description: "Your fortune has been added to the universe",
-      });
+        // Create new fortune
+        await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
 
-      // Refresh big wins count if a big win was added
-      if (impactLevel === 'big_win') {
-        loadBigWinsCount();
+        // Success animations and feedback - conditional based on category
+        if (category === 'Wealth') {
+          shootCoins();
+        } else {
+          shootConfetti();
+        }
+        
+        toast({
+          title: "Fortune Tracked! ✨",
+          description: "Your fortune has been added to the universe",
+        });
+
+        // Refresh big wins count if a big win was added
+        if (impactLevel === 'big_win') {
+          loadBigWinsCount();
+        }
+
+        onFortuneAdded?.();
       }
 
+      // Reset form
       setText('');
       setCategory('');
       setFortuneValue('');
       setImpactLevel('small_step');
-      onFortuneAdded();
       onClose();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error adding fortune:', error);
-      addError('fortune-submission', errorMessage);
+      console.error(`Error ${isEditMode ? 'updating' : 'adding'} fortune:`, error);
+      if (!isEditMode) {
+        addError('fortune-submission', errorMessage);
+      }
       toast({
         title: "Error",
-        description: "Failed to track fortune. Please try again.",
+        description: `Failed to ${isEditMode ? 'update' : 'track'} fortune. Please try again.`,
         variant: "destructive",
       });
     } finally {
@@ -284,7 +354,12 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-heading font-semibold flex items-center gap-2">
             <Sparkle size={24} className="text-gold" />
-            {selectedDate ? `Track Fortune for ${selectedDate.toLocaleDateString()}` : 'Track Fortune'}
+            {isEditMode 
+              ? 'Edit Fortune' 
+              : selectedDate 
+                ? `Track Fortune for ${selectedDate.toLocaleDateString()}` 
+                : 'Track Fortune'
+            }
           </h2>
           <button
             onClick={onClose}
@@ -294,8 +369,8 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
           </button>
         </div>
 
-        {/* Free Plan Status Banner - Only show when actually blocked and no active subscription */}
-        {!freePlanStatus.loading && freePlanStatus.isRestricted && !freePlanStatus.canAddFortune && !activeSubscription && (
+        {/* Free Plan Status Banner - Only show in create mode when actually blocked */}
+        {!isEditMode && !freePlanStatus.loading && freePlanStatus.isRestricted && !freePlanStatus.canAddFortune && !activeSubscription && (
           <div className="bg-gradient-to-r from-warning/10 to-accent/10 border border-warning/20 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
               <div className="bg-gradient-to-r from-warning to-accent p-1.5 rounded-full flex-shrink-0">
@@ -366,90 +441,93 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-3">
-              Impact Level
-            </label>
-            <div className="space-y-3">
-              {/* Impact Level Selector */}
-              <div className="flex gap-2">
-                {[
-                  { value: 'small_step', label: 'Small Step', icon: TrendUp, size: 16, barWidth: 'w-1/4' },
-                  { value: 'milestone', label: 'Milestone', icon: Star, size: 20, barWidth: 'w-1/2' },
-                  { value: 'big_win', label: 'Big Win', icon: Trophy, size: 24, barWidth: 'w-full' }
-                ].map((level) => {
-                  const Icon = level.icon;
-                  const isSelected = impactLevel === level.value;
-                  return (
-                    <button
-                      key={level.value}
-                      type="button"
-                      onClick={() => setImpactLevel(level.value)}
-                      className={`flex-1 relative overflow-hidden rounded-lg border-2 transition-all duration-300 ${
-                        isSelected 
-                          ? 'border-primary bg-primary/10 scale-105' 
-                          : 'border-border bg-background hover:border-primary/50 hover:bg-muted/50'
-                      }`}
-                      aria-pressed={isSelected}
-                    >
-                      <div className="p-3 flex flex-col items-center gap-2">
-                        <Icon 
-                          size={level.size} 
-                          className={`transition-all duration-300 ${
-                            isSelected ? 'text-primary animate-pulse' : 'text-muted-foreground'
-                          }`} 
-                        />
-                        <span className={`text-xs font-medium transition-colors duration-300 ${
-                          isSelected ? 'text-primary' : 'text-muted-foreground'
-                        }`}>
-                          {level.label}
-                        </span>
-                      </div>
-                      
-                      {/* Animated progress bar */}
-                      <div className="absolute bottom-0 left-0 w-full bg-muted/20 h-2">
-                        <div 
-                          className={`h-full bg-gradient-to-r from-muted-foreground/40 to-muted-foreground/60 transition-all duration-500 ${
-                            isSelected ? `${level.barWidth} opacity-100` : 'w-0 opacity-30'
-                          }`}
-                        />
-                      </div>
-                      
-                      {/* Subtle glow effect for selected item */}
-                      {isSelected && (
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              
-              {/* Visual impact indicator */}
-              <div className="flex items-center justify-center gap-1">
-                {[1, 2, 3].map((step) => (
-                  <div
-                    key={step}
-                    className={`rounded-full transition-all duration-300 ${
-                      (impactLevel === 'small_step' && step === 1) ||
-                      (impactLevel === 'milestone' && step <= 2) ||
-                      (impactLevel === 'big_win' && step <= 3)
-                        ? 'bg-gradient-to-r from-primary to-accent w-3 h-3 animate-scale-in'
-                        : 'bg-muted w-2 h-2'
-                    }`}
-                  />
-                ))}
-              </div>
-              
-              {/* Big Win Yearly Limit */}
-              {impactLevel === 'big_win' && (
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground">
-                    You can only have 5 big wins per year to keep it real • <span className="text-primary font-medium">{bigWinsCount}/5 used this year</span>
-                  </p>
+          {/* Impact Level - Only show in create mode or if editing a fortune with impact_level */}
+          {(!isEditMode || (isEditMode && fortune?.impact_level)) && (
+            <div>
+              <label className="block text-sm font-medium mb-3">
+                Impact Level
+              </label>
+              <div className="space-y-3">
+                {/* Impact Level Selector */}
+                <div className="flex gap-2">
+                  {[
+                    { value: 'small_step', label: 'Small Step', icon: TrendUp, size: 16, barWidth: 'w-1/4' },
+                    { value: 'milestone', label: 'Milestone', icon: Star, size: 20, barWidth: 'w-1/2' },
+                    { value: 'big_win', label: 'Big Win', icon: Trophy, size: 24, barWidth: 'w-full' }
+                  ].map((level) => {
+                    const Icon = level.icon;
+                    const isSelected = impactLevel === level.value;
+                    return (
+                      <button
+                        key={level.value}
+                        type="button"
+                        onClick={() => setImpactLevel(level.value)}
+                        className={`flex-1 relative overflow-hidden rounded-lg border-2 transition-all duration-300 ${
+                          isSelected 
+                            ? 'border-primary bg-primary/10 scale-105' 
+                            : 'border-border bg-background hover:border-primary/50 hover:bg-muted/50'
+                        }`}
+                        aria-pressed={isSelected}
+                      >
+                        <div className="p-3 flex flex-col items-center gap-2">
+                          <Icon 
+                            size={level.size} 
+                            className={`transition-all duration-300 ${
+                              isSelected ? 'text-primary animate-pulse' : 'text-muted-foreground'
+                            }`} 
+                          />
+                          <span className={`text-xs font-medium transition-colors duration-300 ${
+                            isSelected ? 'text-primary' : 'text-muted-foreground'
+                          }`}>
+                            {level.label}
+                          </span>
+                        </div>
+                        
+                        {/* Animated progress bar */}
+                        <div className="absolute bottom-0 left-0 w-full bg-muted/20 h-2">
+                          <div 
+                            className={`h-full bg-gradient-to-r from-muted-foreground/40 to-muted-foreground/60 transition-all duration-500 ${
+                              isSelected ? `${level.barWidth} opacity-100` : 'w-0 opacity-30'
+                            }`}
+                          />
+                        </div>
+                        
+                        {/* Subtle glow effect for selected item */}
+                        {isSelected && (
+                          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+                
+                {/* Visual impact indicator */}
+                <div className="flex items-center justify-center gap-1">
+                  {[1, 2, 3].map((step) => (
+                    <div
+                      key={step}
+                      className={`rounded-full transition-all duration-300 ${
+                        (impactLevel === 'small_step' && step === 1) ||
+                        (impactLevel === 'milestone' && step <= 2) ||
+                        (impactLevel === 'big_win' && step <= 3)
+                          ? 'bg-gradient-to-r from-primary to-accent w-3 h-3 animate-scale-in'
+                          : 'bg-muted w-2 h-2'
+                      }`}
+                    />
+                  ))}
+                </div>
+                
+                {/* Big Win Yearly Limit - Only show in create mode */}
+                {!isEditMode && impactLevel === 'big_win' && (
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">
+                      You can only have 5 big wins per year to keep it real • <span className="text-primary font-medium">{bigWinsCount}/5 used this year</span>
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Numeric Value Input - Show only if category has numeric value */}
           {getCurrentCategory().hasNumericValue && (
@@ -477,10 +555,10 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
 
           <Button
             type="submit"
-            disabled={isLoading || !text.trim() || !category || (!activeSubscription && !freePlanStatus.canAddFortune)}
+            disabled={isLoading || !text.trim() || !category || (!isEditMode && !activeSubscription && !freePlanStatus.canAddFortune)}
             className="luxury-button w-full"
           >
-            {!activeSubscription && !freePlanStatus.canAddFortune ? (
+            {!isEditMode && !activeSubscription && !freePlanStatus.canAddFortune ? (
               <div className="flex items-center gap-2">
                 <Lock size={18} />
                 Daily Limit Reached
@@ -488,12 +566,12 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
             ) : isLoading ? (
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                Tracking...
+                {isEditMode ? 'Updating...' : 'Tracking...'}
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <Plus size={18} />
-                Track Fortune
+                {isEditMode ? 'Update Fortune' : 'Track Fortune'}
               </div>
             )}
           </Button>

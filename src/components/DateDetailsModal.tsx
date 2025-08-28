@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Fortune } from '@/types/fortune';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { EditFortuneModal } from '@/components/EditFortuneModal';
+import { FortuneModal } from '@/components/FortuneModal';
 import { deleteFortune } from "@/lib/fortunes";
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -235,11 +235,12 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
         </div>
       </div>
 
-      <EditFortuneModal
+      <FortuneModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         fortune={editingFortune}
         onFortuneUpdated={handleFortuneUpdated}
+        mode="edit"
       />
     </div>
   );

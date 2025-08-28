@@ -9,7 +9,7 @@ import { InsightsTab } from '@/components/InsightsTab';
 import { TabBar } from '@/components/TabBar';
 import { DesktopTabs } from '@/components/DesktopTabs';
 import { FloatingActionButton } from '@/components/FloatingActionButton';
-import { AddFortuneModal } from '@/components/AddFortuneModal';
+import { FortuneModal } from '@/components/FortuneModal';
 import { AuthPage } from '@/pages/AuthPage';
 import { DebugPanel } from '@/components/DebugPanel';
 import { AppStateProvider } from '@/contexts/AppStateContext';
@@ -150,11 +150,12 @@ const FortuneApp = () => {
                         onClose={() => setSettingsOpen(false)}
                       />
 
-                      <AddFortuneModal
+                      <FortuneModal
                         isOpen={addFortuneOpen}
                         onClose={() => setAddFortuneOpen(false)}
                         onFortuneAdded={handleFortuneAdded}
                         selectedDate={activeTab === 'home' ? null : selectedFortuneDate}
+                        mode="create"
                       />
 
                       <DebugPanel user={user} />
