@@ -65,15 +65,15 @@ const getCategoryIcon = (category: string) => {
 const getCategoryColor = (category: string) => {
   switch (category) {
     case 'Wealth':
-      return 'bg-gold/20 text-gold border-gold/30';
+      return 'bg-gold/30 text-gold border-gold/50';
     case 'Health':
-      return 'bg-red-400/20 text-red-400 border-red-400/30';
+      return 'bg-red-400/30 text-red-300 border-red-400/50';
     case 'Love':
-      return 'bg-pink-400/20 text-pink-400 border-pink-400/30';
+      return 'bg-pink-400/30 text-pink-300 border-pink-400/50';
     case 'Opportunity':
-      return 'bg-emerald/20 text-emerald border-emerald/30';
+      return 'bg-emerald/30 text-emerald border-emerald/50';
     default:
-      return 'bg-muted/20 text-muted-foreground border-muted/30';
+      return 'bg-white/20 text-white border-white/30';
   }
 };
 
