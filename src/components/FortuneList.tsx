@@ -85,7 +85,7 @@ const getImpactStyle = (impactLevel?: string | null) => {
     case 'small_step':
       return {
         borderColor: 'border-yellow-400/50',
-        bgColor: 'bg-yellow-400/10',
+        bgColor: '',
         iconColor: 'text-yellow-400',
         icon: TrendUp,
         label: 'Small Step'
@@ -93,7 +93,7 @@ const getImpactStyle = (impactLevel?: string | null) => {
     case 'milestone':
       return {
         borderColor: 'border-amber-400/50',
-        bgColor: 'bg-amber-400/10',
+        bgColor: '',
         iconColor: 'text-amber-400',
         icon: Star,
         label: 'Milestone'
@@ -101,7 +101,7 @@ const getImpactStyle = (impactLevel?: string | null) => {
     case 'big_win':
       return {
         borderColor: 'border-cyan-400/50',
-        bgColor: 'bg-cyan-400/10',
+        bgColor: '',
         iconColor: 'text-cyan-400',
         icon: Trophy,
         label: 'Big Win'
@@ -214,8 +214,7 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                   deletingFortunes.has(fortune.id) 
                     ? 'opacity-0 scale-95 translate-x-4' 
                     : 'opacity-100 scale-100 translate-x-0'
-                } ${impactStyle.borderColor} ${impactStyle.bgColor}`}
-                style={{ backgroundColor: 'hsl(var(--fortune-item))' }}
+                } ${impactStyle.borderColor} ${impactStyle.bgColor} dark:bg-transparent`}
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <p className="text-sm leading-relaxed flex-1">{fortune.text}</p>
