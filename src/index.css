@@ -35,7 +35,7 @@ All colors MUST be HSL.
     --secondary: 60 4.8% 95.9%;        /* Very light gray */
     --secondary-foreground: 24 9.8% 10%; /* Dark text on secondary */
 
-    --muted: 60 4.8% 95.9%;            /* Light gray for muted elements */
+    --muted: 0 0% 88%;                 /* Darker gray for muted elements */
     --muted-foreground: 25 5.3% 44.7%; /* Medium gray text */
 
     --accent: var(--gold);             /* Gold accent */
