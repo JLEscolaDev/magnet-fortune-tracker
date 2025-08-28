@@ -476,6 +476,7 @@ export type Database = {
           created_at: string
           fortune_level: number
           id: string
+          impact_level: Database["public"]["Enums"]["fortune_impact_level"]
           text: string
           user_id: string
         }[]

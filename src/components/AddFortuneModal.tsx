@@ -242,6 +242,11 @@ export const AddFortuneModal = ({ isOpen, onClose, onFortuneAdded, selectedDate 
         description: "Your fortune has been added to the universe",
       });
 
+      // Refresh big wins count if a big win was added
+      if (impactLevel === 'big_win') {
+        loadBigWinsCount();
+      }
+
       setText('');
       setCategory('');
       setFortuneValue('');

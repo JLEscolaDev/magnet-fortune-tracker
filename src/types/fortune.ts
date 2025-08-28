@@ -6,6 +6,7 @@ export interface Fortune {
   created_at: string;        // ISO
   fortune_level: number | null;
   fortune_value?: number | null; // Keep for backward compatibility
+  impact_level?: string | null; // New field for impact level
 }
 
 export type FortuneCategory = 'Wealth' | 'Health' | 'Love' | 'Opportunity' | 'Other' | string;
