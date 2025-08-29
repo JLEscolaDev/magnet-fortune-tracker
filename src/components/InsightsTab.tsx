@@ -4,10 +4,12 @@ import { StatisticsDetailModal } from '@/components/StatisticsDetailModal';
 import { AchievementsDetailModal } from '@/components/AchievementsDetailModal';
 import { DateDetailsModal } from '@/components/DateDetailsModal';
 import { ImprovedStatistics } from '@/components/ImprovedStatistics';
+import { LifestyleTrackerTab } from '@/components/LifestyleTrackerTab';
 import { Fortune, Achievement } from '@/types/fortune';
 import { AchievementCard } from '@/components/AchievementCard';
 import { getFortunesListPaginated } from '@/lib/fortunes';
 import { useAppState } from '@/contexts/AppStateContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   CalendarDots, 
@@ -20,6 +22,7 @@ import {
   Sparkle
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, isSameDay } from 'date-fns';
 
 interface InsightsTabProps {
@@ -200,6 +203,7 @@ const mockAchievements: Achievement[] = [
 
 export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDate, onDateSelect }: InsightsTabProps) => {
   const { addError } = useAppState();
+  const { hasActiveSub } = useSubscription();
   const [fortunes, setFortunes] = useState<Fortune[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedDateFortunes, setSelectedDateFortunes] = useState<Fortune[]>([]);
@@ -207,6 +211,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
   const [showStatisticsModal, setShowStatisticsModal] = useState(false);
   const [showAchievementsModal, setShowAchievementsModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('fortunes');
 
   const fetchFortunes = async () => {
     try {
@@ -361,40 +366,70 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
 
   return (
     <div className="space-y-6 p-6 pb-24 md:pb-6">
-      {/* Fortune Calendar */}
+      {/* Tab Navigation */}
       <div className="luxury-card p-6">
-        <h3 className="text-lg font-heading font-medium mb-4 flex items-center gap-2">
-          <CalendarDots size={24} className="text-gold" />
-          Fortune Calendar
-        </h3>
-        <div className="w-full">
-        <CustomCalendar
-          fortunes={fortunes}
-          onDateClick={handleDateClick}
-          selectedDate={selectedFortuneDate}
-          onDateSelect={onDateSelect}
-        />
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-heading font-medium flex items-center gap-2">
+              <CalendarDots size={24} className="text-gold" />
+              Insights & Tracking
+            </h3>
+            <TabsList className="grid w-fit grid-cols-2">
+              <TabsTrigger value="fortunes">Fortunes</TabsTrigger>
+              <TabsTrigger value="lifestyle" disabled={!hasActiveSub}>
+                Know Yourself {!hasActiveSub && '🔒'}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="fortunes" className="mt-0">
+            {/* Fortune Calendar */}
+            <div className="w-full mb-6">
+              <CustomCalendar
+                fortunes={fortunes}
+                onDateClick={handleDateClick}
+                selectedDate={selectedFortuneDate}
+                onDateSelect={onDateSelect}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="lifestyle" className="mt-0">
+            {hasActiveSub ? (
+              <LifestyleTrackerTab />
+            ) : (
+              <div className="text-center p-8 bg-muted/20 rounded-lg border border-muted">
+                <Lock className="mx-auto mb-4 text-muted-foreground" size={48} />
+                <h4 className="text-lg font-semibold mb-2">Pro Feature</h4>
+                <p className="text-muted-foreground">
+                  Upgrade to Pro to access the lifestyle tracker and unlock insights about your daily habits.
+                </p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
-      {/* Statistics */}
-      <div className="luxury-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-heading font-medium flex items-center gap-2">
-            <ChartBar size={24} className="text-gold" />
-            Statistics & Insights
-          </h3>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setShowStatisticsModal(true)}
-            className="h-8 w-8 p-0 rounded-full bg-gradient-to-r from-emerald to-emerald/80 border-emerald/30 text-ivory hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-emerald/30"
-          >
-            <ChartBar size={16} />
-          </Button>
+      {/* Statistics - Only show for Fortunes tab */}
+      {activeTab === 'fortunes' && (
+        <div className="luxury-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-heading font-medium flex items-center gap-2">
+              <ChartBar size={24} className="text-gold" />
+              Statistics & Insights
+            </h3>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowStatisticsModal(true)}
+              className="h-8 w-8 p-0 rounded-full bg-gradient-to-r from-emerald to-emerald/80 border-emerald/30 text-ivory hover:scale-110 transition-all duration-200 shadow-lg hover:shadow-emerald/30"
+            >
+              <ChartBar size={16} />
+            </Button>
+          </div>
+          <ImprovedStatistics fortunes={fortunes} achievements={calculateAchievements()} />
         </div>
-        <ImprovedStatistics fortunes={fortunes} achievements={calculateAchievements()} />
-      </div>
+      )}
 
 
       {/* Detail Modals */}
