@@ -10,7 +10,12 @@ import {
   Calendar, Brain, Utensils, Activity, Heart, Stethoscope,
   Smile, Frown, Meh, Angry, Laugh, Zap, 
   Skull, HeartHandshake, Target, Users, Briefcase,
-  Dumbbell, Bike, TreePine, Circle, Clock, Flame
+  Dumbbell, Bike, TreePine, Circle, Clock, Flame,
+  Coffee, Home, Car, Plane, Book, Music,
+  ShoppingCart, Banknote, Eye, Ear, Plus,
+  ArrowUp, ArrowDown, Minus, Sparkles, AlertTriangle,
+  CloudRain, Sun, Thermometer, Shield, Bath,
+  Waves, Mountain, Volleyball, Gamepad2, Baby
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,7 +46,16 @@ const MOOD_OPTIONS = [
   { value: 'angry', label: 'Angry', icon: Angry },
   { value: 'excited', label: 'Excited', icon: Laugh },
   { value: 'anxious', label: 'Anxious', icon: Zap },
-  { value: 'nervous', label: 'Nervous', icon: Target },
+  { value: 'nervous', label: 'Nervous', icon: AlertTriangle },
+  { value: 'frustrated', label: 'Frustrated', icon: Target },
+  { value: 'stressed', label: 'Stressed', icon: Brain },
+  { value: 'overwhelmed', label: 'Overwhelmed', icon: CloudRain },
+  { value: 'content', label: 'Content', icon: Sun },
+  { value: 'grateful', label: 'Grateful', icon: HeartHandshake },
+  { value: 'energetic', label: 'Energetic', icon: Sparkles },
+  { value: 'calm', label: 'Calm', icon: TreePine },
+  { value: 'lonely', label: 'Lonely', icon: Home },
+  { value: 'confident', label: 'Confident', icon: Shield },
 ];
 
 const MOOD_CAUSES = [
@@ -49,17 +63,36 @@ const MOOD_CAUSES = [
   { value: 'family', label: 'Family', icon: HeartHandshake },
   { value: 'friends', label: 'Friends', icon: Users },
   { value: 'health', label: 'Health', icon: Stethoscope },
-  { value: 'money', label: 'Money', icon: Target },
-  { value: 'other', label: 'Other', icon: Meh },
+  { value: 'money', label: 'Money', icon: Banknote },
+  { value: 'relationship', label: 'Relationship', icon: Heart },
+  { value: 'school', label: 'School/Studies', icon: Book },
+  { value: 'travel', label: 'Travel', icon: Plane },
+  { value: 'weather', label: 'Weather', icon: CloudRain },
+  { value: 'sleep', label: 'Sleep', icon: Brain },
+  { value: 'social', label: 'Social Events', icon: Users },
+  { value: 'exercise', label: 'Exercise', icon: Activity },
+  { value: 'hobby', label: 'Hobbies', icon: Music },
+  { value: 'home', label: 'Home Life', icon: Home },
+  { value: 'other', label: 'Other', icon: Plus },
 ];
 
 const PAIN_TYPES = [
   { value: 'headache', label: 'Headache', icon: Brain },
-  { value: 'stomach', label: 'Stomach', icon: Utensils },
+  { value: 'stomach', label: 'Stomach Pain', icon: Utensils },
   { value: 'back', label: 'Back Pain', icon: Activity },
   { value: 'knee', label: 'Knee Pain', icon: Activity },
-  { value: 'sick', label: 'Feeling Sick', icon: Skull },
-  { value: 'tired', label: 'Tired', icon: Meh },
+  { value: 'neck', label: 'Neck Pain', icon: AlertTriangle },
+  { value: 'shoulder', label: 'Shoulder Pain', icon: Activity },
+  { value: 'muscle', label: 'Muscle Pain', icon: Dumbbell },
+  { value: 'joint', label: 'Joint Pain', icon: Target },
+  { value: 'chest', label: 'Chest Pain', icon: Heart },
+  { value: 'throat', label: 'Sore Throat', icon: Thermometer },
+  { value: 'cold', label: 'Cold/Flu', icon: CloudRain },
+  { value: 'fever', label: 'Fever', icon: Thermometer },
+  { value: 'nausea', label: 'Nausea', icon: Utensils },
+  { value: 'dizzy', label: 'Dizzy', icon: Brain },
+  { value: 'tired', label: 'Tired/Fatigue', icon: Meh },
+  { value: 'sick', label: 'General Illness', icon: Skull },
 ];
 
 const EXERCISE_TYPES = [
@@ -72,14 +105,28 @@ const EXERCISE_TYPES = [
   { value: 'tennis', label: 'Tennis', icon: Target },
   { value: 'padel', label: 'Padel', icon: Target },
   { value: 'golf', label: 'Golf', icon: Target },
-  { value: 'swimming', label: 'Swimming', icon: Activity },
+  { value: 'swimming', label: 'Swimming', icon: Waves },
+  { value: 'basketball', label: 'Basketball', icon: Circle },
+  { value: 'volleyball', label: 'Volleyball', icon: Volleyball },
+  { value: 'hiking', label: 'Hiking', icon: Mountain },
+  { value: 'pilates', label: 'Pilates', icon: TreePine },
+  { value: 'boxing', label: 'Boxing', icon: Target },
+  { value: 'crossfit', label: 'CrossFit', icon: Dumbbell },
+  { value: 'martial_arts', label: 'Martial Arts', icon: Target },
+  { value: 'dance', label: 'Dance', icon: Music },
+  { value: 'climbing', label: 'Climbing', icon: Mountain },
+  { value: 'skating', label: 'Skating', icon: Activity },
+  { value: 'surfing', label: 'Surfing', icon: Waves },
+  { value: 'skiing', label: 'Skiing', icon: Mountain },
+  { value: 'walking', label: 'Walking', icon: Activity },
+  { value: 'stretching', label: 'Stretching', icon: TreePine },
 ];
 
 const SEXUAL_APPETITE_OPTIONS = [
-  { value: 'none', label: 'None' },
-  { value: 'little', label: 'A little' },
-  { value: 'some', label: 'Some' },
-  { value: 'beast', label: "I'm a beast!" },
+  { value: 'none', label: 'None', icon: Minus },
+  { value: 'little', label: 'A little', icon: ArrowDown },
+  { value: 'some', label: 'Some', icon: Heart },
+  { value: 'beast', label: "I'm a beast!", icon: Flame },
 ];
 
 export const LifestyleTrackerTab = () => {
@@ -457,22 +504,23 @@ export const LifestyleTrackerTab = () => {
         <div className="space-y-4">
           <div>
             <Label className="mb-3 block">Sexual Appetite</Label>
-            <ToggleGroup 
-              type="single" 
-              value={entry.sexual_appetite}
-              onValueChange={(value) => value && updateEntry('sexual_appetite', value)}
-              className="grid grid-cols-2 gap-2"
-            >
-              {SEXUAL_APPETITE_OPTIONS.map(option => (
-                <ToggleGroupItem
-                  key={option.value}
-                  value={option.value}
-                  className="text-sm py-3"
-                >
-                  {option.label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            <div className="grid grid-cols-4 gap-2">
+              {SEXUAL_APPETITE_OPTIONS.map(option => {
+                const Icon = option.icon;
+                return (
+                  <Button
+                    key={option.value}
+                    variant={entry.sexual_appetite === option.value ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => updateEntry('sexual_appetite', option.value)}
+                    className="flex-col gap-2 h-auto py-4 px-3"
+                  >
+                    <Icon size={18} />
+                    <span className="text-xs text-center leading-tight">{option.label}</span>
+                  </Button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </Card>
