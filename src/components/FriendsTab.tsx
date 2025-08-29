@@ -248,38 +248,58 @@ const FriendsTab: React.FC = () => {
   };
 
   const loadGroupStats = async (groupId: string) => {
-    const { data: members, error } = await supabase
-      .from('group_members')
-      .select(`
-        user_id,
-        profiles(display_name)
-      `)
-      .eq('group_id', groupId);
+    try {
+      console.log('Loading group stats for group:', groupId);
+      
+      const { data: members, error } = await supabase
+        .from('group_members')
+        .select('user_id')
+        .eq('group_id', groupId);
 
-    if (error) {
-      toast({ title: "Error loading group stats", variant: "destructive" });
-      return;
-    }
+      if (error) {
+        console.error('Error loading group members:', error);
+        toast({ title: "Error loading group stats", variant: "destructive" });
+        return;
+      }
 
-    const statsPromises = members?.map(async (member: any) => {
-      const { data, error } = await supabase.rpc('get_user_competition_stats', {
-        p_user_id: member.user_id
+      console.log('Group members:', members);
+
+      const statsPromises = (members || []).map(async (member: any) => {
+        // Get profile data
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('user_id', member.user_id)
+          .single();
+
+        // Get stats
+        const { data: statsData, error: statsError } = await supabase.rpc('get_user_competition_stats', {
+          p_user_id: member.user_id
+        });
+
+        if (statsError) {
+          console.error('Error getting stats for user:', member.user_id, statsError);
+          return null;
+        }
+
+        const stats = statsData as any;
+        return {
+          user_id: member.user_id,
+          display_name: profileData?.display_name || 'Unknown',
+          total_fortunes: stats.total_fortunes || 0,
+          monthly_fortunes: stats.monthly_fortunes || 0,
+          weekly_fortunes: stats.weekly_fortunes || 0
+        };
       });
 
-      if (error) return null;
-
-      const stats = data as any;
-      return {
-        user_id: member.user_id,
-        display_name: member.profiles?.display_name || 'Unknown',
-        total_fortunes: stats.total_fortunes || 0,
-        monthly_fortunes: stats.monthly_fortunes || 0,
-        weekly_fortunes: stats.weekly_fortunes || 0
-      };
-    }) || [];
-
-    const stats = (await Promise.all(statsPromises)).filter(Boolean) as UserStats[];
-    setGroupStats(stats.sort((a, b) => b.monthly_fortunes - a.monthly_fortunes));
+      const stats = (await Promise.all(statsPromises)).filter(Boolean) as UserStats[];
+      console.log('Final stats:', stats);
+      
+      setGroupStats(stats.sort((a, b) => b.monthly_fortunes - a.monthly_fortunes));
+    } catch (error) {
+      console.error('Group stats loading error:', error);
+      toast({ title: "Error loading group stats", variant: "destructive" });
+    }
   };
 
   const viewGroupDetails = (groupId: string) => {
