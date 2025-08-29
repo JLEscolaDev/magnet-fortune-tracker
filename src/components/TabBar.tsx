@@ -1,14 +1,15 @@
 import { House, ChartLine } from '@phosphor-icons/react';
+import { Users } from 'lucide-react';
 
 interface TabBarProps {
-  activeTab: 'home' | 'insights';
-  onTabChange: (tab: 'home' | 'insights') => void;
+  activeTab: 'home' | 'insights' | 'friends';
+  onTabChange: (tab: 'home' | 'insights' | 'friends') => void;
 }
 
 export const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
   return (
     <div className="fixed bottom-0 left-0 right-0 md:hidden bg-card border-t border-gold/30 z-30">
-      <div className="grid grid-cols-2">
+      <div className="grid grid-cols-3">
         <button
           onClick={() => onTabChange('home')}
           className={`
@@ -35,6 +36,20 @@ export const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
         >
           <ChartLine size={24} weight={activeTab === 'insights' ? 'fill' : 'regular'} />
           <span className="text-xs font-medium">Insights</span>
+        </button>
+
+        <button
+          onClick={() => onTabChange('friends')}
+          className={`
+            flex flex-col items-center gap-1 py-3 px-4 transition-colors
+            ${activeTab === 'friends' 
+              ? 'text-emerald bg-emerald/10' 
+              : 'text-muted-foreground hover:text-foreground'
+            }
+          `}
+        >
+          <Users size={24} />
+          <span className="text-xs font-medium">Friends</span>
         </button>
       </div>
     </div>

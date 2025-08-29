@@ -1,9 +1,10 @@
 import { House, ChartLine, Plus } from '@phosphor-icons/react';
+import { Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface DesktopTabsProps {
-  activeTab: 'home' | 'insights';
-  onTabChange: (tab: 'home' | 'insights') => void;
+  activeTab: 'home' | 'insights' | 'friends';
+  onTabChange: (tab: 'home' | 'insights' | 'friends') => void;
   onAddFortuneClick: () => void;
   selectedDate?: Date | null;
 }
@@ -38,6 +39,20 @@ export const DesktopTabs = ({ activeTab, onTabChange, onAddFortuneClick, selecte
         >
           <ChartLine size={20} weight={activeTab === 'insights' ? 'fill' : 'regular'} />
           <span className="font-medium">Insights</span>
+        </button>
+
+        <button
+          onClick={() => onTabChange('friends')}
+          className={`
+            flex items-center gap-2 px-4 py-2 rounded-lg transition-all
+            ${activeTab === 'friends'
+              ? 'text-emerald bg-emerald/10 border-b-2 border-emerald'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }
+          `}
+        >
+          <Users size={20} />
+          <span className="font-medium">Friends</span>
         </button>
       </div>
 

@@ -6,6 +6,7 @@ import { SettingsDrawer } from '@/components/SettingsDrawer';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { HomeTab } from '@/components/HomeTab';
 import { InsightsTab } from '@/components/InsightsTab';
+import FriendsTab from '@/components/FriendsTab';
 import { TabBar } from '@/components/TabBar';
 import { DesktopTabs } from '@/components/DesktopTabs';
 import { FloatingActionButton } from '@/components/FloatingActionButton';
@@ -19,7 +20,7 @@ import { SettingsProvider } from '@/contexts/SettingsContext';
 
 const FortuneApp = () => {
   const { user, session } = useSubscription();
-  const [activeTab, setActiveTab] = useState<'home' | 'insights'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'insights' | 'friends'>('home');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSettingsPage, setShowSettingsPage] = useState(false);
   const [addFortuneOpen, setAddFortuneOpen] = useState(false);
@@ -132,6 +133,9 @@ const FortuneApp = () => {
                             selectedFortuneDate={selectedFortuneDate}
                             onDateSelect={handleDateSelect}
                           />
+                        )}
+                        {activeTab === 'friends' && (
+                          <FriendsTab />
                         )}
                       </main>
 
