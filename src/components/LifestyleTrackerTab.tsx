@@ -4,8 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, CalendarRange, Clock, Heart, Activity, Brain, Utensils, Wine, Stethoscope } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Calendar, Brain, Utensils, Activity, Heart, Stethoscope,
+  Smile, Frown, Meh, Angry, Laugh, Zap, 
+  Skull, HeartHandshake, Target, Users, Briefcase,
+  Dumbbell, Bike, TreePine, Circle, Clock, FlameKindling
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -17,16 +23,64 @@ interface DailyEntry {
   dream_description?: string;
   meals: string;
   alcohol_consumption: number;
-  mood: string;
-  sickness_level: number;
-  exercise_type?: string;
+  moods: string[];
+  mood_causes: string[];
+  pain_types: string[];
+  exercise_types: string[];
   exercise_duration?: number;
-  sexual_appetite: number;
-  sexual_performance: number;
+  sexual_appetite: string;
   notes?: string;
   created_at?: string;
   updated_at?: string;
 }
+
+const MOOD_OPTIONS = [
+  { value: 'happy', label: 'Happy', icon: Smile },
+  { value: 'sad', label: 'Sad', icon: Frown },
+  { value: 'neutral', label: 'Neutral', icon: Meh },
+  { value: 'angry', label: 'Angry', icon: Angry },
+  { value: 'excited', label: 'Excited', icon: Laugh },
+  { value: 'anxious', label: 'Anxious', icon: Zap },
+  { value: 'nervous', label: 'Nervous', icon: Target },
+];
+
+const MOOD_CAUSES = [
+  { value: 'work', label: 'Work', icon: Briefcase },
+  { value: 'family', label: 'Family', icon: HeartHandshake },
+  { value: 'friends', label: 'Friends', icon: Users },
+  { value: 'health', label: 'Health', icon: Stethoscope },
+  { value: 'money', label: 'Money', icon: Target },
+  { value: 'other', label: 'Other', icon: Meh },
+];
+
+const PAIN_TYPES = [
+  { value: 'headache', label: 'Headache', icon: Brain },
+  { value: 'stomach', label: 'Stomach', icon: Utensils },
+  { value: 'back', label: 'Back Pain', icon: Activity },
+  { value: 'knee', label: 'Knee Pain', icon: Activity },
+  { value: 'sick', label: 'Feeling Sick', icon: Skull },
+  { value: 'tired', label: 'Tired', icon: Meh },
+];
+
+const EXERCISE_TYPES = [
+  { value: 'gym', label: 'Gym', icon: Dumbbell },
+  { value: 'running', label: 'Running', icon: Activity },
+  { value: 'cycling', label: 'Cycling', icon: Bike },
+  { value: 'yoga', label: 'Yoga', icon: TreePine },
+  { value: 'fitness_class', label: 'Fitness Class', icon: Users },
+  { value: 'football', label: 'Football', icon: Circle },
+  { value: 'tennis', label: 'Tennis', icon: Target },
+  { value: 'padel', label: 'Padel', icon: Target },
+  { value: 'golf', label: 'Golf', icon: Target },
+  { value: 'swimming', label: 'Swimming', icon: Activity },
+];
+
+const SEXUAL_APPETITE_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'little', label: 'A little' },
+  { value: 'some', label: 'Some' },
+  { value: 'beast', label: "I'm a beast!" },
+];
 
 export const LifestyleTrackerTab = () => {
   const { toast } = useToast();
@@ -37,12 +91,12 @@ export const LifestyleTrackerTab = () => {
     dream_description: '',
     meals: '',
     alcohol_consumption: 0,
-    mood: 'neutral',
-    sickness_level: 0,
-    exercise_type: '',
+    moods: [],
+    mood_causes: [],
+    pain_types: [],
+    exercise_types: [],
     exercise_duration: 0,
-    sexual_appetite: 5,
-    sexual_performance: 5,
+    sexual_appetite: 'some',
     notes: ''
   });
   const [loading, setLoading] = useState(false);
@@ -58,33 +112,54 @@ export const LifestyleTrackerTab = () => {
       const dateStr = format(date, 'yyyy-MM-dd');
       const { data: { user } } = await supabase.auth.getUser();
 
-      
       if (!user) {
         setLoading(false);
         return;
       }
 
-      // Use raw SQL query to work around TypeScript types issue
-      const { data, error } = await supabase.rpc('fortune_list') as any;
-      
-      // For now, we'll use a simple approach without the database
-      // This would normally query the lifestyle_entries table
-      const mockEntry = {
-        date: dateStr,
-        dream_quality: 5,
-        dream_description: '',
-        meals: '',
-        alcohol_consumption: 0,
-        mood: 'neutral',
-        sickness_level: 0,
-        exercise_type: '',
-        exercise_duration: 0,
-        sexual_appetite: 5,
-        sexual_performance: 5,
-        notes: ''
-      };
-      
-      setEntry(mockEntry);
+      // Query the lifestyle_entries table
+      const { data, error } = await supabase
+        .from('lifestyle_entries')
+        .select('*')
+        .eq('date', dateStr)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (data) {
+        // Parse stored data and adapt to our interface
+        setEntry({
+          ...data,
+          moods: Array.isArray(data.mood) ? data.mood : (data.mood ? [data.mood] : []),
+          mood_causes: [], // Will be stored in notes for now
+          pain_types: [], // Will be derived from sickness_level for now
+          exercise_types: data.exercise_type ? data.exercise_type.split(',').filter(Boolean) : [],
+          sexual_appetite: typeof data.sexual_appetite === 'number' ? 
+            (data.sexual_appetite <= 1 ? 'none' : 
+             data.sexual_appetite <= 3 ? 'little' :
+             data.sexual_appetite <= 5 ? 'some' : 'beast') : 
+            (data.sexual_appetite || 'some'),
+        });
+      } else {
+        // Reset to default entry for new date
+        setEntry({
+          date: dateStr,
+          dream_quality: 5,
+          dream_description: '',
+          meals: '',
+          alcohol_consumption: 0,
+          moods: [],
+          mood_causes: [],
+          pain_types: [],
+          exercise_types: [],
+          exercise_duration: 0,
+          sexual_appetite: 'some',
+          notes: ''
+        });
+      }
     } catch (error) {
       console.error('Error loading entry:', error);
       toast({
@@ -103,8 +178,34 @@ export const LifestyleTrackerTab = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // For now, just show success message
-      // In a real implementation, this would save to lifestyle_entries table
+      const entryData = {
+        user_id: user.id,
+        date: entry.date,
+        dream_quality: entry.dream_quality,
+        dream_description: entry.dream_description,
+        meals: entry.meals,
+        alcohol_consumption: entry.alcohol_consumption,
+        mood: entry.moods.length > 0 ? entry.moods[0] : 'neutral', // Store primary mood for compatibility
+        sickness_level: entry.pain_types.length,
+        exercise_type: entry.exercise_types.join(','), // Store as comma-separated for compatibility
+        exercise_duration: entry.exercise_duration,
+        sexual_appetite: entry.sexual_appetite === 'none' ? 1 : 
+                        entry.sexual_appetite === 'little' ? 3 :
+                        entry.sexual_appetite === 'some' ? 5 : 10,
+        notes: entry.notes,
+        // Store additional data in notes for now (would need schema update for proper storage)
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('lifestyle_entries')
+        .upsert(entryData, { 
+          onConflict: 'user_id,date',
+          ignoreDuplicates: false 
+        });
+
+      if (error) throw error;
+
       toast({
         title: "Success",
         description: "Lifestyle entry saved successfully"
@@ -123,6 +224,14 @@ export const LifestyleTrackerTab = () => {
 
   const updateEntry = (field: keyof DailyEntry, value: any) => {
     setEntry(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleArrayValue = (field: keyof DailyEntry, value: string) => {
+    const currentArray = entry[field] as string[];
+    const newArray = currentArray.includes(value)
+      ? currentArray.filter(item => item !== value)
+      : [...currentArray, value];
+    updateEntry(field, newArray);
   };
 
   if (loading) {
@@ -159,7 +268,7 @@ export const LifestyleTrackerTab = () => {
           </div>
         </div>
         <p className="text-sm text-muted-foreground">
-          Track your daily habits and lifestyle patterns to improve your overall well-being.
+          Track your daily habits and lifestyle patterns. You can navigate to any date to view or edit previous entries.
         </p>
       </Card>
 
@@ -225,40 +334,75 @@ export const LifestyleTrackerTab = () => {
         </div>
       </Card>
 
-      {/* Health & Mood */}
+      {/* Mood & Health */}
       <Card className="p-6">
         <h4 className="text-md font-semibold mb-4 flex items-center gap-2">
           <Stethoscope className="text-primary" size={20} />
-          Health & Mood
+          Mood & Health
         </h4>
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
-            <Label>Mood</Label>
-            <Select value={entry.mood} onValueChange={(value) => updateEntry('mood', value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="very_good">Very Good 😊</SelectItem>
-                <SelectItem value="good">Good 🙂</SelectItem>
-                <SelectItem value="neutral">Neutral 😐</SelectItem>
-                <SelectItem value="bad">Bad 😞</SelectItem>
-                <SelectItem value="very_bad">Very Bad 😢</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="mb-3 block">How are you feeling? (Select multiple)</Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {MOOD_OPTIONS.map(mood => {
+                const Icon = mood.icon;
+                return (
+                  <Button
+                    key={mood.value}
+                    variant={entry.moods.includes(mood.value) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleArrayValue('moods', mood.value)}
+                    className="justify-start gap-2 h-auto py-3"
+                  >
+                    <Icon size={16} />
+                    {mood.label}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
+
+          {entry.moods.length > 0 && (
+            <div>
+              <Label className="mb-3 block">What's causing these feelings?</Label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {MOOD_CAUSES.map(cause => {
+                  const Icon = cause.icon;
+                  return (
+                    <Button
+                      key={cause.value}
+                      variant={entry.mood_causes.includes(cause.value) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleArrayValue('mood_causes', cause.value)}
+                      className="justify-start gap-2 h-auto py-3"
+                    >
+                      <Icon size={16} />
+                      {cause.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div>
-            <Label>Sickness Level (0-10)</Label>
-            <Input
-              type="range"
-              min="0"
-              max="10"
-              value={entry.sickness_level}
-              onChange={(e) => updateEntry('sickness_level', parseInt(e.target.value))}
-              className="w-full"
-            />
-            <div className="text-center text-sm text-muted-foreground mt-1">
-              {entry.sickness_level}/10 {entry.sickness_level === 0 ? '(Healthy)' : '(Sick)'}
+            <Label className="mb-3 block">Any pain or discomfort?</Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {PAIN_TYPES.map(pain => {
+                const Icon = pain.icon;
+                return (
+                  <Button
+                    key={pain.value}
+                    variant={entry.pain_types.includes(pain.value) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleArrayValue('pain_types', pain.value)}
+                    className="justify-start gap-2 h-auto py-3"
+                  >
+                    <Icon size={16} />
+                    {pain.label}
+                  </Button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -272,15 +416,27 @@ export const LifestyleTrackerTab = () => {
         </h4>
         <div className="space-y-4">
           <div>
-            <Label>Exercise Type</Label>
-            <Input
-              placeholder="e.g., Running, Gym, Yoga, Swimming..."
-              value={entry.exercise_type}
-              onChange={(e) => updateEntry('exercise_type', e.target.value)}
-            />
+            <Label className="mb-3 block">What activities did you do? (Select multiple)</Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {EXERCISE_TYPES.map(exercise => {
+                const Icon = exercise.icon;
+                return (
+                  <Button
+                    key={exercise.value}
+                    variant={entry.exercise_types.includes(exercise.value) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleArrayValue('exercise_types', exercise.value)}
+                    className="justify-start gap-2 h-auto py-3"
+                  >
+                    <Icon size={16} />
+                    {exercise.label}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
           <div>
-            <Label>Duration (minutes)</Label>
+            <Label>Total Duration (minutes)</Label>
             <Input
               type="number"
               min="0"
@@ -300,32 +456,23 @@ export const LifestyleTrackerTab = () => {
         </h4>
         <div className="space-y-4">
           <div>
-            <Label>Sexual Appetite (1-10)</Label>
-            <Input
-              type="range"
-              min="1"
-              max="10"
+            <Label className="mb-3 block">Sexual Appetite</Label>
+            <ToggleGroup 
+              type="single" 
               value={entry.sexual_appetite}
-              onChange={(e) => updateEntry('sexual_appetite', parseInt(e.target.value))}
-              className="w-full"
-            />
-            <div className="text-center text-sm text-muted-foreground mt-1">
-              {entry.sexual_appetite}/10
-            </div>
-          </div>
-          <div>
-            <Label>Sexual Performance (1-10)</Label>
-            <Input
-              type="range"
-              min="1"
-              max="10"
-              value={entry.sexual_performance}
-              onChange={(e) => updateEntry('sexual_performance', parseInt(e.target.value))}
-              className="w-full"
-            />
-            <div className="text-center text-sm text-muted-foreground mt-1">
-              {entry.sexual_performance}/10
-            </div>
+              onValueChange={(value) => value && updateEntry('sexual_appetite', value)}
+              className="grid grid-cols-2 gap-2"
+            >
+              {SEXUAL_APPETITE_OPTIONS.map(option => (
+                <ToggleGroupItem
+                  key={option.value}
+                  value={option.value}
+                  className="text-sm py-3"
+                >
+                  {option.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </div>
         </div>
       </Card>
