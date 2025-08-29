@@ -60,24 +60,33 @@ const FriendsTab: React.FC = () => {
       const currentUser = await supabase.auth.getUser();
       if (!currentUser.data.user) return;
 
-      const { data, error } = await supabase
+      // First get the friends data
+      const { data: friendsData, error: friendsError } = await supabase
         .from('friends')
-        .select(`
-          *,
-          profiles!friends_friend_user_id_fkey(display_name, avatar_url)
-        `)
+        .select('*')
         .eq('user_id', currentUser.data.user.id);
 
-      if (error) {
-        console.error('Error loading friends:', error);
+      if (friendsError) {
+        console.error('Error loading friends:', friendsError);
         toast({ title: "Error loading friends", variant: "destructive" });
         return;
       }
 
-      const friendsWithProfiles = data?.map(f => ({
-        ...f,
-        friend_profile: f.profiles || { display_name: 'Unknown', avatar_url: null }
-      })) || [];
+      // Then get profile data for each friend
+      const friendsWithProfiles = await Promise.all(
+        (friendsData || []).map(async (friend) => {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('display_name, avatar_url')
+            .eq('user_id', friend.friend_user_id)
+            .single();
+
+          return {
+            ...friend,
+            friend_profile: profileData || { display_name: 'Unknown', avatar_url: null }
+          };
+        })
+      );
 
       const accepted = friendsWithProfiles.filter(f => f.status === 'accepted');
       const pending = friendsWithProfiles.filter(f => f.status === 'pending');
@@ -95,6 +104,8 @@ const FriendsTab: React.FC = () => {
       const currentUser = await supabase.auth.getUser();
       if (!currentUser.data.user) return;
 
+      console.log('Loading groups...');
+      
       const { data, error } = await supabase
         .from('competition_groups')
         .select('*');
@@ -104,6 +115,8 @@ const FriendsTab: React.FC = () => {
         toast({ title: "Error loading groups", variant: "destructive" });
         return;
       }
+
+      console.log('Groups data:', data);
 
       // Get member counts separately
       const groupsWithCounts = await Promise.all(
@@ -121,6 +134,7 @@ const FriendsTab: React.FC = () => {
         })
       );
 
+      console.log('Groups with counts:', groupsWithCounts);
       setGroups(groupsWithCounts);
     } catch (error) {
       console.error('Groups loading error:', error);
