@@ -56,47 +56,76 @@ const FriendsTab: React.FC = () => {
   }, []);
 
   const loadFriends = async () => {
-    const { data, error } = await supabase
-      .from('friends')
-      .select(`
-        *,
-        friend_profile:profiles(display_name, avatar_url)
-      `)
-      .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+    try {
+      const currentUser = await supabase.auth.getUser();
+      if (!currentUser.data.user) return;
 
-    if (error) {
+      const { data, error } = await supabase
+        .from('friends')
+        .select(`
+          *,
+          profiles!friends_friend_user_id_fkey(display_name, avatar_url)
+        `)
+        .eq('user_id', currentUser.data.user.id);
+
+      if (error) {
+        console.error('Error loading friends:', error);
+        toast({ title: "Error loading friends", variant: "destructive" });
+        return;
+      }
+
+      const friendsWithProfiles = data?.map(f => ({
+        ...f,
+        friend_profile: f.profiles || { display_name: 'Unknown', avatar_url: null }
+      })) || [];
+
+      const accepted = friendsWithProfiles.filter(f => f.status === 'accepted');
+      const pending = friendsWithProfiles.filter(f => f.status === 'pending');
+      
+      setFriends(accepted as any[]);
+      setPendingRequests(pending as any[]);
+    } catch (error) {
+      console.error('Friends loading error:', error);
       toast({ title: "Error loading friends", variant: "destructive" });
-      return;
     }
-
-    const accepted = (data?.filter(f => f.status === 'accepted') || []) as any[];
-    const pending = (data?.filter(f => f.status === 'pending') || []) as any[];
-    
-    setFriends(accepted);
-    setPendingRequests(pending);
   };
 
   const loadGroups = async () => {
-    const { data, error } = await supabase
-      .from('competition_groups')
-      .select(`
-        *,
-        group_members(count)
-      `);
+    try {
+      const currentUser = await supabase.auth.getUser();
+      if (!currentUser.data.user) return;
 
-    if (error) {
+      const { data, error } = await supabase
+        .from('competition_groups')
+        .select('*');
+
+      if (error) {
+        console.error('Error loading groups:', error);
+        toast({ title: "Error loading groups", variant: "destructive" });
+        return;
+      }
+
+      // Get member counts separately
+      const groupsWithCounts = await Promise.all(
+        (data || []).map(async (group) => {
+          const { count } = await supabase
+            .from('group_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('group_id', group.id);
+
+          return {
+            ...group,
+            member_count: count || 0,
+            is_creator: group.created_by === currentUser.data.user!.id
+          };
+        })
+      );
+
+      setGroups(groupsWithCounts);
+    } catch (error) {
+      console.error('Groups loading error:', error);
       toast({ title: "Error loading groups", variant: "destructive" });
-      return;
     }
-
-    const userId = (await supabase.auth.getUser()).data.user?.id;
-    const groupsWithMemberCount = data?.map(group => ({
-      ...group,
-      member_count: group.group_members?.length || 0,
-      is_creator: group.created_by === userId
-    })) || [];
-
-    setGroups(groupsWithMemberCount);
   };
 
   const searchUsers = async () => {
@@ -105,36 +134,55 @@ const FriendsTab: React.FC = () => {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('user_id, display_name, avatar_url')
-      .ilike('display_name', `%${searchQuery}%`)
-      .limit(10);
+    try {
+      const currentUser = await supabase.auth.getUser();
+      if (!currentUser.data.user) return;
 
-    if (error) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url')
+        .ilike('display_name', `%${searchQuery.trim()}%`)
+        .neq('user_id', currentUser.data.user.id) // Exclude current user
+        .limit(10);
+
+      if (error) {
+        console.error('Error searching users:', error);
+        toast({ title: "Error searching users", variant: "destructive" });
+        return;
+      }
+
+      setSearchResults(data || []);
+    } catch (error) {
+      console.error('User search error:', error);
       toast({ title: "Error searching users", variant: "destructive" });
-      return;
     }
-
-    setSearchResults(data || []);
   };
 
   const sendFriendRequest = async (friendUserId: string) => {
-    const { error } = await supabase
-      .from('friends')
-      .insert({
-        user_id: (await supabase.auth.getUser()).data.user?.id,
-        friend_user_id: friendUserId
-      });
+    try {
+      const currentUser = await supabase.auth.getUser();
+      if (!currentUser.data.user) return;
 
-    if (error) {
+      const { error } = await supabase
+        .from('friends')
+        .insert({
+          user_id: currentUser.data.user.id,
+          friend_user_id: friendUserId
+        });
+
+      if (error) {
+        console.error('Error sending friend request:', error);
+        toast({ title: "Error sending friend request", variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "Friend request sent!" });
+      setSearchResults([]);
+      setSearchQuery('');
+    } catch (error) {
+      console.error('Friend request error:', error);
       toast({ title: "Error sending friend request", variant: "destructive" });
-      return;
     }
-
-    toast({ title: "Friend request sent!" });
-    setSearchResults([]);
-    setSearchQuery('');
   };
 
   const acceptFriendRequest = async (friendshipId: string) => {
