@@ -10,7 +10,7 @@ import {
   Calendar, Brain, Utensils, Activity, Heart, Stethoscope,
   Smile, Frown, Meh, Angry, Laugh, Zap, 
   Skull, HeartHandshake, Target, Users, Briefcase,
-  Dumbbell, Bike, TreePine, Circle, Clock, FlameKindling
+  Dumbbell, Bike, TreePine, Circle, Clock, Flame
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
