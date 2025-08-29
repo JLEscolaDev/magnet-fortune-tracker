@@ -155,6 +155,63 @@ export type Database = {
         }
         Relationships: []
       }
+      lifestyle_entries: {
+        Row: {
+          alcohol_consumption: number | null
+          created_at: string | null
+          date: string
+          dream_description: string | null
+          dream_quality: number | null
+          exercise_duration: number | null
+          exercise_type: string | null
+          id: string
+          meals: string | null
+          mood: string | null
+          notes: string | null
+          sexual_appetite: number | null
+          sexual_performance: number | null
+          sickness_level: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          alcohol_consumption?: number | null
+          created_at?: string | null
+          date: string
+          dream_description?: string | null
+          dream_quality?: number | null
+          exercise_duration?: number | null
+          exercise_type?: string | null
+          id?: string
+          meals?: string | null
+          mood?: string | null
+          notes?: string | null
+          sexual_appetite?: number | null
+          sexual_performance?: number | null
+          sickness_level?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          alcohol_consumption?: number | null
+          created_at?: string | null
+          date?: string
+          dream_description?: string | null
+          dream_quality?: number | null
+          exercise_duration?: number | null
+          exercise_type?: string | null
+          id?: string
+          meals?: string | null
+          mood?: string | null
+          notes?: string | null
+          sexual_appetite?: number | null
+          sexual_performance?: number | null
+          sickness_level?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       plans: {
         Row: {
           billing_period: string | null
