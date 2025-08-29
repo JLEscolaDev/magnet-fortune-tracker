@@ -76,10 +76,10 @@ export const DailyQuote = () => {
 
   if (loading) {
     return (
-      <div className="luxury-card p-6 mb-6 animate-pulse">
-        <div className="text-center">
-          <div className="h-4 bg-muted/30 rounded w-3/4 mx-auto mb-2" />
-          <div className="h-3 bg-muted/30 rounded w-1/2 mx-auto" />
+      <div className="px-3 md:px-0 mb-2">
+        <div className="text-center animate-pulse">
+          <div className="h-3 bg-muted/30 rounded w-3/4 mx-auto mb-1.5" />
+          <div className="h-2.5 bg-muted/30 rounded w-1/2 mx-auto" />
         </div>
       </div>
     );
@@ -90,22 +90,20 @@ export const DailyQuote = () => {
   }
 
   return (
-    <div className="luxury-card p-6 mb-6">
+    <div className="px-3 md:px-0 mb-2">
       <div className="text-center">
-        <div className="mb-2">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Daily Inspiration
-          </span>
-        </div>
-        <blockquote className="text-base font-medium text-foreground mb-3 italic">
-          "{quote.text_en}"
-        </blockquote>
-        {quote.author && (
-          <cite className="text-sm text-muted-foreground">
-            — {quote.author}
-            {quote.source && `, ${quote.source}`}
-          </cite>
-        )}
+        <span className="block mb-1 text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Daily Inspiration
+        </span>
+        <p className="text-sm md:text-base font-medium text-foreground italic leading-snug">
+          “{quote.text_en}”
+          {quote.author && (
+            <span className="ml-2 text-xs md:text-sm text-muted-foreground not-italic">
+              — {quote.author}
+              {quote.source ? `, ${quote.source}` : ''}
+            </span>
+          )}
+        </p>
       </div>
     </div>
   );

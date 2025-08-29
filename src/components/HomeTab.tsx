@@ -85,12 +85,12 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
 
   return (
     <div className="space-y-6 p-6 pb-24 md:pb-6">
+      <DailyQuote />
       <LuxuryAvatarSection 
         profile={profile} 
         fortuneCount={fortunesCountTotal}
         onLevelUp={handleLevelUp}
       />
-      <DailyQuote />
       <FortuneList 
         fortunes={recentFortunes as any} 
         title="Today's Fortunes"
