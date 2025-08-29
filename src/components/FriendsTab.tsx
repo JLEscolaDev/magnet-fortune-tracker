@@ -152,11 +152,13 @@ const FriendsTab: React.FC = () => {
       const currentUser = await supabase.auth.getUser();
       if (!currentUser.data.user) return;
 
+      console.log('Searching for users with query:', searchQuery);
+
       const { data, error } = await supabase
         .from('profiles')
         .select('user_id, display_name, avatar_url')
         .ilike('display_name', `%${searchQuery.trim()}%`)
-        .neq('user_id', currentUser.data.user.id) // Exclude current user
+        .neq('user_id', currentUser.data.user.id)
         .limit(10);
 
       if (error) {
@@ -165,6 +167,7 @@ const FriendsTab: React.FC = () => {
         return;
       }
 
+      console.log('Search results:', data);
       setSearchResults(data || []);
     } catch (error) {
       console.error('User search error:', error);
@@ -177,11 +180,26 @@ const FriendsTab: React.FC = () => {
       const currentUser = await supabase.auth.getUser();
       if (!currentUser.data.user) return;
 
+      console.log('Sending friend request to:', friendUserId);
+
+      // Check if friendship already exists
+      const { data: existingFriendship } = await supabase
+        .from('friends')
+        .select('id')
+        .or(`and(user_id.eq.${currentUser.data.user.id},friend_user_id.eq.${friendUserId}),and(user_id.eq.${friendUserId},friend_user_id.eq.${currentUser.data.user.id})`)
+        .single();
+
+      if (existingFriendship) {
+        toast({ title: "Friendship already exists or request already sent", variant: "destructive" });
+        return;
+      }
+
       const { error } = await supabase
         .from('friends')
         .insert({
           user_id: currentUser.data.user.id,
-          friend_user_id: friendUserId
+          friend_user_id: friendUserId,
+          status: 'pending'
         });
 
       if (error) {
@@ -196,6 +214,45 @@ const FriendsTab: React.FC = () => {
     } catch (error) {
       console.error('Friend request error:', error);
       toast({ title: "Error sending friend request", variant: "destructive" });
+    }
+  };
+
+  const inviteToGroup = async (friendUserId: string, groupId: string) => {
+    try {
+      const currentUser = await supabase.auth.getUser();
+      if (!currentUser.data.user) return;
+
+      // Check if user is already a member
+      const { data: existingMember } = await supabase
+        .from('group_members')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('user_id', friendUserId)
+        .single();
+
+      if (existingMember) {
+        toast({ title: "User is already a member of this group", variant: "destructive" });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('group_members')
+        .insert({
+          group_id: groupId,
+          user_id: friendUserId
+        });
+
+      if (error) {
+        console.error('Error inviting to group:', error);
+        toast({ title: "Error inviting user to group", variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "User invited to group!" });
+      loadGroups(); // Refresh groups to update member counts
+    } catch (error) {
+      console.error('Group invite error:', error);
+      toast({ title: "Error inviting user to group", variant: "destructive" });
     }
   };
 
@@ -469,7 +526,7 @@ const FriendsTab: React.FC = () => {
                       <p className="text-sm text-muted-foreground">{group.description}</p>
                     )}
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-2">
                     <Button
                       onClick={() => viewGroupDetails(group.id)}
                       variant="outline"
@@ -478,6 +535,42 @@ const FriendsTab: React.FC = () => {
                       <Trophy className="h-4 w-4 mr-2" />
                       View Competition
                     </Button>
+                    {group.is_creator && (
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="secondary" className="w-full">
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Invite Friends
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Invite Friends to {group.name}</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            {friends.length === 0 ? (
+                              <p className="text-muted-foreground text-center py-4">
+                                You need friends to invite them to groups!
+                              </p>
+                            ) : (
+                              <div className="space-y-2">
+                                {friends.map((friend) => (
+                                  <div key={friend.id} className="flex items-center justify-between p-2 border rounded">
+                                    <span className="font-medium">{friend.friend_profile.display_name}</span>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => inviteToGroup(friend.friend_user_id, group.id)}
+                                    >
+                                      Invite
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
                   </CardContent>
                 </Card>
               ))
