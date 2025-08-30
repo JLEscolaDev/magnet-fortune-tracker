@@ -52,17 +52,28 @@ export const useGroupInviteHandler = (user: any) => {
         // Check if there's already a pending invitation
         const { data: existingInvitation } = await supabase
           .from('group_invitations')
-          .select('id')
+          .select('id, status')
           .eq('group_id', groupId)
           .eq('invited_user_id', user.id)
-          .eq('status', 'pending')
           .maybeSingle();
 
         if (existingInvitation) {
-          toast({ 
-            title: "Invitation already exists", 
-            description: `You already have a pending invitation to ${group.name}. Check your Friends tab!` 
-          });
+          if (existingInvitation.status === 'pending') {
+            toast({ 
+              title: "Invitation already exists", 
+              description: `You already have a pending invitation to ${group.name}. Check your Friends tab!` 
+            });
+          } else if (existingInvitation.status === 'accepted') {
+            toast({ 
+              title: "Already accepted", 
+              description: `You've already accepted the invitation to ${group.name}!` 
+            });
+          } else {
+            toast({ 
+              title: "Invitation was declined", 
+              description: `You previously declined the invitation to ${group.name}.` 
+            });
+          }
           // Clean URL
           window.history.replaceState({}, document.title, window.location.pathname);
           return;
