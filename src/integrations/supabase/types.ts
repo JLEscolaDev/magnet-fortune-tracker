@@ -697,6 +697,10 @@ export type Database = {
         Args: { check_group_id: string; check_user_id: string }
         Returns: boolean
       }
+      is_username_available: {
+        Args: { username: string }
+        Returns: boolean
+      }
       try_base64_text: {
         Args: { s: string }
         Returns: string

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Eye, EyeSlash, Sparkle, User, Envelope, Lock } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,58 @@ export const AuthPage = () => {
   const [displayName, setDisplayName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
   const { toast } = useToast();
+
+  const checkUsernameAvailability = useCallback(async (username: string) => {
+    if (!username || username.length < 3) {
+      setUsernameError(username.length > 0 && username.length < 3 ? 'Username must be at least 3 characters long' : '');
+      return false;
+    }
+
+    setCheckingUsername(true);
+    setUsernameError('');
+
+    try {
+      const { data, error } = await supabase.rpc('is_username_available', { username });
+      
+      if (error) {
+        console.error('Error checking username:', error);
+        setUsernameError('Error checking username availability');
+        return false;
+      }
+
+      if (!data) {
+        setUsernameError('This username is already taken');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Username check failed:', error);
+      setUsernameError('Error checking username availability');
+      return false;
+    } finally {
+      setCheckingUsername(false);
+    }
+  }, []);
+
+  const handleDisplayNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setDisplayName(value);
+    
+    // Clear previous error
+    if (usernameError) {
+      setUsernameError('');
+    }
+  };
+
+  const handleDisplayNameBlur = () => {
+    if (isSignUp && displayName) {
+      checkUsernameAvailability(displayName);
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +73,13 @@ export const AuthPage = () => {
 
     try {
       if (isSignUp) {
+        // Check username availability one final time before submitting
+        const isUsernameAvailable = await checkUsernameAvailability(displayName);
+        if (!isUsernameAvailable) {
+          setLoading(false);
+          return;
+        }
+
         const redirectUrl = `${window.location.origin}/`;
         
         const { error } = await supabase.auth.signUp({
@@ -35,7 +93,15 @@ export const AuthPage = () => {
           }
         });
 
-        if (error) throw error;
+        if (error) {
+          // Handle specific error for duplicate username
+          if (error.message?.includes('duplicate') || error.message?.includes('unique')) {
+            setUsernameError('This username is already taken');
+            setLoading(false);
+            return;
+          }
+          throw error;
+        }
 
         toast({
           title: "Check your email!",
@@ -97,18 +163,31 @@ export const AuthPage = () => {
             {isSignUp && (
               <div className="space-y-2">
                 <Label htmlFor="displayName">Display Name</Label>
-                <div className="relative">
-                  <User size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="displayName"
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Enter your display name"
-                    className="pl-10 focus:border-gold focus:ring-gold/20"
-                    required={isSignUp}
-                  />
-                </div>
+                 <div className="relative">
+                   <User size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                   <Input
+                     id="displayName"
+                     type="text"
+                     value={displayName}
+                     onChange={handleDisplayNameChange}
+                     onBlur={handleDisplayNameBlur}
+                     placeholder="Enter your username (min. 3 characters)"
+                     className={`pl-10 focus:border-gold focus:ring-gold/20 ${usernameError ? 'border-destructive' : ''}`}
+                     required={isSignUp}
+                     minLength={3}
+                   />
+                   {checkingUsername && (
+                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                       <div className="w-4 h-4 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+                     </div>
+                   )}
+                 </div>
+                 {usernameError && (
+                   <p className="text-sm text-destructive mt-1">{usernameError}</p>
+                 )}
+                 {displayName && !usernameError && !checkingUsername && isSignUp && displayName.length >= 3 && (
+                   <p className="text-sm text-green-600 mt-1">✓ Username is available</p>
+                 )}
               </div>
             )}
 
@@ -153,7 +232,7 @@ export const AuthPage = () => {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || (isSignUp && (checkingUsername || !!usernameError || displayName.length < 3))}
               className="luxury-button w-full"
             >
               {loading ? (
