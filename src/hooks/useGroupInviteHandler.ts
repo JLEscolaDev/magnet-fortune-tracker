@@ -63,30 +63,42 @@ export const useGroupInviteHandler = (user: any) => {
               title: "Invitation already exists", 
               description: `You already have a pending invitation to ${group.name}. Check your Friends tab!` 
             });
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
           } else if (existingInvitation.status === 'accepted') {
             toast({ 
               title: "Already accepted", 
               description: `You've already accepted the invitation to ${group.name}!` 
             });
-          } else {
-            toast({ 
-              title: "Invitation was declined", 
-              description: `You previously declined the invitation to ${group.name}.` 
-            });
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
           }
-          // Clean URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-          return;
+          // If the invitation was declined, we'll update it to pending below
         }
 
-        // Create automatic invitation
-        const { error: inviteError } = await supabase
-          .from('group_invitations')
-          .insert({
-            group_id: groupId,
-            invited_user_id: user.id,
-            invited_by: group.created_by
-          });
+        // Create new invitation or reactivate declined one
+        let inviteError;
+        
+        if (existingInvitation && existingInvitation.status === 'declined') {
+          // Reactivate the declined invitation
+          const { error } = await supabase
+            .from('group_invitations')
+            .update({ status: 'pending' })
+            .eq('id', existingInvitation.id);
+          inviteError = error;
+        } else {
+          // Create new invitation
+          const { error } = await supabase
+            .from('group_invitations')
+            .insert({
+              group_id: groupId,
+              invited_user_id: user.id,
+              invited_by: group.created_by
+            });
+          inviteError = error;
+        }
 
         if (inviteError) {
           console.error('Error creating group invitation:', inviteError);
