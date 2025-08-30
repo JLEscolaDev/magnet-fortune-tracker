@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Users, UserPlus, Trophy, Search, Plus, Crown, Medal, Share2, Copy } from 'lucide-react';
+import { Users, UserPlus, Trophy, Search, Plus, Crown, Medal, Share2, Copy, LogOut } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -27,6 +27,7 @@ interface CompetitionGroup {
   created_by: string;
   member_count: number;
   is_creator: boolean;
+  is_member?: boolean;
 }
 
 interface UserStats {
@@ -50,6 +51,7 @@ const FriendsTab: React.FC = () => {
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showGroupDetails, setShowGroupDetails] = useState(false);
+  const [isUserMember, setIsUserMember] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadFriends();
@@ -129,7 +131,7 @@ const FriendsTab: React.FC = () => {
 
       console.log('Groups data:', data);
 
-      // Get member counts separately
+      // Get member counts and check if current user is a member
       const groupsWithCounts = await Promise.all(
         (data || []).map(async (group) => {
           const { count } = await supabase
@@ -137,10 +139,24 @@ const FriendsTab: React.FC = () => {
             .select('*', { count: 'exact', head: true })
             .eq('group_id', group.id);
 
+          // Check if current user is a member
+          const { data: memberData } = await supabase
+            .from('group_members')
+            .select('id')
+            .eq('group_id', group.id)
+            .eq('user_id', currentUser.data.user!.id)
+            .maybeSingle();
+
+          setIsUserMember(prev => ({
+            ...prev,
+            [group.id]: !!memberData
+          }));
+
           return {
             ...group,
             member_count: count || 0,
-            is_creator: group.created_by === currentUser.data.user!.id
+            is_creator: group.created_by === currentUser.data.user!.id,
+            is_member: !!memberData
           };
         })
       );
@@ -503,6 +519,31 @@ const FriendsTab: React.FC = () => {
     loadGroupStats(groupId);
   };
 
+  const leaveGroup = async (groupId: string) => {
+    try {
+      const currentUser = await supabase.auth.getUser();
+      if (!currentUser.data.user) return;
+
+      const { error } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', currentUser.data.user.id);
+
+      if (error) {
+        console.error('Error leaving group:', error);
+        toast({ title: "Error leaving group", variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "Left group successfully" });
+      loadGroups(); // Refresh groups
+    } catch (error) {
+      console.error('Leave group error:', error);
+      toast({ title: "Error leaving group", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="p-4 space-y-6">
       <div className="flex items-center gap-2 mb-6">
@@ -745,7 +786,7 @@ const FriendsTab: React.FC = () => {
                         <Share2 className="h-4 w-4 mr-2" />
                         Share Group
                       </Button>
-                      {group.is_creator && (
+                      {group.is_creator ? (
                         <Dialog>
                           <DialogTrigger asChild>
                             <Button variant="secondary" className="flex-1">
@@ -790,6 +831,15 @@ const FriendsTab: React.FC = () => {
                           </div>
                         </DialogContent>
                         </Dialog>
+                      ) : group.is_member && (
+                        <Button 
+                          variant="destructive" 
+                          className="flex-1"
+                          onClick={() => leaveGroup(group.id)}
+                        >
+                          <LogOut className="h-4 w-4 mr-2" />
+                          Leave Group
+                        </Button>
                       )}
                     </div>
                   </CardContent>
