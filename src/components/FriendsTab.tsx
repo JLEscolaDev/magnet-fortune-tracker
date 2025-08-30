@@ -60,11 +60,11 @@ const FriendsTab: React.FC = () => {
       const currentUser = await supabase.auth.getUser();
       if (!currentUser.data.user) return;
 
-      // First get the friends data
+      // Get both outgoing and incoming friend relationships
       const { data: friendsData, error: friendsError } = await supabase
         .from('friends')
         .select('*')
-        .eq('user_id', currentUser.data.user.id);
+        .or(`user_id.eq.${currentUser.data.user.id},friend_user_id.eq.${currentUser.data.user.id}`);
 
       if (friendsError) {
         console.error('Error loading friends:', friendsError);
@@ -75,23 +75,29 @@ const FriendsTab: React.FC = () => {
       // Then get profile data for each friend
       const friendsWithProfiles = await Promise.all(
         (friendsData || []).map(async (friend) => {
+          // Determine which user is the "other" user (not current user)
+          const otherUserId = friend.user_id === currentUser.data.user!.id 
+            ? friend.friend_user_id 
+            : friend.user_id;
+
           const { data: profileData } = await supabase
             .from('profiles')
             .select('display_name, avatar_url')
-            .eq('user_id', friend.friend_user_id)
+            .eq('user_id', otherUserId)
             .single();
 
           return {
             ...friend,
-            friend_profile: profileData || { display_name: 'Unknown', avatar_url: null }
+            friend_profile: profileData || { display_name: 'Unknown', avatar_url: null },
+            is_incoming: friend.friend_user_id === currentUser.data.user!.id // true if current user received the request
           };
         })
       );
 
       const accepted = friendsWithProfiles.filter(f => f.status === 'accepted');
-      // Only show incoming requests (where current user is the recipient) in pending requests
+      // Only show incoming requests (where current user is the recipient)
       const incomingPending = friendsWithProfiles.filter(f => 
-        f.status === 'pending' && f.friend_user_id === currentUser.data.user!.id
+        f.status === 'pending' && f.is_incoming
       );
       
       setFriends(accepted as any[]);
