@@ -233,6 +233,8 @@ const FriendsTab: React.FC = () => {
       const currentUser = await supabase.auth.getUser();
       if (!currentUser.data.user) return;
 
+      console.log('[GROUP_INVITATIONS] Loading invitations for user:', currentUser.data.user.id);
+
       const { data, error } = await supabase
         .from('group_invitations')
         .select(`
@@ -246,6 +248,8 @@ const FriendsTab: React.FC = () => {
         console.error('Error loading group invitations:', error);
         return;
       }
+
+      console.log('[GROUP_INVITATIONS] Raw data from query:', data);
 
       // Get the inviter's profile separately for each invitation
       const invitationsWithProfiles = await Promise.all(
@@ -263,6 +267,7 @@ const FriendsTab: React.FC = () => {
         })
       );
 
+      console.log('[GROUP_INVITATIONS] Final invitations with profiles:', invitationsWithProfiles);
       setGroupInvitations(invitationsWithProfiles);
     } catch (error) {
       console.error('Group invitations loading error:', error);
