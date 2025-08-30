@@ -17,6 +17,7 @@ import { AppStateProvider } from '@/contexts/AppStateContext';
 import { useAppBootstrap } from '@/hooks/useAppBootstrap';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
+import { useGroupInviteHandler } from '@/hooks/useGroupInviteHandler';
 
 const FortuneApp = () => {
   const { user, session } = useSubscription();
@@ -30,6 +31,9 @@ const FortuneApp = () => {
   console.log('[AUTH] Bootstrap check user:', user);
   console.log('[BOOTSTRAP] Passing user to useAppBootstrap:', user);
   const bootstrapState = useAppBootstrap(user);
+  
+  // Handle group invitations from URL parameters
+  useGroupInviteHandler(user);
 
   const handleFortuneAdded = () => {
     // Refetch app state when fortune is added

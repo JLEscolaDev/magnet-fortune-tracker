@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Users, UserPlus, Trophy, Search, Plus, Crown, Medal } from 'lucide-react';
+import { Users, UserPlus, Trophy, Search, Plus, Crown, Medal, Share2, Copy } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -538,7 +538,27 @@ const FriendsTab: React.FC = () => {
                 </Button>
               </div>
               
-              {searchResults.length > 0 && (
+              {searchQuery.trim() && searchResults.length === 0 ? (
+                <div className="p-4 text-center space-y-3 border rounded bg-muted/50">
+                  <p className="text-muted-foreground">No users found with that username.</p>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Invite your friends to join!</p>
+                    <div className="flex items-center gap-2 p-2 bg-background border rounded">
+                      <code className="flex-1 text-sm">https://fortune-magnet.vercel.app/</code>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText('https://fortune-magnet.vercel.app/');
+                          toast({ title: "Invite link copied!" });
+                        }}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : searchResults.length > 0 ? (
                 <div className="space-y-2">
                   {searchResults.map((user) => (
                     <div key={user.user_id} className="flex items-center justify-between p-2 border rounded">
@@ -553,7 +573,7 @@ const FriendsTab: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              )}
+              ) : null}
             </CardContent>
           </Card>
 
@@ -712,14 +732,27 @@ const FriendsTab: React.FC = () => {
                       <Trophy className="h-4 w-4 mr-2" />
                       View Competition
                     </Button>
-                    {group.is_creator && (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="secondary" className="w-full">
-                            <UserPlus className="h-4 w-4 mr-2" />
-                            Invite Friends
-                          </Button>
-                        </DialogTrigger>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="secondary" 
+                        className="flex-1"
+                        onClick={() => {
+                          const shareUrl = `https://fortune-magnet.vercel.app/?invite_group=${group.id}`;
+                          navigator.clipboard.writeText(shareUrl);
+                          toast({ title: "Group invite link copied!" });
+                        }}
+                      >
+                        <Share2 className="h-4 w-4 mr-2" />
+                        Share Group
+                      </Button>
+                      {group.is_creator && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="secondary" className="flex-1">
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              Invite Friends
+                            </Button>
+                          </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
                             <DialogTitle>Invite Friends to {group.name}</DialogTitle>
@@ -756,8 +789,9 @@ const FriendsTab: React.FC = () => {
                             )}
                           </div>
                         </DialogContent>
-                      </Dialog>
-                    )}
+                        </Dialog>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))
