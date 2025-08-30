@@ -271,6 +271,7 @@ const FriendsTab: React.FC = () => {
 
   const inviteToGroup = async (friendUserId: string, groupId: string) => {
     try {
+      console.log('Inviting user to group:', { friendUserId, groupId });
       const currentUser = await supabase.auth.getUser();
       if (!currentUser.data.user) return;
 
@@ -283,6 +284,7 @@ const FriendsTab: React.FC = () => {
         .maybeSingle();
 
       if (existingMember) {
+        console.log('User is already a member');
         toast({ title: "User is already a member of this group", variant: "destructive" });
         return;
       }
@@ -297,11 +299,13 @@ const FriendsTab: React.FC = () => {
         .maybeSingle();
 
       if (existingInvitation) {
+        console.log('Invitation already exists');
         toast({ title: "Invitation already sent to this user", variant: "destructive" });
         return;
       }
 
       // Send invitation instead of directly adding to group
+      console.log('Sending invitation...');
       const { error } = await supabase
         .from('group_invitations')
         .insert({
@@ -316,6 +320,7 @@ const FriendsTab: React.FC = () => {
         return;
       }
 
+      console.log('Invitation sent successfully');
       toast({ title: "Group invitation sent!" });
     } catch (error) {
       console.error('Group invite error:', error);
