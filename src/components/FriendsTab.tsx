@@ -568,7 +568,17 @@ const FriendsTab: React.FC = () => {
                                     <span className="font-medium">{friend.friend_profile.display_name}</span>
                                     <Button
                                       size="sm"
-                                      onClick={() => inviteToGroup(friend.friend_user_id, group.id)}
+                                       onClick={async () => {
+                                         // Get current user to determine correct friend ID
+                                         const currentUser = await supabase.auth.getUser();
+                                         if (!currentUser.data.user) return;
+                                         
+                                         // Determine the correct user ID to invite (the other person in the friendship)
+                                         const otherUserId = friend.user_id === currentUser.data.user.id 
+                                           ? friend.friend_user_id 
+                                           : friend.user_id;
+                                         inviteToGroup(otherUserId, group.id);
+                                       }}
                                     >
                                       Invite
                                     </Button>
