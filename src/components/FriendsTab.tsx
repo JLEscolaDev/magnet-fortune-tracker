@@ -89,10 +89,13 @@ const FriendsTab: React.FC = () => {
       );
 
       const accepted = friendsWithProfiles.filter(f => f.status === 'accepted');
-      const pending = friendsWithProfiles.filter(f => f.status === 'pending');
+      // Only show incoming requests (where current user is the recipient) in pending requests
+      const incomingPending = friendsWithProfiles.filter(f => 
+        f.status === 'pending' && f.friend_user_id === currentUser.data.user!.id
+      );
       
       setFriends(accepted as any[]);
-      setPendingRequests(pending as any[]);
+      setPendingRequests(incomingPending as any[]);
     } catch (error) {
       console.error('Friends loading error:', error);
       toast({ title: "Error loading friends", variant: "destructive" });
