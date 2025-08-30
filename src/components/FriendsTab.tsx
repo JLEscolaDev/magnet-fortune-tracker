@@ -40,6 +40,7 @@ interface UserStats {
 const FriendsTab: React.FC = () => {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pendingRequests, setPendingRequests] = useState<Friend[]>([]);
+  const [groupInvitations, setGroupInvitations] = useState<any[]>([]);
   const [groups, setGroups] = useState<CompetitionGroup[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -53,6 +54,7 @@ const FriendsTab: React.FC = () => {
   useEffect(() => {
     loadFriends();
     loadGroups();
+    loadGroupInvitations();
   }, []);
 
   const loadFriends = async () => {
@@ -226,6 +228,47 @@ const FriendsTab: React.FC = () => {
     }
   };
 
+  const loadGroupInvitations = async () => {
+    try {
+      const currentUser = await supabase.auth.getUser();
+      if (!currentUser.data.user) return;
+
+      const { data, error } = await supabase
+        .from('group_invitations')
+        .select(`
+          *,
+          competition_groups(name)
+        `)
+        .eq('invited_user_id', currentUser.data.user.id)
+        .eq('status', 'pending');
+
+      if (error) {
+        console.error('Error loading group invitations:', error);
+        return;
+      }
+
+      // Get the inviter's profile separately for each invitation
+      const invitationsWithProfiles = await Promise.all(
+        (data || []).map(async (invitation) => {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('display_name')
+            .eq('user_id', invitation.invited_by)
+            .maybeSingle();
+
+          return {
+            ...invitation,
+            inviter_profile: profileData || { display_name: 'Unknown' }
+          };
+        })
+      );
+
+      setGroupInvitations(invitationsWithProfiles);
+    } catch (error) {
+      console.error('Group invitations loading error:', error);
+    }
+  };
+
   const inviteToGroup = async (friendUserId: string, groupId: string) => {
     try {
       const currentUser = await supabase.auth.getUser();
@@ -237,31 +280,107 @@ const FriendsTab: React.FC = () => {
         .select('id')
         .eq('group_id', groupId)
         .eq('user_id', friendUserId)
-        .single();
+        .maybeSingle();
 
       if (existingMember) {
         toast({ title: "User is already a member of this group", variant: "destructive" });
         return;
       }
 
-      const { error } = await supabase
-        .from('group_members')
-        .insert({
-          group_id: groupId,
-          user_id: friendUserId
-        });
+      // Check if invitation already exists
+      const { data: existingInvitation } = await supabase
+        .from('group_invitations')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('invited_user_id', friendUserId)
+        .eq('status', 'pending')
+        .maybeSingle();
 
-      if (error) {
-        console.error('Error inviting to group:', error);
-        toast({ title: "Error inviting user to group", variant: "destructive" });
+      if (existingInvitation) {
+        toast({ title: "Invitation already sent to this user", variant: "destructive" });
         return;
       }
 
-      toast({ title: "User invited to group!" });
-      loadGroups(); // Refresh groups to update member counts
+      // Send invitation instead of directly adding to group
+      const { error } = await supabase
+        .from('group_invitations')
+        .insert({
+          group_id: groupId,
+          invited_user_id: friendUserId,
+          invited_by: currentUser.data.user.id
+        });
+
+      if (error) {
+        console.error('Error sending group invitation:', error);
+        toast({ title: "Error sending group invitation", variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "Group invitation sent!" });
     } catch (error) {
       console.error('Group invite error:', error);
-      toast({ title: "Error inviting user to group", variant: "destructive" });
+      toast({ title: "Error sending group invitation", variant: "destructive" });
+    }
+  };
+
+  const acceptGroupInvitation = async (invitationId: string, groupId: string) => {
+    try {
+      const currentUser = await supabase.auth.getUser();
+      if (!currentUser.data.user) return;
+
+      // Update invitation status to accepted
+      const { error: updateError } = await supabase
+        .from('group_invitations')
+        .update({ status: 'accepted' })
+        .eq('id', invitationId);
+
+      if (updateError) {
+        console.error('Error accepting invitation:', updateError);
+        toast({ title: "Error accepting invitation", variant: "destructive" });
+        return;
+      }
+
+      // Add user to group
+      const { error: insertError } = await supabase
+        .from('group_members')
+        .insert({
+          group_id: groupId,
+          user_id: currentUser.data.user.id
+        });
+
+      if (insertError) {
+        console.error('Error joining group:', insertError);
+        toast({ title: "Error joining group", variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "Group invitation accepted!" });
+      loadGroupInvitations();
+      loadGroups();
+    } catch (error) {
+      console.error('Accept invitation error:', error);
+      toast({ title: "Error accepting invitation", variant: "destructive" });
+    }
+  };
+
+  const declineGroupInvitation = async (invitationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('group_invitations')
+        .update({ status: 'declined' })
+        .eq('id', invitationId);
+
+      if (error) {
+        console.error('Error declining invitation:', error);
+        toast({ title: "Error declining invitation", variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "Group invitation declined" });
+      loadGroupInvitations();
+    } catch (error) {
+      console.error('Decline invitation error:', error);
+      toast({ title: "Error declining invitation", variant: "destructive" });
     }
   };
 
@@ -445,6 +564,45 @@ const FriendsTab: React.FC = () => {
                       >
                         Accept
                       </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Group Invitations */}
+          {groupInvitations.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Group Invitations</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {groupInvitations.map((invitation: any) => (
+                    <div key={invitation.id} className="flex items-center justify-between p-2 border rounded">
+                      <div>
+                        <span className="font-medium">{invitation.competition_groups?.name}</span>
+                        <p className="text-sm text-muted-foreground">
+                          Invited by {invitation.inviter_profile?.display_name}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => acceptGroupInvitation(invitation.id, invitation.group_id)}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => declineGroupInvitation(invitation.id)}
+                        >
+                          Decline
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
