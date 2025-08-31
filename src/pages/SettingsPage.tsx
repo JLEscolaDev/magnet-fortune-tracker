@@ -196,7 +196,18 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
         <div className="space-y-6">
           {/* User Profile Section */}
           <div className="luxury-card p-6">
-            <h3 className="text-lg font-heading font-medium mb-4">{userEmail ?? 'Profile'}</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <h3 className="text-lg font-heading font-medium">
+                {userEmail ?? 'Profile'}
+              </h3>
+              {isBetaTester && (
+                <img
+                  src={betaTesterBadge}
+                  alt="Beta Tester"
+                  className="w-6 h-6"
+                />
+              )}
+            </div>
             <div className="relative w-full max-w-[280px] sm:max-w-[340px] md:max-w-[40vh] aspect-square mx-auto rounded-full overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl mb-4">
               {/* Background Avatar Image */}
               <div className="absolute inset-0">
@@ -232,16 +243,6 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
                 </div>
               </div>
 
-              {/* Beta Tester Badge */}
-              {isBetaTester && (
-                <div className="absolute top-3 right-3 w-12 h-12">
-                  <img 
-                    src={betaTesterBadge} 
-                    alt="Beta Tester Badge" 
-                    className="w-full h-full object-contain drop-shadow-lg"
-                  />
-                </div>
-              )}
             </div>
             <div className="space-y-3">
             {isActive ? (
