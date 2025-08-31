@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, Upload, Camera, SignOut, Crown, Trophy, ChartLine } from '@phosphor-icons/react';
+import { Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,6 +28,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const { isActive, subscription } = useSubscription();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [fallbackProfile, setFallbackProfile] = useState<any>(null);
+  const [isBetaTester, setIsBetaTester] = useState(false);
   // Safely consume AppState if the provider exists; fall back gracefully when absent.
   let appState: any = null;
   try {
@@ -48,10 +50,23 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
         if (!profile && user?.id) {
           const { data: p } = await supabase
             .from('profiles')
-            .select('display_name, level')
+            .select('display_name, level, created_at')
             .eq('user_id', user.id)
             .single();
-          if (!cancelled) setFallbackProfile(p ?? null);
+          if (!cancelled) {
+            setFallbackProfile(p ?? null);
+            // Check beta tester status
+            if (p?.created_at) {
+              const registrationDate = new Date(p.created_at);
+              const cutoffDate = new Date('2026-01-01T00:00:00.000Z');
+              setIsBetaTester(registrationDate < cutoffDate);
+            }
+          }
+        } else if (profile?.created_at) {
+          // Check beta tester status for existing profile
+          const registrationDate = new Date(profile.created_at);
+          const cutoffDate = new Date('2026-01-01T00:00:00.000Z');
+          if (!cancelled) setIsBetaTester(registrationDate < cutoffDate);
         }
       } catch (_) {
         // ignore
@@ -216,6 +231,14 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
                   <span className="text-gold font-semibold text-xs drop-shadow-lg">Level {currentLevel}</span>
                 </div>
               </div>
+
+              {/* Beta Tester Badge */}
+              {isBetaTester && (
+                <div className="absolute top-3 right-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-lg border border-white/20">
+                  <Rocket size={12} className="text-white" />
+                  <span>Beta Pioneer</span>
+                </div>
+              )}
             </div>
             <div className="space-y-3">
             {isActive ? (
