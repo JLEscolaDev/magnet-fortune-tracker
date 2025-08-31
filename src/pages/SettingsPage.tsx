@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, Upload, Camera, SignOut, Crown, Trophy, ChartLine } from '@phosphor-icons/react';
-import { Rocket } from 'lucide-react';
+import betaTesterBadge from '@/assets/beta-tester-badge.png';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -234,9 +234,12 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
 
               {/* Beta Tester Badge */}
               {isBetaTester && (
-                <div className="absolute top-3 right-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-lg border border-white/20">
-                  <Rocket size={12} className="text-white" />
-                  <span>Beta Pioneer</span>
+                <div className="absolute top-3 right-3 w-12 h-12">
+                  <img 
+                    src={betaTesterBadge} 
+                    alt="Beta Tester Badge" 
+                    className="w-full h-full object-contain drop-shadow-lg"
+                  />
                 </div>
               )}
             </div>
