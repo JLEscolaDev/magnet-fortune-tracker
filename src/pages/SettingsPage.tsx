@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, Upload, Camera, SignOut, Crown, Trophy, ChartLine } from '@phosphor-icons/react';
-import betaTesterBadge from '@/assets/beta-tester-badge.png';
+import betaTesterBadge from '@/assets/beta-tester-badge.webp';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

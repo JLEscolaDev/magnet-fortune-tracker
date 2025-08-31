@@ -4,6 +4,7 @@ import { Profile } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
 import { useSettings } from '@/contexts/SettingsContext';
+import betaTesterBadge from '@/assets/beta-tester-badge.webp';
 
 interface Avatar {
   id: string;
@@ -22,6 +23,7 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
   const [avatar, setAvatar] = useState<Avatar | null>(null);
   const [isLevelingUp, setIsLevelingUp] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isBetaTester, setIsBetaTester] = useState(false);
   const { animationsEnabled } = useSettings();
 
   const fortunesPerLevel = 5;
@@ -77,6 +79,23 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
 
     fetchAvatar();
   }, [currentLevel, profile.level, profile.user_id, onLevelUp]);
+
+  // Check if user is a beta tester (registered before 2026)
+  useEffect(() => {
+    const checkBetaTesterStatus = async () => {
+      try {
+        const registrationDate = new Date(profile.created_at);
+        const cutoffDate = new Date('2026-01-01T00:00:00.000Z');
+        setIsBetaTester(registrationDate < cutoffDate);
+      } catch (error) {
+        console.error('Error checking beta tester status:', error);
+      }
+    };
+
+    if (profile?.created_at) {
+      checkBetaTesterStatus();
+    }
+  }, [profile?.created_at]);
 
   if (loading) {
     return (
@@ -156,6 +175,17 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
           <div className="bg-gold/95 text-rich-black px-6 py-3 rounded-full font-heading font-semibold text-lg animate-[scale-in_0.5s_ease-out] shadow-xl border-2 border-gold">
             Level Up! 🎉
           </div>
+        </div>
+      )}
+
+      {/* Beta Tester Badge */}
+      {isBetaTester && (
+        <div className="absolute top-3 right-3 w-12 h-12">
+          <img 
+            src={betaTesterBadge} 
+            alt="Beta Tester Badge" 
+            className="w-full h-full object-contain drop-shadow-lg"
+          />
         </div>
       )}
     </div>
