@@ -119,6 +119,14 @@ const mockAchievements: Achievement[] = [
     category: 'Health'
   },
   {
+    id: 'beta-tester',
+    title: 'Beta Pioneer',
+    description: 'Joined during the beta phase before 2026',
+    icon: '🚀',
+    state: 'locked',
+    requiredCount: 1
+  },
+  {
     id: '11',
     title: 'Opportunity Finder',
     description: 'Track 7 opportunity fortunes',
@@ -212,6 +220,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
   const [showAchievementsModal, setShowAchievementsModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
   const [activeTab, setActiveTab] = useState('fortunes');
+  const [isBetaTester, setIsBetaTester] = useState(false);
 
   const fetchFortunes = async () => {
     try {
@@ -243,8 +252,31 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
     }
   };
 
+  // Check if user is a beta tester (registered before 2026)
+  const checkBetaTesterStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profile) {
+        const registrationDate = new Date(profile.created_at);
+        const cutoffDate = new Date('2026-01-01T00:00:00.000Z');
+        setIsBetaTester(registrationDate < cutoffDate);
+      }
+    } catch (error) {
+      console.error('Error checking beta tester status:', error);
+    }
+  };
+
   useEffect(() => {
     fetchFortunes();
+    checkBetaTesterStatus();
   }, [refreshTrigger, selectedDate]);
 
   const getFortunesByCategory = () => {
@@ -340,6 +372,10 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
             return day === 0 || day === 6; // Sunday or Saturday
           }).length;
           isEarned = progress >= achievement.requiredCount;
+          break;
+        case 'beta-tester': // Beta Pioneer
+          progress = isBetaTester ? 1 : 0;
+          isEarned = isBetaTester;
           break;
         default:
           break;
