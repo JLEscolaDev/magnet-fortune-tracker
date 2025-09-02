@@ -19,13 +19,12 @@ export const StatisticsDetailModal = ({ isOpen, onClose, fortunes }: StatisticsD
   const filteredFortunes = selectedCategory 
     ? fortunes.filter(f => f.category === selectedCategory)
     : fortunes;
-  const getMonthlyData = () => {
-    const currentDate = new Date();
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(currentDate);
-    const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const getLastSevenDaysData = () => {
+    const today = new Date();
+    const sevenDaysAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+    const daysInterval = eachDayOfInterval({ start: sevenDaysAgo, end: today });
     
-    return daysInMonth.map(day => ({
+    return daysInterval.map(day => ({
       date: format(day, 'MMM d'),
       count: fortunes.filter(fortune => 
         isSameDay(new Date(fortune.created_at), day)
@@ -83,7 +82,7 @@ export const StatisticsDetailModal = ({ isOpen, onClose, fortunes }: StatisticsD
     return { currentStreak, longestStreak };
   };
 
-  const monthlyData = getMonthlyData();
+  const chartData = getLastSevenDaysData();
   const categoryData = getCategoryBreakdown();
   const streakData = getStreakData();
 
@@ -167,7 +166,7 @@ export const StatisticsDetailModal = ({ isOpen, onClose, fortunes }: StatisticsD
             </h3>
             <div className="bg-gradient-to-br from-muted/10 to-muted/5 rounded-xl p-6 border border-gold/20">
               <div className="grid grid-cols-7 gap-2 mb-4">
-                {monthlyData.slice(-7).map((day, index) => (
+                {chartData.map((day, index) => (
                   <div key={index} className="text-center">
                     <div className="text-xs text-muted-foreground mb-2">{day.date}</div>
                     <div className="relative">
