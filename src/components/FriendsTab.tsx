@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Users, UserPlus, Trophy, Search, Plus, Crown, Medal, Share2, Copy, LogOut } from 'lucide-react';
+import { Users, UserPlus, Trophy, Search, Plus, Crown, Medal, Share2, Copy, LogOut, X } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -45,7 +45,7 @@ const FriendsTab: React.FC = () => {
   const [groups, setGroups] = useState<CompetitionGroup[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<CompetitionGroup | null>(null);
   const [groupStats, setGroupStats] = useState<UserStats[]>([]);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
@@ -514,9 +514,33 @@ const FriendsTab: React.FC = () => {
   };
 
   const viewGroupDetails = (groupId: string) => {
-    setSelectedGroup(groupId);
+    const group = groups.find(g => g.id === groupId);
+    setSelectedGroup(group || null);
     setShowGroupDetails(true);
     loadGroupStats(groupId);
+  };
+
+  const removeMemberFromGroup = async (userId: string, groupId: string) => {
+    try {
+      const currentUser = await supabase.auth.getUser();
+      if (!currentUser.data.user) return;
+
+      const { error } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast({ title: "Member removed successfully!" });
+      // Reload group stats to reflect the change
+      await loadGroupStats(groupId);
+      await loadGroups();
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast({ title: "Error removing member", variant: "destructive" });
+    }
   };
 
   const leaveGroup = async (groupId: string) => {
@@ -872,11 +896,24 @@ const FriendsTab: React.FC = () => {
                     </div>
                     <span className="font-medium">{user.display_name}</span>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold">{user.monthly_fortunes} this month</div>
-                    <div className="text-sm text-muted-foreground">
-                      {user.weekly_fortunes} this week • {user.total_fortunes} total
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="font-bold">{user.monthly_fortunes} this month</div>
+                      <div className="text-sm text-muted-foreground">
+                        {user.weekly_fortunes} this week • {user.total_fortunes} total
+                      </div>
                     </div>
+                    {/* Show remove button for group creators, but not for themselves */}
+                    {selectedGroup?.is_creator && user.user_id !== selectedGroup.created_by && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => removeMemberFromGroup(user.user_id, selectedGroup.id)}
+                        className="ml-2"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
