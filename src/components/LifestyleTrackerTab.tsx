@@ -177,18 +177,35 @@ export const LifestyleTrackerTab = () => {
       }
 
       if (data) {
+        // Parse mood data from notes field
+        let parsedMoodData = { moods: [], mood_causes: [], pain_types: [] };
+        let cleanNotes = data.notes || '';
+        
+        if (data.notes && data.notes.includes('[MOOD_DATA]')) {
+          const moodDataMatch = data.notes.match(/\[MOOD_DATA\](.*?)\[\/MOOD_DATA\]/);
+          if (moodDataMatch) {
+            try {
+              parsedMoodData = JSON.parse(moodDataMatch[1]);
+              cleanNotes = data.notes.replace(/\[MOOD_DATA\].*?\[\/MOOD_DATA\]/, '').trim();
+            } catch (e) {
+              console.error('Error parsing mood data:', e);
+            }
+          }
+        }
+        
         // Parse stored data and adapt to our interface
         setEntry({
           ...data,
-          moods: Array.isArray(data.mood) ? data.mood : (data.mood ? [data.mood] : []),
-          mood_causes: [], // Will be stored in notes for now
-          pain_types: [], // Will be derived from sickness_level for now
+          moods: parsedMoodData.moods || (data.mood ? [data.mood] : []),
+          mood_causes: parsedMoodData.mood_causes || [],
+          pain_types: parsedMoodData.pain_types || [],
           exercise_types: data.exercise_type ? data.exercise_type.split(',').filter(Boolean) : [],
           sexual_appetite: typeof data.sexual_appetite === 'number' ? 
             (data.sexual_appetite <= 1 ? 'none' : 
              data.sexual_appetite <= 3 ? 'little' :
              data.sexual_appetite <= 5 ? 'some' : 'beast') : 
             (data.sexual_appetite || 'some'),
+          notes: cleanNotes
         });
       } else {
         // Reset to default entry for new date
@@ -225,6 +242,17 @@ export const LifestyleTrackerTab = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Combine mood data into notes field since database doesn't support arrays
+      const moodData = {
+        moods: entry.moods,
+        mood_causes: entry.mood_causes,
+        pain_types: entry.pain_types
+      };
+      
+      const combinedNotes = entry.notes ? 
+        `${entry.notes}\n\n[MOOD_DATA]${JSON.stringify(moodData)}[/MOOD_DATA]` :
+        `[MOOD_DATA]${JSON.stringify(moodData)}[/MOOD_DATA]`;
+
       const entryData = {
         user_id: user.id,
         date: entry.date,
@@ -232,16 +260,14 @@ export const LifestyleTrackerTab = () => {
         dream_description: entry.dream_description,
         meals: entry.meals,
         alcohol_consumption: entry.alcohol_consumption,
-        mood: entry.moods.length > 0 ? entry.moods[0] : 'neutral', // Store primary mood for compatibility
+        mood: entry.moods.length > 0 ? entry.moods[0] : 'neutral',
         sickness_level: entry.pain_types.length,
-        exercise_type: entry.exercise_types.join(','), // Store as comma-separated for compatibility
-        exercise_duration: entry.exercise_duration,
+        exercise_type: entry.exercise_types.join(','),
+        exercise_duration: entry.exercise_duration || 0,
         sexual_appetite: entry.sexual_appetite === 'none' ? 1 : 
                         entry.sexual_appetite === 'little' ? 3 :
                         entry.sexual_appetite === 'some' ? 5 : 10,
-        notes: entry.notes,
-        // Store additional data in notes for now (would need schema update for proper storage)
-        updated_at: new Date().toISOString()
+        notes: combinedNotes
       };
 
       const { error } = await supabase
