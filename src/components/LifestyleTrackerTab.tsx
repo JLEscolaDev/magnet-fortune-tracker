@@ -129,6 +129,37 @@ const SEXUAL_APPETITE_OPTIONS = [
   { value: 'beast', label: "I'm a beast!", icon: Flame },
 ];
 
+// Map new mood values to database-compatible values
+const mapMoodToDatabase = (mood: string): string => {
+  const moodMapping: Record<string, string> = {
+    // Positive moods
+    'happy': 'very_good',
+    'excited': 'very_good',
+    'grateful': 'very_good',
+    'energetic': 'very_good',
+    'confident': 'very_good',
+    'content': 'good',
+    'calm': 'good',
+    
+    // Neutral
+    'neutral': 'neutral',
+    
+    // Negative moods
+    'sad': 'bad',
+    'frustrated': 'bad',
+    'lonely': 'bad',
+    'anxious': 'bad',
+    'nervous': 'bad',
+    
+    // Very negative
+    'angry': 'very_bad',
+    'stressed': 'very_bad',
+    'overwhelmed': 'very_bad'
+  };
+  
+  return moodMapping[mood] || 'neutral';
+};
+
 export const LifestyleTrackerTab = () => {
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -260,7 +291,7 @@ export const LifestyleTrackerTab = () => {
         dream_description: entry.dream_description,
         meals: entry.meals,
         alcohol_consumption: entry.alcohol_consumption,
-        mood: entry.moods.length > 0 ? entry.moods[0] : 'neutral',
+        mood: entry.moods.length > 0 ? mapMoodToDatabase(entry.moods[0]) : 'neutral',
         sickness_level: entry.pain_types.length,
         exercise_type: entry.exercise_types.join(','),
         exercise_duration: entry.exercise_duration || 0,
