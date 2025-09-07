@@ -11,11 +11,10 @@ export const TopBar = ({ onSettingsClick }: TopBarProps) => {
   const { isStepCompleted, showTutorial } = useTutorial();
 
   const handleSettingsClick = () => {
-    onSettingsClick();
-    
     if (!isStepCompleted('settings')) {
       showTutorial('settings');
     }
+    onSettingsClick();
   };
 
   return (

@@ -19,6 +19,7 @@ interface TutorialContextType {
   showTutorial: (step: TutorialStep) => void;
   activeTutorial: TutorialStep | null;
   closeTutorial: () => void;
+  hasCompletedAllTutorials: boolean;
 }
 
 export const TutorialContext = createContext<TutorialContextType | undefined>(undefined);
@@ -75,6 +76,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   };
 
   const hasUnseenFeatures = ALL_TUTORIAL_STEPS.some(step => !completedSteps.has(step));
+  const hasCompletedAllTutorials = completedSteps.size === ALL_TUTORIAL_STEPS.length;
 
   const getAllSteps = () => ALL_TUTORIAL_STEPS;
 
@@ -95,6 +97,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
     showTutorial,
     activeTutorial,
     closeTutorial,
+    hasCompletedAllTutorials,
   };
 
   return (

@@ -791,8 +791,7 @@ const FriendsTab: React.FC = () => {
                   <CardContent className="space-y-2">
                     <Button
                       onClick={() => viewGroupDetails(group.id)}
-                      variant="outline"
-                      className="w-full"
+                      className="w-full bg-emerald hover:bg-emerald/90 text-emerald-foreground py-3 h-auto"
                     >
                       <Trophy className="h-4 w-4 mr-2" />
                       View Competition
