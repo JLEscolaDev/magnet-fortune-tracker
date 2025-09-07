@@ -52,9 +52,14 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
       if (saved) {
         const parsedSteps = JSON.parse(saved);
         setCompletedSteps(new Set(parsedSteps));
+      } else {
+        // For new users, auto-show the home tutorial if no saved progress
+        setActiveTutorial('home');
       }
     } catch (error) {
       console.error('Failed to load tutorial progress:', error);
+      // If there's an error, treat as new user
+      setActiveTutorial('home');
     }
   }, []);
 

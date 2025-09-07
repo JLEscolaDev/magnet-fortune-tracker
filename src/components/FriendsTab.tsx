@@ -119,6 +119,7 @@ const FriendsTab: React.FC = () => {
 
       console.log('Loading groups...');
       
+      // Force a fresh query to ensure RLS is applied
       const { data, error } = await supabase
         .from('competition_groups')
         .select('*');
