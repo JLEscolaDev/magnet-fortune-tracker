@@ -18,22 +18,20 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <SubscriptionProvider>
-        <TutorialProvider>
-          <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/pricing" element={<PricingPage />} />
-            <Route path="/billing/success" element={<BillingSuccess />} />
-            <Route path="/billing/cancel" element={<BillingCancel />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          </BrowserRouter>
-          </TooltipProvider>
-        </TutorialProvider>
+        <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/billing/success" element={<BillingSuccess />} />
+          <Route path="/billing/cancel" element={<BillingCancel />} />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        </BrowserRouter>
+        </TooltipProvider>
       </SubscriptionProvider>
     </ThemeProvider>
   </QueryClientProvider>
