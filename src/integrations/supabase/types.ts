@@ -589,6 +589,10 @@ export type Database = {
         Args: { batch_size?: number }
         Returns: number
       }
+      can_view_competition_group: {
+        Args: { group_id: string; user_id: string }
+        Returns: boolean
+      }
       derive_passphrase: {
         Args: Record<PropertyKey, never>
         Returns: string
