@@ -560,24 +560,24 @@ export const LifestyleTrackerTab = () => {
         </h4>
         <div className="space-y-4">
           <div>
-            <Label className="mb-3 block">Sexual Appetite</Label>
-            <div className="grid grid-cols-4 gap-2">
-              {SEXUAL_APPETITE_OPTIONS.map(option => {
-                const Icon = option.icon;
-                return (
-                  <Button
-                    key={option.value}
-                    variant={entry.sexual_appetite === option.value ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => updateEntry('sexual_appetite', option.value)}
-                    className="flex-col gap-2 h-auto py-4 px-3"
-                  >
-                    <Icon size={18} />
-                    <span className="text-xs text-center leading-tight">{option.label}</span>
-                  </Button>
-                );
-              })}
-            </div>
+             <Label className="mb-3 block">Sexual Appetite</Label>
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+               {SEXUAL_APPETITE_OPTIONS.map(option => {
+                 const Icon = option.icon;
+                 return (
+                   <Button
+                     key={option.value}
+                     variant={entry.sexual_appetite === option.value ? "default" : "outline"}
+                     size="sm"
+                     onClick={() => updateEntry('sexual_appetite', option.value)}
+                     className="flex-col gap-1 h-auto py-2 px-2 text-xs sm:text-sm sm:gap-2 sm:py-4 sm:px-3"
+                   >
+                     <Icon size={14} className="sm:size-[18px] flex-shrink-0" />
+                     <span className="text-center leading-tight truncate">{option.label}</span>
+                   </Button>
+                 );
+               })}
+             </div>
           </div>
         </div>
       </Card>
