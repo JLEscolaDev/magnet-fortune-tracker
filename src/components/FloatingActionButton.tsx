@@ -24,7 +24,7 @@ export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionBu
     <button
       onClick={handleClick}
       className={`
-        fixed bottom-20 right-4 md:hidden
+        fixed bottom-20 right-4 md:hidden !important
         w-14 h-14 rounded-full
         text-ivory
         flex items-center justify-center

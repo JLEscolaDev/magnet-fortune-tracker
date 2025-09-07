@@ -335,6 +335,11 @@ export const TutorialModal = () => {
     closeTutorial();
   };
 
+  const handleSkip = () => {
+    markStepCompleted(activeTutorial);
+    closeTutorial();
+  };
+
   return (
     <Dialog open={!!activeTutorial} onOpenChange={() => closeTutorial()}>
       <DialogContent className="max-w-lg">{/* Made wider for visual preview */}
@@ -374,7 +379,7 @@ export const TutorialModal = () => {
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button variant="outline" onClick={closeTutorial} className="flex-1">
+            <Button variant="outline" onClick={handleSkip} className="flex-1">
               Skip
             </Button>
             <Button onClick={handleComplete} className="flex-1">
