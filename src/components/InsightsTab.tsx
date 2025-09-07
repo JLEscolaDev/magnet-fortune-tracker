@@ -410,10 +410,12 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
               <CalendarDots size={24} className="text-gold" />
               Insights & Tracking
             </h3>
-            <TabsList className="grid w-fit grid-cols-2">
-              <TabsTrigger value="fortunes">Fortunes</TabsTrigger>
-              <TabsTrigger value="lifestyle" disabled={!hasActiveSub}>
-                Know Yourself {!hasActiveSub && '🔒'}
+            <TabsList className="grid w-full grid-cols-2 sm:w-fit">
+              <TabsTrigger value="fortunes" className="text-xs sm:text-sm">Fortunes</TabsTrigger>
+              <TabsTrigger value="lifestyle" disabled={!hasActiveSub} className="text-xs sm:text-sm">
+                <span className="hidden sm:inline">Know Yourself</span>
+                <span className="sm:hidden">Know</span>
+                {!hasActiveSub && ' 🔒'}
               </TabsTrigger>
             </TabsList>
           </div>

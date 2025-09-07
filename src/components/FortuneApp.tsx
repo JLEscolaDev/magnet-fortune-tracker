@@ -151,10 +151,12 @@ const FortuneApp = () => {
                         onTabChange={setActiveTab}
                       />
 
-                      <FloatingActionButton 
-                        onClick={() => setAddFortuneOpen(true)} 
-                        selectedDate={null}
-                      />
+                      {activeTab !== 'friends' && (
+                        <FloatingActionButton 
+                          onClick={() => setAddFortuneOpen(true)} 
+                          selectedDate={selectedFortuneDate}
+                        />
+                      )}
 
                       <SettingsDrawer
                         isOpen={settingsOpen}

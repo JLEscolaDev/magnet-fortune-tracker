@@ -445,70 +445,70 @@ export const LifestyleTrackerTab = () => {
           Mood & Health
         </h4>
         <div className="space-y-6">
-          <div>
-            <Label className="mb-3 block">How are you feeling? (Select multiple)</Label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {MOOD_OPTIONS.map(mood => {
-                const Icon = mood.icon;
-                return (
-                  <Button
-                    key={mood.value}
-                    variant={entry.moods.includes(mood.value) ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleArrayValue('moods', mood.value)}
-                    className="justify-start gap-2 h-auto py-3"
-                  >
-                    <Icon size={16} />
-                    {mood.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
+           <div>
+             <Label className="mb-3 block">How are you feeling? (Select multiple)</Label>
+             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+               {MOOD_OPTIONS.map(mood => {
+                 const Icon = mood.icon;
+                 return (
+                   <Button
+                     key={mood.value}
+                     variant={entry.moods.includes(mood.value) ? "default" : "outline"}
+                     size="sm"
+                     onClick={() => toggleArrayValue('moods', mood.value)}
+                     className="justify-start gap-1 h-auto py-2 px-2 text-xs sm:text-sm sm:gap-2 sm:py-3 sm:px-3"
+                   >
+                     <Icon size={14} className="sm:size-4 flex-shrink-0" />
+                     <span className="truncate">{mood.label}</span>
+                   </Button>
+                 );
+               })}
+             </div>
+           </div>
 
-          {entry.moods.length > 0 && (
-            <div>
-              <Label className="mb-3 block">What's causing these feelings?</Label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {MOOD_CAUSES.map(cause => {
-                  const Icon = cause.icon;
-                  return (
-                    <Button
-                      key={cause.value}
-                      variant={entry.mood_causes.includes(cause.value) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleArrayValue('mood_causes', cause.value)}
-                      className="justify-start gap-2 h-auto py-3"
-                    >
-                      <Icon size={16} />
-                      {cause.label}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+           {entry.moods.length > 0 && (
+             <div>
+               <Label className="mb-3 block">What's causing these feelings?</Label>
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                 {MOOD_CAUSES.map(cause => {
+                   const Icon = cause.icon;
+                   return (
+                     <Button
+                       key={cause.value}
+                       variant={entry.mood_causes.includes(cause.value) ? "default" : "outline"}
+                       size="sm"
+                       onClick={() => toggleArrayValue('mood_causes', cause.value)}
+                       className="justify-start gap-1 h-auto py-2 px-2 text-xs sm:text-sm sm:gap-2 sm:py-3 sm:px-3"
+                     >
+                       <Icon size={14} className="sm:size-4 flex-shrink-0" />
+                       <span className="truncate">{cause.label}</span>
+                     </Button>
+                   );
+                 })}
+               </div>
+             </div>
+           )}
 
-          <div>
-            <Label className="mb-3 block">Any pain or discomfort?</Label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {PAIN_TYPES.map(pain => {
-                const Icon = pain.icon;
-                return (
-                  <Button
-                    key={pain.value}
-                    variant={entry.pain_types.includes(pain.value) ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleArrayValue('pain_types', pain.value)}
-                    className="justify-start gap-2 h-auto py-3"
-                  >
-                    <Icon size={16} />
-                    {pain.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
+           <div>
+             <Label className="mb-3 block">Any pain or discomfort?</Label>
+             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+               {PAIN_TYPES.map(pain => {
+                 const Icon = pain.icon;
+                 return (
+                   <Button
+                     key={pain.value}
+                     variant={entry.pain_types.includes(pain.value) ? "default" : "outline"}
+                     size="sm"
+                     onClick={() => toggleArrayValue('pain_types', pain.value)}
+                     className="justify-start gap-1 h-auto py-2 px-2 text-xs sm:text-sm sm:gap-2 sm:py-3 sm:px-3"
+                   >
+                     <Icon size={14} className="sm:size-4 flex-shrink-0" />
+                     <span className="truncate">{pain.label}</span>
+                   </Button>
+                 );
+               })}
+             </div>
+           </div>
         </div>
       </Card>
 
@@ -519,25 +519,25 @@ export const LifestyleTrackerTab = () => {
           Exercise & Physical Activity
         </h4>
         <div className="space-y-4">
-          <div>
-            <Label className="mb-3 block">What activities did you do? (Select multiple)</Label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {EXERCISE_TYPES.map(exercise => {
-                const Icon = exercise.icon;
-                return (
-                  <Button
-                    key={exercise.value}
-                    variant={entry.exercise_types.includes(exercise.value) ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleArrayValue('exercise_types', exercise.value)}
-                    className="justify-start gap-2 h-auto py-3"
-                  >
-                    <Icon size={16} />
-                    {exercise.label}
-                  </Button>
-                );
-              })}
-            </div>
+           <div>
+             <Label className="mb-3 block">What activities did you do? (Select multiple)</Label>
+             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+               {EXERCISE_TYPES.map(exercise => {
+                 const Icon = exercise.icon;
+                 return (
+                   <Button
+                     key={exercise.value}
+                     variant={entry.exercise_types.includes(exercise.value) ? "default" : "outline"}
+                     size="sm"
+                     onClick={() => toggleArrayValue('exercise_types', exercise.value)}
+                     className="justify-start gap-1 h-auto py-2 px-2 text-xs sm:text-sm sm:gap-2 sm:py-3 sm:px-3"
+                   >
+                     <Icon size={14} className="sm:size-4 flex-shrink-0" />
+                     <span className="truncate">{exercise.label}</span>
+                   </Button>
+                 );
+               })}
+             </div>
           </div>
           <div>
             <Label>Total Duration (minutes)</Label>
