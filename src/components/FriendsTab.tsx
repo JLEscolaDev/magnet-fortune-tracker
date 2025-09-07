@@ -119,10 +119,11 @@ const FriendsTab: React.FC = () => {
 
       console.log('Loading groups...');
       
-      // Force a fresh query to ensure RLS is applied
+      // Force refresh and ensure auth is properly passed
       const { data, error } = await supabase
         .from('competition_groups')
-        .select('*');
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error loading groups:', error);
