@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { TutorialProvider } from "@/contexts/TutorialContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import BillingSuccess from "./pages/billing/Success";
@@ -17,7 +18,8 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <SubscriptionProvider>
-        <TooltipProvider>
+        <TutorialProvider>
+          <TooltipProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -30,7 +32,8 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           </BrowserRouter>
-        </TooltipProvider>
+          </TooltipProvider>
+        </TutorialProvider>
       </SubscriptionProvider>
     </ThemeProvider>
   </QueryClientProvider>

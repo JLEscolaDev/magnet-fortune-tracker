@@ -5,6 +5,7 @@ import { DailyQuote } from './DailyQuote';
 import { Fortune } from '@/types/fortune';
 import { getTodayFortunes, FortuneRecord } from '@/lib/fortunes';
 import { useAppState } from '@/contexts/AppStateContext';
+import { useTutorial } from '@/contexts/TutorialContext';
 import { supabase } from '@/integrations/supabase/client';
 
 interface HomeTabProps {
@@ -13,6 +14,7 @@ interface HomeTabProps {
 
 export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
   const { profile, fortunesCountTotal, loading: appLoading } = useAppState();
+  const { isStepCompleted, showTutorial } = useTutorial();
   const [recentFortunes, setRecentFortunes] = useState<FortuneRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -40,6 +42,17 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
   useEffect(() => {
     fetchRecentFortunes();
   }, [refreshTrigger]);
+
+  // Show home tutorial on first visit
+  useEffect(() => {
+    if (!loading && !appLoading && !isStepCompleted('home')) {
+      const timer = setTimeout(() => {
+        showTutorial('home');
+      }, 1000); // Small delay to let the UI settle
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading, appLoading, isStepCompleted, showTutorial]);
 
   if (loading || appLoading) {
     return (
