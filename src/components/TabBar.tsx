@@ -1,5 +1,7 @@
 import { House, ChartLine } from '@phosphor-icons/react';
 import { Users } from 'lucide-react';
+import { useTutorial } from '@/contexts/TutorialContext';
+import { NotificationDot } from './NotificationDot';
 
 interface TabBarProps {
   activeTab: 'home' | 'insights' | 'friends';
@@ -7,48 +9,77 @@ interface TabBarProps {
 }
 
 export const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
+  const { isStepCompleted, showTutorial, markStepCompleted } = useTutorial();
+
+  const handleTabChange = (tab: 'home' | 'insights' | 'friends') => {
+    onTabChange(tab);
+    
+    // Show tutorial if not completed, otherwise just mark as completed
+    if (!isStepCompleted(tab)) {
+      showTutorial(tab);
+    }
+  };
+
   return (
     <div className="fixed bottom-0 left-0 right-0 md:hidden bg-card border-t border-gold/30 z-30">
       <div className="grid grid-cols-3">
         <button
-          onClick={() => onTabChange('home')}
+          onClick={() => handleTabChange('home')}
           className={`
-            flex flex-col items-center gap-1 py-3 px-4 transition-colors
+            relative flex flex-col items-center gap-1 py-3 px-4 transition-colors
             ${activeTab === 'home' 
               ? 'text-emerald bg-emerald/10' 
               : 'text-muted-foreground hover:text-foreground'
             }
           `}
         >
-          <House size={24} weight={activeTab === 'home' ? 'fill' : 'regular'} />
+          <div className="relative">
+            <House size={24} weight={activeTab === 'home' ? 'fill' : 'regular'} />
+            <NotificationDot 
+              show={!isStepCompleted('home')} 
+              className="top-0 right-0 -mt-1 -mr-1"
+            />
+          </div>
           <span className="text-xs font-medium">Home</span>
         </button>
         
         <button
-          onClick={() => onTabChange('insights')}
+          onClick={() => handleTabChange('insights')}
           className={`
-            flex flex-col items-center gap-1 py-3 px-4 transition-colors
+            relative flex flex-col items-center gap-1 py-3 px-4 transition-colors
             ${activeTab === 'insights' 
               ? 'text-emerald bg-emerald/10' 
               : 'text-muted-foreground hover:text-foreground'
             }
           `}
         >
-          <ChartLine size={24} weight={activeTab === 'insights' ? 'fill' : 'regular'} />
+          <div className="relative">
+            <ChartLine size={24} weight={activeTab === 'insights' ? 'fill' : 'regular'} />
+            <NotificationDot 
+              show={!isStepCompleted('insights')} 
+              className="top-0 right-0 -mt-1 -mr-1"
+            />
+          </div>
           <span className="text-xs font-medium">Insights</span>
         </button>
 
         <button
-          onClick={() => onTabChange('friends')}
+          onClick={() => handleTabChange('friends')}
           className={`
-            flex flex-col items-center gap-1 py-3 px-4 transition-colors
+            relative flex flex-col items-center gap-1 py-3 px-4 transition-colors
             ${activeTab === 'friends' 
               ? 'text-emerald bg-emerald/10' 
               : 'text-muted-foreground hover:text-foreground'
             }
           `}
         >
-          <Users size={24} />
+          <div className="relative">
+            <Users size={24} />
+            <NotificationDot 
+              show={!isStepCompleted('friends')} 
+              className="top-0 right-0 -mt-1 -mr-1"
+            />
+          </div>
           <span className="text-xs font-medium">Friends</span>
         </button>
       </div>

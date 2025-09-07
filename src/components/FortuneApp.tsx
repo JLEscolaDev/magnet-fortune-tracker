@@ -18,6 +18,8 @@ import { useAppBootstrap } from '@/hooks/useAppBootstrap';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { useGroupInviteHandler } from '@/hooks/useGroupInviteHandler';
+import { TutorialProvider } from '@/contexts/TutorialContext';
+import { TutorialModal } from '@/components/TutorialModal';
 
 const FortuneApp = () => {
   const { user, session } = useSubscription();
@@ -59,6 +61,7 @@ const FortuneApp = () => {
 
   return (
     <SettingsProvider>
+      <TutorialProvider>
       {showSettingsPage ? (
         <SettingsPage onBack={() => setShowSettingsPage(false)} />
       ) : (
@@ -167,6 +170,7 @@ const FortuneApp = () => {
                       />
 
                       <DebugPanel user={user} />
+                      <TutorialModal />
                     </div>
                   </div>
                 </AppStateProvider>
@@ -175,6 +179,7 @@ const FortuneApp = () => {
           )}
         </>
       )}
+      </TutorialProvider>
     </SettingsProvider>
   );
 };

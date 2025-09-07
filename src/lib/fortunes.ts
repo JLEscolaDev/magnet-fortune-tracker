@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Fortune } from '@/types/fortune';
+import { Fortune, Achievement } from '@/types/fortune';
 
 // Helper to detect legacy-looking data (optional UI badge)
 export const looksLegacy = (text?: string | null): boolean => 
@@ -133,6 +133,19 @@ export async function deleteFortune(id: string) {
     .eq('id', id);
 
   if (error) throw error;
+}
+
+// Tutorial completion achievement
+export function createTutorialMasterAchievement(): Achievement {
+  return {
+    id: 'tutorial-master',
+    title: 'Tutorial Master',
+    description: 'Explored all features of Fortune Magnet',
+    icon: '🎓',
+    state: 'locked',
+    requiredCount: 8, // Total number of tutorial steps
+    progress: 0
+  };
 }
 
 // Type alias for backward compatibility

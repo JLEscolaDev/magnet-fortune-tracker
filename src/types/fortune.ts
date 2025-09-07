@@ -54,3 +54,8 @@ export interface Achievement {
   category?: FortuneCategory;
   progress?: number;
 }
+
+export interface TutorialProgress {
+  completedSteps: string[];
+  allFeaturesExplored: boolean;
+}

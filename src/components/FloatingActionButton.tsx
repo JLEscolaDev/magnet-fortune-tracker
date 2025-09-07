@@ -1,5 +1,7 @@
 import { Plus } from '@phosphor-icons/react';
 import { isSameDay } from 'date-fns';
+import { useTutorial } from '@/contexts/TutorialContext';
+import { NotificationDot } from './NotificationDot';
 
 interface FloatingActionButtonProps {
   onClick: () => void;
@@ -7,9 +9,15 @@ interface FloatingActionButtonProps {
 }
 
 export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionButtonProps) => {
+  const { isStepCompleted, showTutorial } = useTutorial();
+
   const handleClick = () => {
     // Always open the modal - restrictions will be shown inside
     onClick();
+    
+    if (!isStepCompleted('create-fortune')) {
+      showTutorial('create-fortune');
+    }
   };
 
   return (
@@ -23,6 +31,7 @@ export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionBu
         transition-all duration-200 ease-out
         hover:scale-110 active:scale-95
         z-[80]
+        relative
         ${selectedDate && !isSameDay(selectedDate, new Date())
           ? 'bg-gradient-to-r from-[hsl(var(--mint))] to-[hsl(var(--mint-border))] shadow-lg shadow-[hsl(var(--mint-border))]/30' 
           : 'bg-gradient-to-r from-emerald to-emerald/80 emerald-glow'
@@ -34,7 +43,14 @@ export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionBu
           : "Add fortune"
       }
     >
-      <Plus size={24} weight="bold" />
+      <div className="relative">
+        <Plus size={24} weight="bold" />
+        <NotificationDot 
+          show={!isStepCompleted('create-fortune')} 
+          className="top-0 right-0 -mt-3 -mr-3"
+          size="md"
+        />
+      </div>
     </button>
   );
 };
