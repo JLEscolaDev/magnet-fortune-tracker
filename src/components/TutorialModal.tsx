@@ -341,7 +341,7 @@ export const TutorialModal = () => {
   };
 
   return (
-    <Dialog open={!!activeTutorial} onOpenChange={() => closeTutorial()}>
+    <Dialog open={!!activeTutorial} onOpenChange={(open) => { if (!open) closeTutorial(); }}>
       <DialogContent className="max-w-lg">{/* Made wider for visual preview */}
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">

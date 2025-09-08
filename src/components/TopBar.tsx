@@ -8,12 +8,9 @@ interface TopBarProps {
 }
 
 export const TopBar = ({ onSettingsClick }: TopBarProps) => {
-  const { isStepCompleted, showTutorial } = useTutorial();
+  const { isStepCompleted } = useTutorial();
 
   const handleSettingsClick = () => {
-    if (!isStepCompleted('settings')) {
-      showTutorial('settings');
-    }
     onSettingsClick();
   };
 

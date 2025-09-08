@@ -12,6 +12,8 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PricingDialog } from '@/components/billing/PricingDialog';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAppState } from '@/contexts/AppStateContext';
+import { useTutorial } from '@/contexts/TutorialContext';
+import { TutorialModal } from '@/components/TutorialModal';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -176,6 +178,15 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
       setOpeningPortal(false);
     }
   };
+
+
+  // Settings tutorial: show on page mount if not completed
+  const { isStepCompleted, showTutorial } = useTutorial();
+  useEffect(() => {
+    if (!isStepCompleted('settings')) {
+      showTutorial('settings');
+    }
+  }, [isStepCompleted, showTutorial]);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -422,6 +433,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
         isOpen={showPricingDialog} 
         onClose={() => setShowPricingDialog(false)} 
       />
+      <TutorialModal />
     </div>
   );
 };

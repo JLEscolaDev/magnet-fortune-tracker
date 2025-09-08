@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Moon, Sun, Download, Upload, SignOut, Tag } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
 import { CategoryManagerModal } from './CategoryManagerModal';
+import { useTutorial } from '@/contexts/TutorialContext';
 
 interface SettingsDrawerProps {
   isOpen: boolean;
@@ -16,6 +17,15 @@ export const SettingsDrawer = ({ isOpen, onClose }: SettingsDrawerProps) => {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+
+  // Tutorial: trigger on Settings open (mount/open), not on close/dismiss
+  const { isStepCompleted, showTutorial } = useTutorial();
+
+  useEffect(() => {
+    if (isOpen && !isStepCompleted('settings')) {
+      showTutorial('settings');
+    }
+  }, [isOpen, isStepCompleted, showTutorial]);
 
   const isDarkMode = theme === 'dark';
 
