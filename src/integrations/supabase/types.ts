@@ -669,27 +669,13 @@ export type Database = {
         Returns: Json
       }
       fortune_update: {
-        Args:
-          | {
-              p_category?: string
-              p_fortune_value?: number
-              p_id: string
-              p_impact_level?: string
-              p_text?: string
-            }
-          | {
-              p_category?: string
-              p_fortune_value?: number
-              p_id: string
-              p_impact_level?: string
-              p_text?: string
-            }
-          | {
-              p_category?: string
-              p_id: string
-              p_level?: number
-              p_text: string
-            }
+        Args: {
+          p_category?: string
+          p_fortune_value?: number
+          p_id: string
+          p_impact_level?: string
+          p_text?: string
+        }
         Returns: undefined
       }
       get_app_enc_key: {
