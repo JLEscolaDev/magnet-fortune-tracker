@@ -32,7 +32,7 @@ export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionBu
   const button = (
     <button
       onClick={handleClick}
-      className={`
+      className="
         md:hidden
         w-14 h-14 rounded-full
         text-ivory
@@ -41,11 +41,8 @@ export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionBu
         hover:scale-110 active:scale-95
         z-40
         relative
-        ${isAltDate
-          ? 'bg-gradient-to-r from-[hsl(var(--mint))] to-[hsl(var(--mint-border))] shadow-lg shadow-[hsl(var(--mint-border))]/30'
-          : 'bg-gradient-to-r from-emerald to-emerald/80 emerald-glow'
-        }
-      `}
+        bg-gradient-to-r from-emerald to-emerald/80 emerald-glow
+      "
       style={{
         position: 'fixed',
         // Higher on smaller devices, respect safe areas
