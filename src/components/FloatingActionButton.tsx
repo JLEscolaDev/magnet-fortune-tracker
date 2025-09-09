@@ -48,8 +48,8 @@ export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionBu
       `}
       style={{
         position: 'fixed',
-        // Respect iOS/Android safe areas while keeping a comfortable margin
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)',
+        // Higher on smaller devices, respect safe areas
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
         right: 'calc(env(safe-area-inset-right, 0px) + 16px)',
       }}
       aria-label={
