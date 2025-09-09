@@ -115,15 +115,24 @@ export async function getFortunesByUser(userId: string): Promise<Fortune[]> {
   return getFortunesList();
 }
 
-// These functions now use direct table access for updates/deletes
-// since they're not covered by the new RPC approach
+// Update fortune using RPC to handle encryption properly
 export async function updateFortune(id: string, updates: any) {
-  const { error } = await supabase
-    .from('fortunes')
-    .update(updates)
-    .eq('id', id);
+  console.log('[FORTUNES:updateFortune] Updating fortune with RPC', { id, updates });
+  
+  const { data, error } = await (supabase.rpc as any)('fortune_update', {
+    p_id: id,
+    p_text: updates.text || null,
+    p_category: updates.category || null,
+    p_fortune_value: updates.fortune_value || null,
+    p_impact_level: updates.impact_level || null
+  });
 
-  if (error) throw error;
+  if (error) {
+    console.error('[RPC] fortune_update error:', error);
+    throw error;
+  }
+
+  return data;
 }
 
 export async function deleteFortune(id: string) {
