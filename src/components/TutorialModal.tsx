@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogOverlay, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useTutorial, TutorialStep } from '@/contexts/TutorialContext';
@@ -324,25 +324,27 @@ const TUTORIAL_CONTENT: Record<TutorialStep, TutorialContent> = {
 };
 
 export const TutorialModal = () => {
-  const { activeTutorial, closeTutorial, markStepCompleted } = useTutorial();
+  const { activeTutorial, closeTutorial, completeStep } = useTutorial();
 
   if (!activeTutorial) return null;
+  const step = activeTutorial as TutorialStep;
 
   const content = TUTORIAL_CONTENT[activeTutorial];
 
   const handleComplete = () => {
-    markStepCompleted(activeTutorial);
+    completeStep(step);
     closeTutorial();
   };
 
   const handleSkip = () => {
-    markStepCompleted(activeTutorial);
+    completeStep(step);
     closeTutorial();
   };
 
   return (
-    <Dialog open={!!activeTutorial} onOpenChange={(open) => { if (!open) closeTutorial(); }}>
-      <DialogContent className="max-w-lg">{/* Made wider for visual preview */}
+    <Dialog open={!!activeTutorial} onOpenChange={(open) => { if (!open) { completeStep(step); closeTutorial(); } }}>
+      <DialogOverlay className="fixed inset-0 z-[95] bg-black/60 backdrop-blur-[2px]" />
+      <DialogContent className="z-[100] max-w-lg">{/* Made wider for visual preview */}
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-emerald/10 text-emerald">
