@@ -1,4 +1,5 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export type TutorialStep = 
   | 'home' 
@@ -12,7 +13,8 @@ export type TutorialStep =
 
 interface TutorialContextType {
   completedSteps: Set<TutorialStep>;
-  markStepCompleted: (step: TutorialStep) => void;
+  markStepCompleted: (step: TutorialStep) => void; // legacy alias
+  completeStep: (step: TutorialStep) => void;      // preferred API
   isStepCompleted: (step: TutorialStep) => boolean;
   hasUnseenFeatures: boolean;
   getAllSteps: () => TutorialStep[];
@@ -52,28 +54,70 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
       if (saved) {
         const parsedSteps = JSON.parse(saved);
         setCompletedSteps(new Set(parsedSteps));
-      } else {
-        // For new users, auto-show the home tutorial if no saved progress
-        setActiveTutorial('home');
       }
     } catch (error) {
       console.error('Failed to load tutorial progress:', error);
-      // If there's an error, treat as new user
-      setActiveTutorial('home');
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const remote = (user?.user_metadata?.tutorials_seen ?? {}) as Record<string, boolean>;
+        if (!cancelled && remote && Object.keys(remote).length) {
+          setCompletedSteps(prev => {
+            const next = new Set(prev);
+            for (const [k, v] of Object.entries(remote)) {
+              if (v) next.add(k as TutorialStep);
+            }
+            return next;
+          });
+        }
+      } catch (e) {
+        console.warn('Failed loading remote tutorial progress:', e);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Save to localStorage whenever completedSteps changes
   useEffect(() => {
     try {
-      localStorage.setItem(TUTORIAL_STORAGE_KEY, JSON.stringify([...completedSteps]));
+      localStorage.setItem(TUTORIAL_STORAGE_KEY, JSON.stringify(Array.from(completedSteps)));
     } catch (error) {
       console.error('Failed to save tutorial progress:', error);
     }
   }, [completedSteps]);
 
+  const completeStep = (step: TutorialStep) => {
+    setCompletedSteps(prev => {
+      if (prev.has(step)) return prev;
+      const next = new Set(prev);
+      next.add(step);
+
+      // Fire-and-forget remote sync to Supabase user metadata
+      (async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const current = (user.user_metadata?.tutorials_seen ?? {}) as Record<string, boolean>;
+            await supabase.auth.updateUser({
+              data: { tutorials_seen: { ...current, [step]: true } },
+            });
+          }
+        } catch (e) {
+          console.warn('Tutorial progress remote sync failed:', e);
+        }
+      })();
+
+      return next;
+    });
+  };
+
   const markStepCompleted = (step: TutorialStep) => {
-    setCompletedSteps(prev => new Set([...prev, step]));
+    completeStep(step);
   };
 
   const isStepCompleted = (step: TutorialStep) => {
@@ -86,7 +130,11 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   const getAllSteps = () => ALL_TUTORIAL_STEPS;
 
   const showTutorial = (step: TutorialStep) => {
-    setActiveTutorial(step);
+    setActiveTutorial(prev => {
+      if (prev) return prev; // do not override an active tutorial
+      if (completedSteps.has(step)) return prev; // do not show if already completed
+      return step;
+    });
   };
 
   const closeTutorial = () => {
@@ -96,6 +144,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   const value: TutorialContextType = {
     completedSteps,
     markStepCompleted,
+    completeStep,
     isStepCompleted,
     hasUnseenFeatures,
     getAllSteps,
