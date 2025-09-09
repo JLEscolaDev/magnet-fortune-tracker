@@ -78,8 +78,8 @@ export function validateCategory(category: string): string {
     throw new Error('Category name must be 50 characters or less');
   }
   
-  // Only allow alphanumeric characters, spaces, and common punctuation
-  if (!/^[a-zA-Z0-9\s\-_.&()]+$/.test(trimmed)) {
+  // Allow most printable characters, just block HTML tags and scripts
+  if (/<[^>]*>/g.test(trimmed) || /javascript:/i.test(trimmed)) {
     throw new Error('Category contains invalid characters');
   }
   
