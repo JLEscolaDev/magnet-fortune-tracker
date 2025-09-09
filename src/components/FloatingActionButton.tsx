@@ -39,7 +39,7 @@ export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionBu
         flex items-center justify-center
         transition-all duration-200 ease-out
         hover:scale-110 active:scale-95
-        z-[90]
+        z-40
         relative
         ${isAltDate
           ? 'bg-gradient-to-r from-[hsl(var(--mint))] to-[hsl(var(--mint-border))] shadow-lg shadow-[hsl(var(--mint-border))]/30'
