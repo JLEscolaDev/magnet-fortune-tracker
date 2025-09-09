@@ -115,59 +115,86 @@ const FriendsTab: React.FC = () => {
   const loadGroups = async () => {
     try {
       const currentUser = await supabase.auth.getUser();
-      if (!currentUser.data.user) return;
+      const user = currentUser.data.user;
+      if (!user) return;
 
-      console.log('Loading groups...');
-      
-      // Force refresh and ensure auth is properly passed
-      const { data, error } = await supabase
-        .from('competition_groups')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // 1) Fetch groups where the user is a MEMBER (via group_members)
+      const { data: memberRows, error: memberErr } = await supabase
+        .from('group_members')
+        .select('group_id')
+        .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error loading groups:', error);
-        toast({ title: "Error loading groups", variant: "destructive" });
+      if (memberErr) {
+        console.error('Error loading memberships:', memberErr);
+        toast({ title: 'Error loading groups', variant: 'destructive' });
         return;
       }
 
-      console.log('Groups data:', data);
+      const memberGroupIds: string[] = (memberRows || []).map((r: any) => r.group_id as string);
 
-      // Get member counts and check if current user is a member
+      // 2) Fetch groups CREATED by the user
+      const { data: createdGroups, error: createdErr } = await supabase
+        .from('competition_groups')
+        .select('*')
+        .eq('created_by', user.id);
+
+      if (createdErr) {
+        console.error('Error loading user-created groups:', createdErr);
+        toast({ title: 'Error loading groups', variant: 'destructive' });
+        return;
+      }
+
+      // 3) Fetch groups where the user is a MEMBER (by IDs)
+      let memberGroups: any[] = [];
+      if (memberGroupIds.length > 0) {
+        const { data: mg, error: mgErr } = await supabase
+          .from('competition_groups')
+          .select('*')
+          .in('id', memberGroupIds);
+
+        if (mgErr) {
+          console.error('Error loading member groups:', mgErr);
+          toast({ title: 'Error loading groups', variant: 'destructive' });
+          return;
+        }
+        memberGroups = mg || [];
+      }
+
+      // 4) Merge and de-duplicate (member ∪ created), newest first
+      const map = new Map<string, any>();
+      for (const g of [...memberGroups, ...(createdGroups || [])]) {
+        map.set(g.id, g);
+      }
+      const mergedGroups = Array.from(map.values()).sort(
+        (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      // 5) Enrich with counts and membership flags
       const groupsWithCounts = await Promise.all(
-        (data || []).map(async (group) => {
+        mergedGroups.map(async (group: any) => {
           const { count } = await supabase
             .from('group_members')
             .select('*', { count: 'exact', head: true })
             .eq('group_id', group.id);
 
-          // Check if current user is a member
-          const { data: memberData } = await supabase
-            .from('group_members')
-            .select('id')
-            .eq('group_id', group.id)
-            .eq('user_id', currentUser.data.user!.id)
-            .maybeSingle();
+          const isCreator = group.created_by === user.id;
+          const isMember = memberGroupIds.includes(group.id);
 
-          setIsUserMember(prev => ({
-            ...prev,
-            [group.id]: !!memberData
-          }));
+          setIsUserMember(prev => ({ ...prev, [group.id]: isMember }));
 
           return {
             ...group,
             member_count: count || 0,
-            is_creator: group.created_by === currentUser.data.user!.id,
-            is_member: !!memberData
-          };
+            is_creator: isCreator,
+            is_member: isMember,
+          } as CompetitionGroup;
         })
       );
 
-      console.log('Groups with counts:', groupsWithCounts);
       setGroups(groupsWithCounts);
     } catch (error) {
       console.error('Groups loading error:', error);
-      toast({ title: "Error loading groups", variant: "destructive" });
+      toast({ title: 'Error loading groups', variant: 'destructive' });
     }
   };
 
@@ -517,7 +544,14 @@ const FriendsTab: React.FC = () => {
 
   const viewGroupDetails = (groupId: string) => {
     const group = groups.find(g => g.id === groupId);
-    setSelectedGroup(group || null);
+    if (!group) return;
+
+    if (!group.is_member && !group.is_creator) {
+      toast({ title: "You don't have access to this group", variant: 'destructive' });
+      return;
+    }
+
+    setSelectedGroup(group);
     setShowGroupDetails(true);
     loadGroupStats(groupId);
   };
