@@ -247,9 +247,23 @@ export const FortuneModal = ({
       }
 
       // Sanitize and validate inputs
-      const sanitizedText = sanitizeText(text, 500);
-      const validatedCategory = validateCategory(category);
+      let sanitizedText: string;
+      let validatedCategory: string;
       let validatedValue: number | null = null;
+
+      try {
+        sanitizedText = sanitizeText(text, 500);
+        validatedCategory = validateCategory(category);
+      } catch (validationError) {
+        const errorMessage = validationError instanceof Error ? validationError.message : 'Validation failed';
+        toast({
+          title: "Validation Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
       
       if (getCurrentCategory().hasNumericValue && fortuneValue) {
         validatedValue = validateNumericValue(fortuneValue, 0, 1000000);
