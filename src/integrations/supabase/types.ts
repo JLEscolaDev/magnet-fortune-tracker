@@ -669,12 +669,20 @@ export type Database = {
         Returns: Json
       }
       fortune_update: {
-        Args: {
-          p_category?: string
-          p_id: string
-          p_level?: number
-          p_text: string
-        }
+        Args:
+          | {
+              p_category?: string
+              p_fortune_value?: number
+              p_id: string
+              p_impact_level?: string
+              p_text?: string
+            }
+          | {
+              p_category?: string
+              p_id: string
+              p_level?: number
+              p_text: string
+            }
         Returns: undefined
       }
       get_app_enc_key: {
@@ -688,6 +696,10 @@ export type Database = {
       get_user_competition_stats: {
         Args: { p_user_id: string }
         Returns: Json
+      }
+      is_member_of_group: {
+        Args: { gid: string }
+        Returns: boolean
       }
       is_trial_active: {
         Args: { p_user_id: string }
