@@ -128,21 +128,25 @@ export const FortuneModal = ({
     }
   }, [isOpen, isEditMode]);
 
-  // Populate form when editing
+  // Populate form when editing - wait for categories to load
   useEffect(() => {
-    if (isEditMode && fortune && isOpen) {
+    if (isEditMode && fortune && isOpen && categories.length > 0) {
+      console.log('[FORTUNE_MODAL] Populating edit form:', { 
+        fortuneCategory: fortune.category, 
+        availableCategories: categories.map(c => c.name) 
+      });
       setText(fortune.text || '');
       setCategory(fortune.category as FortuneCategory || '');
       setFortuneValue(fortune.fortune_value ? String(fortune.fortune_value) : '');
       setImpactLevel(fortune.impact_level || 'small_step');
-    } else if (!isEditMode) {
+    } else if (!isEditMode && isOpen) {
       // Reset form for create mode
       setText('');
       setCategory('');
       setFortuneValue('');
       setImpactLevel('small_step');
     }
-  }, [isEditMode, fortune, isOpen]);
+  }, [isEditMode, fortune, isOpen, categories]);
 
   const loadBigWinsCount = async () => {
     try {
