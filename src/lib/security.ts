@@ -32,7 +32,8 @@ export function sanitizeText(text: string, maxLength: number = 500): string {
     throw new Error(`Text must be ${maxLength} characters or less`);
   }
   
-  return escapeHtml(trimmed);
+  // Don't escape HTML for text since it's encrypted in the database
+  return trimmed;
 }
 
 /**
@@ -83,7 +84,8 @@ export function validateCategory(category: string): string {
     throw new Error('Category contains invalid characters');
   }
   
-  return escapeHtml(trimmed);
+  // Don't escape HTML for categories since they're just stored as-is in the database
+  return trimmed;
 }
 
 /**
