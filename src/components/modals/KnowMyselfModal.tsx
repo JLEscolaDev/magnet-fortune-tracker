@@ -13,15 +13,15 @@ export const KnowMyselfModal = ({ open, onOpenChange }: KnowMyselfModalProps) =>
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <Brain className="text-primary" size={20} />
+      <DialogContent className="max-w-sm p-0 gap-0 overflow-hidden h-[85vh] md:h-auto md:max-h-[90vh]">
+        <DialogHeader className="p-4 pb-0">
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Brain className="text-primary" size={18} />
             Know Myself Today
           </DialogTitle>
         </DialogHeader>
         
-        <div className="px-0">
+        <div className="px-0 flex-1 overflow-hidden">
           <KnowMyselfWizard selectedDate={today} />
         </div>
       </DialogContent>
