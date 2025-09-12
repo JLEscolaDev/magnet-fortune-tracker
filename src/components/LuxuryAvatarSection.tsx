@@ -4,6 +4,8 @@ import { Profile } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { KnowMyselfModal } from './modals/KnowMyselfModal';
 import betaTesterBadge from '@/assets/beta-tester-badge.webp';
 
 interface Avatar {
@@ -24,7 +26,9 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
   const [isLevelingUp, setIsLevelingUp] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isBetaTester, setIsBetaTester] = useState(false);
+  const [showKnowMyselfModal, setShowKnowMyselfModal] = useState(false);
   const { animationsEnabled } = useSettings();
+  const { hasActiveSub } = useSubscription();
 
   const fortunesPerLevel = 5;
   const currentLevel = Math.floor(fortuneCount / fortunesPerLevel) + 1;
@@ -97,6 +101,13 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
     }
   }, [profile?.created_at]);
 
+  const handleAvatarClick = () => {
+    // Only show the modal if user has active subscription (tier-based access)
+    if (hasActiveSub) {
+      setShowKnowMyselfModal(true);
+    }
+  };
+
   if (loading) {
     return (
       <div className="relative w-full aspect-square rounded-2xl bg-muted/30 animate-pulse overflow-hidden">
@@ -111,7 +122,20 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
   }
 
   return (
-    <div className="relative w-full max-w-[50vh] aspect-[5/4] mx-auto rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+    <>
+      <div 
+        className="relative w-full max-w-[50vh] aspect-[5/4] mx-auto rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
+        onClick={handleAvatarClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleAvatarClick();
+          }
+        }}
+        aria-label={hasActiveSub ? "Open daily wellness survey" : "Avatar (Premium feature)"}
+      >
       {/* Background Avatar Image */}
       <div className="absolute inset-0">
         {avatar?.url ? (
@@ -187,7 +211,13 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
             className="w-full h-full object-contain drop-shadow-lg"
           />
         </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      <KnowMyselfModal 
+        open={showKnowMyselfModal} 
+        onOpenChange={setShowKnowMyselfModal} 
+      />
+    </>
   );
 };
