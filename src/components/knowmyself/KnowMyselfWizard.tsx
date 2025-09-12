@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { MoodStep } from './MoodStep';
 import { BodyStep } from './BodyStep';
 import { SymptomsStep } from './SymptomsStep';
@@ -42,9 +42,10 @@ const STEPS = [
 
 interface KnowMyselfWizardProps {
   selectedDate: Date;
+  onClose?: () => void;
 }
 
-export const KnowMyselfWizard = ({ selectedDate }: KnowMyselfWizardProps) => {
+export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProps) => {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -295,7 +296,19 @@ export const KnowMyselfWizard = ({ selectedDate }: KnowMyselfWizardProps) => {
   const canProceed = canProceedFromStep(currentStep);
 
   return (
-    <div className="max-w-md mx-auto min-h-screen md:min-h-0 md:py-8">
+    <div className="max-w-sm mx-auto min-h-screen md:min-h-0 relative">
+      {/* Close button */}
+      {onClose && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="absolute top-2 right-2 z-10 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      )}
+      
       <Card className="h-full md:h-auto">
         {/* Header */}
         <div className="p-6 border-b">
