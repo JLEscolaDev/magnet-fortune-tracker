@@ -70,6 +70,14 @@ export const LifestyleTrackerTab = () => {
   };
 
   const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+  const shouldShowModal = !todayEntry && isToday;
+
+  // Auto-open modal if today has no entry
+  useEffect(() => {
+    if (!loading && shouldShowModal && !showModal) {
+      setShowModal(true);
+    }
+  }, [loading, shouldShowModal, showModal]);
 
   return (
     <div className="space-y-4 p-6 pb-24 md:pb-6">
@@ -105,41 +113,48 @@ export const LifestyleTrackerTab = () => {
         </div>
       </div>
 
-      {/* Show Calendar or Wizard based on today's entry */}
+      {/* Loading State */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : todayEntry && isToday ? (
+      ) : (
         <>
-          <div className="text-center py-4">
-            <p className="text-sm text-muted-foreground mb-4">
-              You've already tracked today! View your entries below or tap a day to edit.
-            </p>
-            <Button
-              onClick={() => setShowModal(true)}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              <Edit className="h-4 w-4" />
-              Edit Today's Entry
-            </Button>
-          </div>
+          {/* Show prompt to track today if no entry exists for today */}
+          {!todayEntry && isToday && (
+            <div className="text-center py-4 bg-muted/30 rounded-lg border border-dashed border-muted-foreground/30">
+              <p className="text-sm text-muted-foreground mb-3">
+                How are you feeling today? Track your daily well-being.
+              </p>
+              <Button
+                onClick={() => setShowModal(true)}
+                size="sm"
+                className="gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                Track Today
+              </Button>
+            </div>
+          )}
+
+          {/* Calendar - Always show as default */}
           <LifestyleCalendar
             entries={entries}
             onDateClick={handleDateClick}
             selectedDate={selectedDate}
           />
         </>
-      ) : (
-        <KnowMyselfWizard selectedDate={selectedDate} />
       )}
 
-      {/* Modal for editing entries */}
+      {/* Modal for adding/editing entries */}
       <KnowMyselfModal 
         open={showModal} 
-        onOpenChange={setShowModal}
+        onOpenChange={(open) => {
+          setShowModal(open);
+          if (!open) {
+            loadEntries(); // Refresh entries when modal closes
+          }
+        }}
       />
     </div>
   );
