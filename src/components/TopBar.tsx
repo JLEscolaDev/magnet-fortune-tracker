@@ -15,7 +15,7 @@ export const TopBar = ({ onSettingsClick }: TopBarProps) => {
   };
 
   return (
-    <header className="flex items-center justify-between p-4 border-b border-gold/30">
+    <header className="flex items-center justify-between p-4 pt-8 md:pt-4 border-b border-gold/30">
       <div className="flex items-center gap-3">
         <FortuneIcon />
         <h1 className="text-xl font-heading font-semibold gold-accent">
