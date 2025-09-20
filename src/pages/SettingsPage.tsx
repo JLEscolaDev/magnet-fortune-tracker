@@ -189,7 +189,10 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   }, [isStepCompleted, showTutorial]);
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div
+      className="min-h-screen bg-background p-6"
+      style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 24px)' }}
+    >
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">

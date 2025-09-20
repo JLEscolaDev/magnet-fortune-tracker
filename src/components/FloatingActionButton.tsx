@@ -39,15 +39,15 @@ export const FloatingActionButton = ({ onClick, selectedDate }: FloatingActionBu
         flex items-center justify-center
         transition-all duration-200 ease-out
         hover:scale-110 active:scale-95
-        z-40
+        z-60
         relative
         bg-gradient-to-r from-emerald to-emerald/80 emerald-glow
       "
       style={{
         position: 'fixed',
-        // Higher on smaller devices, respect safe areas
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 56px) + 16px)',
         right: 'calc(env(safe-area-inset-right, 0px) + 16px)',
+        touchAction: 'manipulation',
       }}
       aria-label={
         selectedDate

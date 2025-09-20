@@ -15,7 +15,10 @@ export const TopBar = ({ onSettingsClick }: TopBarProps) => {
   };
 
   return (
-    <header className="flex items-center justify-between p-4 pt-8 md:pt-4 border-b border-gold/30">
+    <header
+      className="flex items-center justify-between p-4 border-b border-gold/30 sticky top-0 z-50 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
+    >
       <div className="flex items-center gap-3">
         <FortuneIcon />
         <h1 className="text-xl font-heading font-semibold gold-accent">
