@@ -23,7 +23,7 @@ export const HeroCard = ({ profile, recentAchievements }: HeroCardProps) => {
             </span>
           </div>
           <h2 className="text-lg font-heading font-semibold mb-1">
-            Welcome back, {profile.display_name || 'Fortune Seeker'}
+            {(profile.total_fortunes || 0) > 0 ? 'Welcome back' : 'Welcome'}, {profile.display_name || 'Fortune Seeker'}
           </h2>
           <p className="text-sm text-muted-foreground">
             {profile.total_fortunes || 0} fortunes tracked
