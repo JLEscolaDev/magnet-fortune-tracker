@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { LuxuryAvatarSection } from './LuxuryAvatarSection';
 import { FortuneList } from './FortuneList';
 import { DailyQuote } from './DailyQuote';
+import { QuickMoodTracker } from './QuickMoodTracker';
 import { Fortune } from '@/types/fortune';
 import { getTodayFortunes, FortuneRecord } from '@/lib/fortunes';
 import { useAppState } from '@/contexts/AppStateContext';
@@ -99,11 +100,16 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
   return (
     <div className="space-y-6 p-6 pb-24 md:pb-6">
       <DailyQuote />
-      <LuxuryAvatarSection 
-        profile={profile} 
-        fortuneCount={fortunesCountTotal}
-        onLevelUp={handleLevelUp}
-      />
+      <div className="flex items-start gap-4">
+        <div className="flex-1">
+          <LuxuryAvatarSection 
+            profile={profile} 
+            fortuneCount={fortunesCountTotal}
+            onLevelUp={handleLevelUp}
+          />
+        </div>
+        <QuickMoodTracker className="flex-shrink-0" />
+      </div>
       <FortuneList 
         fortunes={recentFortunes as any} 
         title="Today's Fortunes"

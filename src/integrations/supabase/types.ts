@@ -107,6 +107,33 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_log: {
+        Row: {
+          created_at: string
+          date: string
+          first_action_at: string
+          first_action_source: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          first_action_at: string
+          first_action_source: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          first_action_at?: string
+          first_action_source?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fortunes: {
         Row: {
           category: string
@@ -288,6 +315,7 @@ export type Database = {
           id: string
           meals: string | null
           mood: string | null
+          mood_set_at: string | null
           notes: string | null
           sexual_appetite: number | null
           sexual_performance: number | null
@@ -306,6 +334,7 @@ export type Database = {
           id?: string
           meals?: string | null
           mood?: string | null
+          mood_set_at?: string | null
           notes?: string | null
           sexual_appetite?: number | null
           sexual_performance?: number | null
@@ -324,6 +353,7 @@ export type Database = {
           id?: string
           meals?: string | null
           mood?: string | null
+          mood_set_at?: string | null
           notes?: string | null
           sexual_appetite?: number | null
           sexual_performance?: number | null
@@ -705,6 +735,14 @@ export type Database = {
       is_username_available: {
         Args: { username: string }
         Returns: boolean
+      }
+      set_daily_mood: {
+        Args: { event_ts?: string; mood_value: string; timezone_arg?: string }
+        Returns: Json
+      }
+      track_daily_action: {
+        Args: { event_ts?: string; source_type: string; timezone_arg?: string }
+        Returns: Json
       }
       try_base64_text: {
         Args: { s: string }

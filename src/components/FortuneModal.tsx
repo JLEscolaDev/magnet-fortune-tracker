@@ -311,19 +311,52 @@ export const FortuneModal = ({
         onFortuneUpdated?.();
       } else {
         // Create new fortune
-        await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
+        const result = await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
 
-        // Success animations and feedback - conditional based on category
-        if (category === 'Wealth') {
-          shootCoins();
+        // Celebration for first action of day
+        if (result.streakInfo?.firstOfDay) {
+          // Emit analytics
+          if (typeof window !== 'undefined' && (window as any).gtag) {
+            (window as any).gtag('event', 'first_action_of_day', {
+              source: 'fortune'
+            });
+            (window as any).gtag('event', 'streak_celebrate', {
+              currentStreak: result.streakInfo.currentStreak
+            });
+          }
+
+          // Confetti celebration
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#FFD700', '#FFA500', '#FF6347'],
+          });
+
+          // Haptic feedback
+          if ('vibrate' in navigator) {
+            navigator.vibrate(15);
+          }
+
+          // Toast with streak info
+          toast({
+            title: `Day ${result.streakInfo.currentStreak} streak! 🎉`,
+            description: "Great work tracking your fortune!",
+            duration: 4000,
+          });
         } else {
-          shootConfetti();
+          // Success animations and feedback - conditional based on category
+          if (category === 'Wealth') {
+            shootCoins();
+          } else {
+            shootConfetti();
+          }
+          
+          toast({
+            title: "Fortune Tracked! ✨",
+            description: "Your fortune has been added to the universe",
+          });
         }
-        
-        toast({
-          title: "Fortune Tracked! ✨",
-          description: "Your fortune has been added to the universe",
-        });
 
         // Refresh big wins count if a big win was added
         if (impactLevel === 'big_win') {

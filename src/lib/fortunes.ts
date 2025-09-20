@@ -12,7 +12,7 @@ export async function addFortune(
   level?: number | null,
   selectedDate?: Date | null,
   impactLevel?: string | null
-): Promise<string> {
+): Promise<{ fortuneId: string; streakInfo?: { firstOfDay: boolean; currentStreak: number; longestStreak: number } }> {
   console.log('[FORTUNES:addFortune] Adding fortune with RPC', { selectedDate });
   
   const { data, error } = await (supabase.rpc as any)('fortune_add', {
@@ -28,7 +28,27 @@ export async function addFortune(
     throw error;
   }
 
-  return data as string; // Returns the new fortune ID
+  const fortuneId = data as string;
+
+  // Track daily action for streak
+  try {
+    const { data: streakData, error: streakError } = await supabase.rpc('track_daily_action', {
+      source_type: 'fortune',
+      event_ts: selectedDate?.toISOString() ?? new Date().toISOString(),
+    });
+
+    if (streakError) {
+      console.error('[RPC] track_daily_action error:', streakError);
+    }
+
+    return { 
+      fortuneId, 
+      streakInfo: streakData as { firstOfDay: boolean; currentStreak: number; longestStreak: number } 
+    };
+  } catch (streakError) {
+    console.error('Error tracking daily action:', streakError);
+    return { fortuneId };
+  }
 }
 
 // Get initial list of fortunes

@@ -261,10 +261,65 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         throw error;
       }
 
-      toast({
-        title: "Success",
-        description: "Your daily entry has been saved"
-      });
+      // Track daily action for streak
+      try {
+        const { data: streakData, error: streakError } = await supabase.rpc('track_daily_action', {
+          source_type: 'know',
+          event_ts: new Date().toISOString(),
+        });
+
+        if (streakError) {
+          console.error('[RPC] track_daily_action error:', streakError);
+        }
+
+        // Parse the JSON response
+        const result = streakData as { firstOfDay: boolean; currentStreak: number; longestStreak: number };
+
+        // Celebration for first action of day
+        if (result?.firstOfDay) {
+          // Emit analytics
+          if (typeof window !== 'undefined' && (window as any).gtag) {
+            (window as any).gtag('event', 'first_action_of_day', {
+              source: 'know'
+            });
+            (window as any).gtag('event', 'streak_celebrate', {
+              currentStreak: result.currentStreak
+            });
+          }
+
+          // Confetti celebration
+          const { default: confetti } = await import('canvas-confetti');
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#FFD700', '#FFA500', '#FF6347'],
+          });
+
+          // Haptic feedback
+          if ('vibrate' in navigator) {
+            navigator.vibrate(15);
+          }
+
+          // Toast with streak info
+          toast({
+            title: `Day ${result.currentStreak} streak! 🎉`,
+            description: "Great work tracking your well-being!",
+            duration: 4000,
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: "Your daily entry has been saved"
+          });
+        }
+      } catch (streakError) {
+        console.error('Error tracking daily action:', streakError);
+        toast({
+          title: "Success",
+          description: "Your daily entry has been saved"
+        });
+      }
       
       // Reset wizard to first step
       setCurrentStep(0);
