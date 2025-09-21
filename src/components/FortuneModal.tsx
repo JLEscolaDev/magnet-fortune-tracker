@@ -208,9 +208,7 @@ export const FortuneModal = ({
   };
 
   const handleAttachPhoto = async () => {
-    if (!window.NativeUploader) return;
-    
-    if (!isHighTier) {
+    if (!window.NativeUploader || !isHighTier) {
       toast({
         title: "Pro subscription required",
         description: "Photo attachments require a Pro or Lifetime subscription.",
@@ -593,7 +591,7 @@ export const FortuneModal = ({
           </div>
 
           {/* Photo Attachment - Mobile only, High tier only */}
-          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && (
+          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && isHighTier && (
             <div>
               <label className="block text-sm font-medium mb-2 flex items-center gap-2">
                 <Camera size={16} className="text-primary" />
