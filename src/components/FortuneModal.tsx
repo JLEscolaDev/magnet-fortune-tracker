@@ -208,7 +208,13 @@ export const FortuneModal = ({
   };
 
   const handleAttachPhoto = async () => {
+    console.log('[PHOTO] Starting photo attach process...');
+    
     if (!window.NativeUploader || !isHighTier) {
+      console.log('[PHOTO] No uploader or not high tier:', { 
+        hasUploader: !!window.NativeUploader, 
+        isHighTier 
+      });
       toast({
         title: "Pro subscription required",
         description: "Photo attachments require a Pro or Lifetime subscription.",
@@ -218,10 +224,15 @@ export const FortuneModal = ({
     }
 
     setPhotoAttaching(true);
+    console.log('[PHOTO] Set photoAttaching to true');
+    
     try {
       // Get access token and user
+      console.log('[PHOTO] Getting access token...');
       const accessToken = await getAccessToken();
       const { data: { user } } = await supabase.auth.getUser();
+      
+      console.log('[PHOTO] Auth check:', { hasToken: !!accessToken, hasUser: !!user });
       
       if (!accessToken || !user) {
         throw new Error('Authentication required');
@@ -231,7 +242,10 @@ export const FortuneModal = ({
 
       // For create flow: persist minimal fortune first if not already done
       if (!isEditMode && !targetFortuneId) {
+        console.log('[PHOTO] Create mode - checking form data...');
         if (!text.trim() || !category) {
+          console.log('[PHOTO] Missing required form data:', { hasText: !!text.trim(), hasCategory: !!category });
+          setPhotoAttaching(false);
           toast({
             title: "Complete fortune details first",
             description: "Please add text and select a category before attaching a photo.",
@@ -240,6 +254,7 @@ export const FortuneModal = ({
           return;
         }
 
+        console.log('[PHOTO] Creating minimal fortune...');
         // Create minimal fortune
         const fortuneId = await addFortune(
           text,
@@ -252,11 +267,13 @@ export const FortuneModal = ({
         if (fortuneId.fortuneId) {
           targetFortuneId = fortuneId.fortuneId;
           setPersistedFortuneId(targetFortuneId);
+          console.log('[PHOTO] Created fortune with ID:', targetFortuneId);
         } else {
           throw new Error('Failed to create fortune');
         }
       } else if (isEditMode && fortune?.id) {
         targetFortuneId = fortune.id;
+        console.log('[PHOTO] Edit mode - using fortune ID:', targetFortuneId);
       }
 
       if (!targetFortuneId) {
@@ -264,6 +281,7 @@ export const FortuneModal = ({
       }
 
       // Call native uploader
+      console.log('[PHOTO] Calling native uploader...');
       const options: NativeUploaderOptions = {
         supabaseUrl: 'https://pegiensgnptpdnfopnoj.supabase.co',
         accessToken,
@@ -272,8 +290,10 @@ export const FortuneModal = ({
       };
 
       const result: NativeUploaderResult = await window.NativeUploader.pickAndUploadFortunePhoto(options);
+      console.log('[PHOTO] Upload result:', result);
 
       if (result.cancelled) {
+        console.log('[PHOTO] User cancelled upload');
         return; // User cancelled, no action needed
       }
 
@@ -286,13 +306,14 @@ export const FortuneModal = ({
       });
 
     } catch (error: any) {
-      console.error('Error attaching photo:', error);
+      console.error('[PHOTO] Error attaching photo:', error);
       toast({
         title: "Upload failed",
         description: error.message || "Failed to attach photo. Please try again.",
         variant: "destructive",
       });
     } finally {
+      console.log('[PHOTO] Resetting photoAttaching to false');
       setPhotoAttaching(false);
     }
   };
