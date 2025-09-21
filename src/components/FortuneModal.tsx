@@ -615,78 +615,59 @@ export const FortuneModal = ({
             )}
           </div>
 
-          {/* Photo Attachment Section */}
-          {typeof window !== 'undefined' && (
-            <>
-              {/* Debug: Log uploader availability */}
-              {console.log('[PHOTO_DEBUG]', {
-                NativeUploaderAvailable: (window as any).NativeUploaderAvailable,
-                NativeUploader: !!(window as any).NativeUploader,
-                isMobile,
-                isHighTier
-              })}
-
-              {/* Mobile: Show attach button for high tier users when native uploader is available */}
-              {isMobile && isHighTier && (window as any).NativeUploaderAvailable && (
-                <div>
-                  <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                    <Camera size={16} className="text-primary" />
-                    Attach Photo
-                  </label>
-                  <div className="space-y-3">
-                    {fortunePhoto && (
-                      <div className="relative">
-                        <img 
-                          src={fortunePhoto} 
-                          alt="Fortune attachment" 
-                          className="w-full h-32 object-cover rounded-lg border border-border"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setFortunePhoto(null)}
-                          className="absolute top-2 right-2 p-1 bg-destructive/90 text-destructive-foreground rounded-full hover:bg-destructive transition-colors"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={photoAttaching}
-                      onClick={handleAttachPhoto}
-                      className="w-full border-dashed"
-                    >
-                      {photoAttaching ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Image size={16} className="mr-2" />
-                          {fortunePhoto ? 'Replace Photo' : 'Add Photo'}
-                        </>
-                      )}
-                    </Button>
-                  </div>
+          {/* Photo Attachment Section - Mobile Only */}
+          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && isHighTier && (
+            <div>
+              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                <Camera size={16} className="text-primary" />
+                Photo
+              </label>
+              
+              {fortunePhoto ? (
+                <div className="relative">
+                  <img 
+                    src={fortunePhoto} 
+                    alt="Fortune attachment" 
+                    className="w-full h-48 object-cover rounded border border-border/50"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={() => setFortunePhoto(null)}
+                  >
+                    <X size={14} />
+                  </Button>
                 </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-32 border-dashed border-2 hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-2"
+                  onClick={handleAttachPhoto}
+                  disabled={photoAttaching}
+                >
+                  <Camera size={24} className="text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    {photoAttaching ? 'Uploading...' : 'Attach Photo'}
+                  </span>
+                </Button>
               )}
+            </div>
+          )}
 
-              {/* PC: Show informational messages */}
-              {!isMobile && (
-                <div className="bg-gradient-to-r from-warning/10 to-accent/10 border border-warning/20 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <Camera size={16} className="text-warning" />
-                    <span className="text-sm text-muted-foreground">
-                      {isHighTier 
-                        ? "Use the app to attach photos and remember this moment!"
-                        : "Hey! you can add photos to remember these moments if you use the Pro and Lifeplan versions."
-                      }
-                    </span>
-                  </div>
-                </div>
-              )}
+          {/* Upgrade prompt for non-high tier users on mobile */}
+          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && !isHighTier && (
+            <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <Camera size={16} className="text-warning" />
+                <span className="text-sm text-muted-foreground">
+                  Add photos to remember these moments with Pro or Lifetime plans.
+                </span>
+              </div>
+            </div>
+          )}
 
               {/* Mobile: Show upgrade message for non-high tier users */}
               {isMobile && !isHighTier && (
@@ -700,19 +681,6 @@ export const FortuneModal = ({
                 </div>
               )}
 
-              {/* Mobile: Show debug info when native uploader is not available but user is high tier */}
-              {isMobile && isHighTier && !(window as any).NativeUploaderAvailable && (
-                <div className="bg-gradient-to-r from-destructive/10 to-warning/10 border border-destructive/20 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <Camera size={16} className="text-destructive" />
-                    <span className="text-xs text-muted-foreground">
-                      Debug: Native uploader not available. Check app configuration.
-                    </span>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
 
           {/* Impact Level - Only show in create mode or if editing a fortune with impact_level */}
           {(!isEditMode || (isEditMode && fortune?.impact_level)) && (
