@@ -221,7 +221,7 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                 >
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex-1">
-                    <p className="text-sm leading-relaxed mb-2">{fortune.text}</p>
+                    <p className="text-sm leading-relaxed mb-2 text-white dark:text-gray-800">{fortune.text}</p>
                     <FortunePhoto fortuneId={fortune.id} className="w-full max-w-xs" />
                   </div>
                   <div className="flex items-center gap-2">
