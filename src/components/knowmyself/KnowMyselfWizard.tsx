@@ -351,7 +351,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
   const canProceed = canProceedFromStep(currentStep);
 
   return (
-    <div className="max-w-sm mx-auto min-h-screen md:min-h-0 relative">
+    <div className="max-w-sm mx-auto max-h-[70vh] md:min-h-0 relative">
       {/* Close button */}
       {onClose && (
         <Button

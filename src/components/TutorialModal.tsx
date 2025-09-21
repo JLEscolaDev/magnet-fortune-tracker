@@ -324,7 +324,7 @@ const TUTORIAL_CONTENT: Record<TutorialStep, TutorialContent> = {
 };
 
 export const TutorialModal = () => {
-  const { activeTutorial, closeTutorial, completeStep } = useTutorial();
+  const { activeTutorial, closeTutorial, completeStep, getAllSteps } = useTutorial();
 
   if (!activeTutorial) return null;
   const step = activeTutorial as TutorialStep;
@@ -337,7 +337,8 @@ export const TutorialModal = () => {
   };
 
   const handleSkip = () => {
-    completeStep(step);
+    // Complete all tutorial steps when skip is pressed
+    getAllSteps().forEach(tutorialStep => completeStep(tutorialStep));
     closeTutorial();
   };
 
