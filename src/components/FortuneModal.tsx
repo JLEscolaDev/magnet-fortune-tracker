@@ -108,9 +108,13 @@ export const FortuneModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryData[]>(defaultCategories);
   const [bigWinsCount, setBigWinsCount] = useState<number>(0);
+  const [photoAttaching, setPhotoAttaching] = useState(false);
+  const [fortunePhoto, setFortunePhoto] = useState<string | null>(null);
+  const [persistedFortuneId, setPersistedFortuneId] = useState<string | null>(null);
   const { toast } = useToast();
   const freePlanStatus = useFreePlanLimits();
   const { activeSubscription, fortunesCountToday, addError } = useAppState();
+  const { isHighTier } = useSubscription();
 
   // Debug logging (only for create mode)
   if (!isEditMode) {
@@ -201,6 +205,89 @@ export const FortuneModal = ({
 
   const getCurrentCategory = () => {
     return categories.find(cat => cat.name === category) || defaultCategories[0];
+  };
+
+  const handleAttachPhoto = async () => {
+    if (!window.NativeUploader || !isHighTier) return;
+
+    setPhotoAttaching(true);
+    try {
+      // Get access token and user
+      const accessToken = await getAccessToken();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!accessToken || !user) {
+        throw new Error('Authentication required');
+      }
+
+      let targetFortuneId = persistedFortuneId;
+
+      // For create flow: persist minimal fortune first if not already done
+      if (!isEditMode && !targetFortuneId) {
+        if (!text.trim() || !category) {
+          toast({
+            title: "Complete fortune details first",
+            description: "Please add text and select a category before attaching a photo.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Create minimal fortune
+        const fortuneId = await addFortune(
+          text,
+          category,
+          fortuneValue ? Number(fortuneValue) : null,
+          selectedDate,
+          impactLevel as any
+        );
+        
+        if (fortuneId.fortuneId) {
+          targetFortuneId = fortuneId.fortuneId;
+          setPersistedFortuneId(targetFortuneId);
+        } else {
+          throw new Error('Failed to create fortune');
+        }
+      } else if (isEditMode && fortune?.id) {
+        targetFortuneId = fortune.id;
+      }
+
+      if (!targetFortuneId) {
+        throw new Error('No fortune ID available');
+      }
+
+      // Call native uploader
+      const options: NativeUploaderOptions = {
+        supabaseUrl: 'https://pegiensgnptpdnfopnoj.supabase.co',
+        accessToken,
+        userId: user.id,
+        fortuneId: targetFortuneId
+      };
+
+      const result: NativeUploaderResult = await window.NativeUploader.pickAndUploadFortunePhoto(options);
+
+      if (result.cancelled) {
+        return; // User cancelled, no action needed
+      }
+
+      // Update photo preview
+      setFortunePhoto(result.signedUrl);
+
+      toast({
+        title: result.replaced ? "Photo updated" : "Photo attached",
+        description: "Your photo has been successfully uploaded.",
+      });
+
+    } catch (error: any) {
+      console.error('Error attaching photo:', error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to attach photo. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPhotoAttaching(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -464,6 +551,65 @@ export const FortuneModal = ({
               {text.length}/500 characters
             </p>
           </div>
+
+          {/* Photo Attachment - Mobile only, High tier only */}
+          {window.NativeUploaderAvailable && isHighTier && (
+            <div>
+              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                <Camera size={16} className="text-primary" />
+                Attach Photo
+              </label>
+              <div className="space-y-3">
+                {fortunePhoto && (
+                  <div className="relative">
+                    <img 
+                      src={fortunePhoto} 
+                      alt="Fortune attachment" 
+                      className="w-full h-32 object-cover rounded-lg border border-border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFortunePhoto(null)}
+                      className="absolute top-2 right-2 p-1 bg-destructive/90 text-destructive-foreground rounded-full hover:bg-destructive transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={photoAttaching}
+                  onClick={handleAttachPhoto}
+                  className="w-full border-dashed"
+                >
+                  {photoAttaching ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Image size={16} className="mr-2" />
+                      {fortunePhoto ? 'Replace Photo' : 'Add Photo'}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* High tier required message for photo feature */}
+          {window.NativeUploaderAvailable && !isHighTier && (
+            <div className="bg-gradient-to-r from-warning/10 to-accent/10 border border-warning/20 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <Camera size={16} className="text-warning" />
+                <span className="text-sm text-muted-foreground">
+                  Photo attachments require Pro or Lifetime subscription
+                </span>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-2">

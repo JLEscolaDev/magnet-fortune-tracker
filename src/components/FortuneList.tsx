@@ -15,6 +15,7 @@ import {
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { FortuneModal } from '@/components/FortuneModal';
+import { FortunePhoto } from '@/components/FortunePhoto';
 import { deleteFortune } from '@/lib/fortunes';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -215,9 +216,12 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                     ? 'opacity-0 scale-95 translate-x-4' 
                     : 'opacity-100 scale-100 translate-x-0'
                 } ${impactStyle.borderColor} ${impactStyle.bgColor} dark:bg-transparent`}
-              >
+                >
                 <div className="flex items-start justify-between gap-3 mb-2">
-                  <p className="text-sm leading-relaxed flex-1">{fortune.text}</p>
+                  <div className="flex-1">
+                    <p className="text-sm leading-relaxed mb-2">{fortune.text}</p>
+                    <FortunePhoto fortuneId={fortune.id} className="w-full max-w-xs" />
+                  </div>
                   <div className="flex items-center gap-2">
                     {/* Impact Level Indicator */}
                     {ImpactIcon && (

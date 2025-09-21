@@ -134,6 +134,53 @@ export type Database = {
         }
         Relationships: []
       }
+      fortune_media: {
+        Row: {
+          created_at: string
+          fortune_id: string
+          height: number | null
+          id: string
+          mime_type: string
+          path: string
+          size_bytes: number | null
+          updated_at: string
+          user_id: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          fortune_id: string
+          height?: number | null
+          id?: string
+          mime_type: string
+          path: string
+          size_bytes?: number | null
+          updated_at?: string
+          user_id: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          fortune_id?: string
+          height?: number | null
+          id?: string
+          mime_type?: string
+          path?: string
+          size_bytes?: number | null
+          updated_at?: string
+          user_id?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fortune_media_fortune_id_fkey"
+            columns: ["fortune_id"]
+            isOneToOne: true
+            referencedRelation: "fortunes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fortunes: {
         Row: {
           category: string
