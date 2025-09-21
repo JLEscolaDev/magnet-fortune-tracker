@@ -104,7 +104,8 @@ export const initializeNativeUploader = () => {
 export const enableMockUploader = () => {
   localStorage.setItem('mockNativeUploader', 'true');
   initializeNativeUploader();
-  console.log('🔧 Mock native uploader enabled. Refresh to see photo attach button.');
+  // Trigger a page refresh to ensure the button appears
+  window.location.reload();
 };
 
 export const disableMockUploader = () => {

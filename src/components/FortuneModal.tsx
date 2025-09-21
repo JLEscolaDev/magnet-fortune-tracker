@@ -102,7 +102,7 @@ export const FortuneModal = ({
   const isEditMode = mode === 'edit' || !!fortune;
   
   const [text, setText] = useState('');
-  const [category, setCategory] = useState<FortuneCategory>('');
+  const [category, setCategory] = useState<FortuneCategory>('Wealth');
   const [fortuneValue, setFortuneValue] = useState('');
   const [impactLevel, setImpactLevel] = useState<string>('small_step');
   const [isLoading, setIsLoading] = useState(false);
