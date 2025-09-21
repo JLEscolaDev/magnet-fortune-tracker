@@ -150,7 +150,7 @@ export const FortuneModal = ({
     } else if (!isEditMode && isOpen) {
       // Reset form for create mode
       setText('');
-      setCategory('');
+      setCategory('Wealth'); // Default to Wealth category
       setFortuneValue('');
       setImpactLevel('small_step');
     }
@@ -208,7 +208,16 @@ export const FortuneModal = ({
   };
 
   const handleAttachPhoto = async () => {
-    if (!window.NativeUploader || !isHighTier) return;
+    if (!window.NativeUploader) return;
+    
+    if (!isHighTier) {
+      toast({
+        title: "Pro subscription required",
+        description: "Photo attachments require a Pro or Lifetime subscription.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setPhotoAttaching(true);
     try {
@@ -553,7 +562,7 @@ export const FortuneModal = ({
           </div>
 
           {/* Photo Attachment - Mobile only, High tier only */}
-          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && isHighTier && (
+          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && (
             <div>
               <label className="block text-sm font-medium mb-2 flex items-center gap-2">
                 <Camera size={16} className="text-primary" />
@@ -599,8 +608,8 @@ export const FortuneModal = ({
             </div>
           )}
 
-          {/* High tier required message for photo feature */}
-          {window.NativeUploaderAvailable && !isHighTier && (
+          {/* Show upgrade message for non-high tier users */}
+          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && !isHighTier && (
             <div className="bg-gradient-to-r from-warning/10 to-accent/10 border border-warning/20 rounded-lg p-3">
               <div className="flex items-center gap-2">
                 <Camera size={16} className="text-warning" />

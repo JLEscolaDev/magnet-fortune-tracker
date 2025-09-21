@@ -70,8 +70,8 @@ All colors MUST be HSL.
     --love: 330 81% 60%;     /* Pink for love */
     --opportunity: 142 71% 45%; /* Green for opportunity */
     
-    /* Fortune item colors */
-    --fortune-item: 0 0% 25%;  /* Dark gray for fortune items */
+    /* Fortune item colors - for light mode */
+    --fortune-item: 22 6% 15%;  /* Dark gray for fortune items in light mode */
     --fortune-item-foreground: 0 0% 98%; /* White text on dark gray */
   }
 
@@ -120,8 +120,8 @@ All colors MUST be HSL.
     --love: 330 81% 60%;     /* Pink for love */
     --opportunity: 142 71% 45%; /* Green for opportunity */
     
-    /* Fortune item colors */
-    --fortune-item: 0 0% 25%;  /* Dark gray for fortune items */
+    /* Fortune item colors - for dark mode */
+    --fortune-item: 0 0% 25%;  /* Dark gray for fortune items in dark mode */
     --fortune-item-foreground: 0 0% 98%; /* White text on dark gray */
   }
 }

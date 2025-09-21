@@ -211,11 +211,13 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
               classNames="fortune"
             >
               <div
-                className={`group p-4 rounded-lg border-2 hover:border-gold/50 transition-all duration-300 relative text-white ${
+                className={`group p-4 rounded-lg border-2 hover:border-gold/50 transition-all duration-300 relative ${
                   deletingFortunes.has(fortune.id) 
                     ? 'opacity-0 scale-95 translate-x-4' 
                     : 'opacity-100 scale-100 translate-x-0'
-                } ${impactStyle.borderColor} ${impactStyle.bgColor} dark:bg-transparent`}
+                } ${impactStyle.borderColor} ${impactStyle.bgColor} 
+                text-white dark:text-white 
+                bg-fortune-item dark:bg-transparent`}
                 >
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex-1">

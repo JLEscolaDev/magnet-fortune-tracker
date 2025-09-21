@@ -351,7 +351,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
   const canProceed = canProceedFromStep(currentStep);
 
   return (
-    <div className="max-w-sm mx-auto max-h-[70vh] md:min-h-0 relative">
+    <div className="max-w-sm mx-auto h-full max-h-full md:min-h-0 relative flex flex-col">
       {/* Close button */}
       {onClose && (
         <Button
@@ -364,7 +364,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         </Button>
       )}
       
-      <Card className="h-full md:h-auto">
+      <Card className="h-full md:h-auto flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b">
           <h2 className="text-xl font-heading font-medium text-center mb-4">
@@ -385,7 +385,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         </div>
 
         {/* Content */}
-        <div className="p-6 flex-1">
+        <div className="p-6 flex-1 overflow-auto">
           <CurrentStepComponent data={data} updateData={updateData} />
         </div>
 
