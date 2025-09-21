@@ -233,7 +233,9 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   }, [subscription]);
 
   const isHighTier = useMemo(() => {
-    return isActive || (subscription as any)?.is_lifetime || (userFeatures?.has_full_access ?? false);
+    // Include trial users as high tier for testing
+    const isTrialUser = userFeatures?.is_trial_active || false;
+    return isActive || (subscription as any)?.is_lifetime || (userFeatures?.has_full_access ?? false) || isTrialUser;
   }, [isActive, subscription, userFeatures]);
 
   const value: SubscriptionContextType = {
