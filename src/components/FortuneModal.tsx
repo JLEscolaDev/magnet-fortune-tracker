@@ -561,6 +561,37 @@ export const FortuneModal = ({
             </p>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Category
+            </label>
+            <Select value={category || undefined} onValueChange={(value) => setCategory(value as FortuneCategory)}>
+              <SelectTrigger className="focus:border-gold focus:ring-gold/20">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border shadow-lg z-[60]" sideOffset={4}>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.name} value={cat.name} className="cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      {cat.name === 'Wealth' && <CurrencyDollar size={14} className="text-gold" />}
+                      <span>{cat.name}</span>
+                      {cat.hasNumericValue && (
+                        <span className="text-xs bg-gold/20 text-gold px-1.5 py-0.5 rounded">
+                          $
+                        </span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!category && (
+              <p className="text-xs text-destructive mt-1">
+                Please select a category to continue
+              </p>
+            )}
+          </div>
+
           {/* Photo Attachment - Mobile only, High tier only */}
           {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && (
             <div>
@@ -619,37 +650,6 @@ export const FortuneModal = ({
               </div>
             </div>
           )}
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Category
-            </label>
-            <Select value={category || undefined} onValueChange={(value) => setCategory(value as FortuneCategory)}>
-              <SelectTrigger className="focus:border-gold focus:ring-gold/20">
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border shadow-lg z-[60]" sideOffset={4}>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.name} value={cat.name} className="cursor-pointer">
-                    <div className="flex items-center gap-2">
-                      {cat.name === 'Wealth' && <CurrencyDollar size={14} className="text-gold" />}
-                      <span>{cat.name}</span>
-                      {cat.hasNumericValue && (
-                        <span className="text-xs bg-gold/20 text-gold px-1.5 py-0.5 rounded">
-                          $
-                        </span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {!category && (
-              <p className="text-xs text-destructive mt-1">
-                Please select a category to continue
-              </p>
-            )}
-          </div>
 
           {/* Impact Level - Only show in create mode or if editing a fortune with impact_level */}
           {(!isEditMode || (isEditMode && fortune?.impact_level)) && (
