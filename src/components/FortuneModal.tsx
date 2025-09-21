@@ -616,10 +616,18 @@ export const FortuneModal = ({
           </div>
 
           {/* Photo Attachment Section */}
-          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && (
+          {typeof window !== 'undefined' && (
             <>
-              {/* Mobile: Show attach button for high tier users */}
-              {isMobile && isHighTier && (
+              {/* Debug: Log uploader availability */}
+              {console.log('[PHOTO_DEBUG]', {
+                NativeUploaderAvailable: (window as any).NativeUploaderAvailable,
+                NativeUploader: !!(window as any).NativeUploader,
+                isMobile,
+                isHighTier
+              })}
+
+              {/* Mobile: Show attach button for high tier users when native uploader is available */}
+              {isMobile && isHighTier && (window as any).NativeUploaderAvailable && (
                 <div>
                   <label className="block text-sm font-medium mb-2 flex items-center gap-2">
                     <Camera size={16} className="text-primary" />
@@ -687,6 +695,18 @@ export const FortuneModal = ({
                     <Camera size={16} className="text-warning" />
                     <span className="text-sm text-muted-foreground">
                       Hey! you can add photos to remember these moments if you use the Pro and Lifeplan versions.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Mobile: Show debug info when native uploader is not available but user is high tier */}
+              {isMobile && isHighTier && !(window as any).NativeUploaderAvailable && (
+                <div className="bg-gradient-to-r from-destructive/10 to-warning/10 border border-destructive/20 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Camera size={16} className="text-destructive" />
+                    <span className="text-xs text-muted-foreground">
+                      Debug: Native uploader not available. Check app configuration.
                     </span>
                   </div>
                 </div>
