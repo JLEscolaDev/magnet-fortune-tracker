@@ -122,7 +122,9 @@ export const FortuneModal = ({
       freePlanStatus,
       activeSubscription,
       fortunesCountToday,
-      isLoading
+      isLoading,
+      isHighTier,
+      subscription: activeSubscription
     });
   }
 
