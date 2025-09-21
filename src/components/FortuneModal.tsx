@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { sanitizeText, validateNumericValue, validateCategory, formRateLimiter } from '@/lib/security';
 import { useFreePlanLimits } from '@/hooks/useFreePlanLimits';
 import { useAppState } from '@/contexts/AppStateContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { SUBSCRIPTION_LIMITS } from '@/config/limits';
 import { addFortune, updateFortune } from '@/lib/fortunes';
 import confetti from 'canvas-confetti';
@@ -115,6 +116,7 @@ export const FortuneModal = ({
   const freePlanStatus = useFreePlanLimits();
   const { activeSubscription, fortunesCountToday, addError } = useAppState();
   const { isHighTier } = useSubscription();
+  const isMobile = useIsMobile();
 
   // Debug logging (only for create mode)
   if (!isEditMode) {
@@ -613,63 +615,83 @@ export const FortuneModal = ({
             )}
           </div>
 
-          {/* Photo Attachment - Mobile only, High tier only */}
-          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && isHighTier && (
-            <div>
-              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                <Camera size={16} className="text-primary" />
-                Attach Photo
-              </label>
-              <div className="space-y-3">
-                {fortunePhoto && (
-                  <div className="relative">
-                    <img 
-                      src={fortunePhoto} 
-                      alt="Fortune attachment" 
-                      className="w-full h-32 object-cover rounded-lg border border-border"
-                    />
-                    <button
+          {/* Photo Attachment Section */}
+          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && (
+            <>
+              {/* Mobile: Show attach button for high tier users */}
+              {isMobile && isHighTier && (
+                <div>
+                  <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                    <Camera size={16} className="text-primary" />
+                    Attach Photo
+                  </label>
+                  <div className="space-y-3">
+                    {fortunePhoto && (
+                      <div className="relative">
+                        <img 
+                          src={fortunePhoto} 
+                          alt="Fortune attachment" 
+                          className="w-full h-32 object-cover rounded-lg border border-border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFortunePhoto(null)}
+                          className="absolute top-2 right-2 p-1 bg-destructive/90 text-destructive-foreground rounded-full hover:bg-destructive transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+                    <Button
                       type="button"
-                      onClick={() => setFortunePhoto(null)}
-                      className="absolute top-2 right-2 p-1 bg-destructive/90 text-destructive-foreground rounded-full hover:bg-destructive transition-colors"
+                      variant="outline"
+                      disabled={photoAttaching}
+                      onClick={handleAttachPhoto}
+                      className="w-full border-dashed"
                     >
-                      <X size={14} />
-                    </button>
+                      {photoAttaching ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Image size={16} className="mr-2" />
+                          {fortunePhoto ? 'Replace Photo' : 'Add Photo'}
+                        </>
+                      )}
+                    </Button>
                   </div>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={photoAttaching}
-                  onClick={handleAttachPhoto}
-                  className="w-full border-dashed"
-                >
-                  {photoAttaching ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Image size={16} className="mr-2" />
-                      {fortunePhoto ? 'Replace Photo' : 'Add Photo'}
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
+                </div>
+              )}
 
-          {/* Show upgrade message for non-high tier users */}
-          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && !isHighTier && (
-            <div className="bg-gradient-to-r from-warning/10 to-accent/10 border border-warning/20 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <Camera size={16} className="text-warning" />
-                <span className="text-sm text-muted-foreground">
-                  Photo attachments require Pro or Lifetime subscription
-                </span>
-              </div>
-            </div>
+              {/* PC: Show informational messages */}
+              {!isMobile && (
+                <div className="bg-gradient-to-r from-warning/10 to-accent/10 border border-warning/20 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Camera size={16} className="text-warning" />
+                    <span className="text-sm text-muted-foreground">
+                      {isHighTier 
+                        ? "Use the app to attach photos and remember this moment!"
+                        : "Hey! you can add photos to remember these moments if you use the Pro and Lifeplan versions."
+                      }
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Mobile: Show upgrade message for non-high tier users */}
+              {isMobile && !isHighTier && (
+                <div className="bg-gradient-to-r from-warning/10 to-accent/10 border border-warning/20 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Camera size={16} className="text-warning" />
+                    <span className="text-sm text-muted-foreground">
+                      Hey! you can add photos to remember these moments if you use the Pro and Lifeplan versions.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Impact Level - Only show in create mode or if editing a fortune with impact_level */}
