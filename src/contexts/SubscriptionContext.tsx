@@ -37,6 +37,7 @@ interface SubscriptionContextType {
   plansLoading: boolean;
   hasActiveSub: boolean;
   allPlans: Plan[];
+  isHighTier: boolean;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -231,6 +232,10 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     return Number.isFinite(endTs) && endTs > Date.now();
   }, [subscription]);
 
+  const isHighTier = useMemo(() => {
+    return isActive || (subscription as any)?.is_lifetime || (userFeatures?.has_full_access ?? false);
+  }, [isActive, subscription, userFeatures]);
+
   const value: SubscriptionContextType = {
     loading,
     isActive,
@@ -247,6 +252,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     plansLoading,
     hasActiveSub: isActive || (userFeatures?.has_full_access ?? false),
     allPlans,
+    isHighTier,
   };
 
   return (

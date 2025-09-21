@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Sparkle, CurrencyDollar, Crown, Lock, TrendUp, Trophy, Star } from '@phosphor-icons/react';
+import { X, Plus, Sparkle, CurrencyDollar, Crown, Lock, TrendUp, Trophy, Star, Camera, Image } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,10 @@ import { useAppState } from '@/contexts/AppStateContext';
 import { SUBSCRIPTION_LIMITS } from '@/config/limits';
 import { addFortune, updateFortune } from '@/lib/fortunes';
 import confetti from 'canvas-confetti';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { getAccessToken } from '@/integrations/supabase/auth';
+import { getFortuneMedia, getCachedSignedUrl, type FortuneMedia } from '@/integrations/supabase/fortuneMedia';
+import type { NativeUploaderOptions, NativeUploaderResult } from '@/types/native';
 
 interface FortuneModalProps {
   isOpen: boolean;
