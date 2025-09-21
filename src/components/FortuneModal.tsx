@@ -501,7 +501,7 @@ export const FortuneModal = ({
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md luxury-card p-6 transform transition-transform duration-200">
+      <div className="relative w-full max-w-sm luxury-card p-6 transform transition-transform duration-200 max-h-[80vh] overflow-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-heading font-semibold flex items-center gap-2">
             <Sparkle size={24} className="text-gold" />
