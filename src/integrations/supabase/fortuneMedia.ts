@@ -16,9 +16,18 @@ const SIGNED_URL_EXPIRY = 300; // 5 minutes
 
 export const getFortuneMedia = async (fortuneId: string): Promise<FortuneMedia | null> => {
   try {
-    // For now, return null until the types are regenerated
-    // This will be functional once Supabase types are updated
-    return null;
+    const { data, error } = await supabase
+      .from('fortune_media')
+      .select('*')
+      .eq('fortune_id', fortuneId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching fortune media:', error);
+      return null;
+    }
+
+    return data;
   } catch (error) {
     console.error('Error fetching fortune media:', error);
     return null;
@@ -65,4 +74,25 @@ export const getCachedSignedUrl = async (path: string): Promise<string | null> =
   }
 
   return signedUrl;
+};
+
+// Function to save fortune media record
+export const saveFortuneMedia = async (mediaData: Omit<FortuneMedia, 'id' | 'created_at'>): Promise<FortuneMedia | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('fortune_media')
+      .insert(mediaData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error saving fortune media:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error saving fortune media:', error);
+    return null;
+  }
 };

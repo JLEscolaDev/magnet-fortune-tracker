@@ -13,6 +13,7 @@ import { FloatingActionButton } from '@/components/FloatingActionButton';
 import { FortuneModal } from '@/components/FortuneModal';
 import { AuthPage } from '@/pages/AuthPage';
 import { DebugPanel } from '@/components/DebugPanel';
+import { DevTools } from '@/components/DevTools';
 import { AppStateProvider } from '@/contexts/AppStateContext';
 import { useAppBootstrap } from '@/hooks/useAppBootstrap';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -172,6 +173,7 @@ const FortuneApp = () => {
                       />
 
                       <DebugPanel user={user} />
+                      <DevTools />
                       <TutorialModal />
                     </div>
                   </div>
