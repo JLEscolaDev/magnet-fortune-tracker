@@ -6,6 +6,7 @@ interface BodyStepProps {
   data: { 
     dream_quality: number;
     sexual_appetite: number;
+    room_temperature: number;
   };
   updateData: (updates: any) => void;
 }
@@ -29,6 +30,17 @@ const getSleepLabel = (value: number) => {
     case 4: return 'Good';
     case 5: return 'Excellent';
     default: return 'Okay';
+  }
+};
+
+const getTemperatureLabel = (value: number) => {
+  switch (value) {
+    case 1: return 'Very Cold';
+    case 2: return 'Cold';
+    case 3: return 'Normal';
+    case 4: return 'Warm';
+    case 5: return 'Very Warm';
+    default: return 'Normal';
   }
 };
 
@@ -85,6 +97,30 @@ export const BodyStep = ({ data, updateData }: BodyStepProps) => {
             <span>Normal</span>
             <span>High</span>
             <span>Very High</span>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <Label className="text-base font-medium">Room Temperature</Label>
+            <span className="text-sm font-medium text-primary">
+              {getTemperatureLabel(data.room_temperature)}
+            </span>
+          </div>
+          <Slider
+            value={[data.room_temperature]}
+            onValueChange={(value) => updateData({ room_temperature: value[0] })}
+            max={5}
+            min={1}
+            step={1}
+            className="w-full"
+          />
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Very Cold</span>
+            <span>Cold</span>
+            <span>Normal</span>
+            <span>Warm</span>
+            <span>Very Warm</span>
           </div>
         </div>
       </Card>

@@ -18,6 +18,7 @@ interface WizardData {
   // Step 2: Body metrics
   dream_quality: number;
   sexual_appetite: number;
+  room_temperature: number;
   
   // Step 3: Symptoms/Issues
   moods: string[];
@@ -56,6 +57,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
     mood: null,
     dream_quality: 3,
     sexual_appetite: 3,
+    room_temperature: 3,
     moods: [],
     mood_causes: [],
     pain_types: [],
@@ -125,6 +127,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
           mood: existingEntry.mood ? (moodMapping[existingEntry.mood] || 3) : null,
           dream_quality: existingEntry.dream_quality || 3,
           sexual_appetite: existingEntry.sexual_appetite || 3,
+          room_temperature: (existingEntry as any).room_temperature || 3,
           moods: parsedMoodData.moods || [],
           mood_causes: parsedMoodData.mood_causes || [],
           pain_types: parsedMoodData.pain_types || [],
@@ -142,6 +145,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
           mood: null,
           dream_quality: 3,
           sexual_appetite: 3,
+          room_temperature: 3,
           moods: [],
           mood_causes: [],
           pain_types: [],
@@ -175,7 +179,8 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         return data.mood !== null && data.mood >= 1 && data.mood <= 5;
       case 1: // Body step
         return data.dream_quality >= 1 && data.dream_quality <= 5 && 
-               data.sexual_appetite >= 1 && data.sexual_appetite <= 5;
+               data.sexual_appetite >= 1 && data.sexual_appetite <= 5 &&
+               data.room_temperature >= 1 && data.room_temperature <= 5;
       case 2: // Symptoms step
         return true; // Optional data
       case 3: // Notes step
@@ -237,6 +242,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         exercise_type: data.exercise_types.join(','),
         exercise_duration: data.exercise_duration,
         sexual_appetite: data.sexual_appetite,
+        room_temperature: data.room_temperature,
         notes: combinedNotes
       };
 
@@ -321,8 +327,11 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         });
       }
       
-      // Reset wizard to first step
+      // Reset wizard to first step and close modal
       setCurrentStep(0);
+      if (onClose) {
+        onClose();
+      }
     } catch (error) {
       console.error('Error saving entry:', error);
       toast({
