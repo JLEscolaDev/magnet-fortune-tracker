@@ -127,7 +127,7 @@ serve(async (req) => {
 
     // Create signed upload URL using SDK method
     const { data, error } = await serviceClient.storage
-      .from('fortune-photos')
+      .from('photos')
       .createSignedUploadUrl(path, 120); // 2 minutes
 
     if (error) {
@@ -141,7 +141,7 @@ serve(async (req) => {
     console.log('issue-fortune-upload-ticket: Success - URL created');
 
     return new Response(JSON.stringify({
-      bucket: 'fortune-photos',
+      bucket: 'photos',
       path: path,
       url: data.signedUrl,
       method: 'POST',

@@ -36,7 +36,7 @@ export const getFortuneMedia = async (fortuneId: string): Promise<FortuneMedia |
   }
 };
 
-export const createSignedUrl = async (path: string, bucket: string = 'fortune-photos'): Promise<string | null> => {
+export const createSignedUrl = async (path: string, bucket: string = 'photos'): Promise<string | null> => {
   try {
     const { data, error } = await supabase.storage
       .from(bucket)
@@ -66,8 +66,8 @@ export const getCachedSignedUrl = async (path: string, bucket?: string): Promise
     return cached.url;
   }
 
-  // Create new signed URL - use bucket from media or default to fortune-photos
-  const signedUrl = await createSignedUrl(path, bucket || 'fortune-photos');
+  // Create new signed URL - use bucket from media or default to photos
+  const signedUrl = await createSignedUrl(path, bucket || 'photos');
   if (signedUrl) {
     signedUrlCache.set(path, {
       url: signedUrl,
