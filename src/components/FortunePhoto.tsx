@@ -14,9 +14,9 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
   useEffect(() => {
     const loadPhoto = async () => {
       try {
-        const media = await getFortuneMedia(fortuneId);
+      const media = await getFortuneMedia(fortuneId);
         if (media?.path) {
-          const signedUrl = await getCachedSignedUrl(media.path);
+          const signedUrl = await getCachedSignedUrl(media.path, 'fortune-photos');
           setPhotoUrl(signedUrl);
         }
       } catch (err) {

@@ -10,6 +10,7 @@ export interface FortuneMedia {
   height?: number;
   size_bytes?: number;
   created_at: string;
+  updated_at: string;
 }
 
 const SIGNED_URL_EXPIRY = 300; // 5 minutes
@@ -20,7 +21,7 @@ export const getFortuneMedia = async (fortuneId: string): Promise<FortuneMedia |
       .from('fortune_media')
       .select('*')
       .eq('fortune_id', fortuneId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching fortune media:', error);
@@ -34,10 +35,10 @@ export const getFortuneMedia = async (fortuneId: string): Promise<FortuneMedia |
   }
 };
 
-export const createSignedUrl = async (path: string): Promise<string | null> => {
+export const createSignedUrl = async (path: string, bucket: string = 'fortune-photos'): Promise<string | null> => {
   try {
     const { data, error } = await supabase.storage
-      .from('photos')
+      .from(bucket)
       .createSignedUrl(path, SIGNED_URL_EXPIRY);
 
     if (error) {
@@ -55,7 +56,7 @@ export const createSignedUrl = async (path: string): Promise<string | null> => {
 // Simple cache for signed URLs with TTL
 const signedUrlCache = new Map<string, { url: string; expiry: number }>();
 
-export const getCachedSignedUrl = async (path: string): Promise<string | null> => {
+export const getCachedSignedUrl = async (path: string, bucket: string = 'fortune-photos'): Promise<string | null> => {
   const now = Date.now();
   const cached = signedUrlCache.get(path);
   
@@ -65,7 +66,7 @@ export const getCachedSignedUrl = async (path: string): Promise<string | null> =
   }
 
   // Create new signed URL
-  const signedUrl = await createSignedUrl(path);
+  const signedUrl = await createSignedUrl(path, bucket);
   if (signedUrl) {
     signedUrlCache.set(path, {
       url: signedUrl,
@@ -77,11 +78,11 @@ export const getCachedSignedUrl = async (path: string): Promise<string | null> =
 };
 
 // Function to save fortune media record
-export const saveFortuneMedia = async (mediaData: Omit<FortuneMedia, 'id' | 'created_at'>): Promise<FortuneMedia | null> => {
+export const saveFortuneMedia = async (mediaData: Omit<FortuneMedia, 'id' | 'created_at' | 'updated_at'>): Promise<FortuneMedia | null> => {
   try {
     const { data, error } = await supabase
       .from('fortune_media')
-      .insert(mediaData)
+      .upsert(mediaData)
       .select()
       .single();
 
