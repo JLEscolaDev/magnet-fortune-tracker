@@ -102,7 +102,7 @@ serve(async (req) => {
       .from('profiles')
       .select('trial_ends_at')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     const isInTrial = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
     const hasActiveSubscription = !!subscription;
@@ -130,6 +130,7 @@ serve(async (req) => {
       .from('fortune_media')
       .upsert({
         fortune_id,
+        user_id: user.id,
         bucket,
         path,
         width: width || null,

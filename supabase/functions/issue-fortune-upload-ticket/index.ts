@@ -125,16 +125,14 @@ serve(async (req) => {
     // Create service role client for storage operations
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Create signed upload URL
-    const { data: uploadData, error: uploadError } = await serviceClient.storage
+    // Create signed upload URL using SDK method
+    const { data, error } = await serviceClient.storage
       .from('fortune-photos')
-      .createSignedUploadUrl(path, {
-        upsert: true
-      });
+      .createSignedUploadUrl(path, 120); // 2 minutes
 
-    if (uploadError) {
-      console.error('issue-fortune-upload-ticket: Upload URL creation failed:', uploadError);
-      return new Response(JSON.stringify({ error: 'Failed to create upload URL' }), {
+    if (error) {
+      console.error('issue-fortune-upload-ticket: Upload URL creation failed:', error);
+      return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -145,9 +143,10 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       bucket: 'fortune-photos',
       path: path,
-      url: uploadData.signedUrl,
+      url: data.signedUrl,
+      method: 'POST',
       headers: {
-        'Content-Type': mime
+        'x-upsert': 'true'
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
