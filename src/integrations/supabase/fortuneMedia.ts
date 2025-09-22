@@ -4,6 +4,7 @@ export interface FortuneMedia {
   id: string;
   fortune_id: string;
   user_id: string;
+  bucket: string;
   path: string;
   mime_type: string;
   width?: number;
@@ -56,7 +57,7 @@ export const createSignedUrl = async (path: string, bucket: string = 'fortune-ph
 // Simple cache for signed URLs with TTL
 const signedUrlCache = new Map<string, { url: string; expiry: number }>();
 
-export const getCachedSignedUrl = async (path: string, bucket: string = 'fortune-photos'): Promise<string | null> => {
+export const getCachedSignedUrl = async (path: string, bucket?: string): Promise<string | null> => {
   const now = Date.now();
   const cached = signedUrlCache.get(path);
   
@@ -65,8 +66,8 @@ export const getCachedSignedUrl = async (path: string, bucket: string = 'fortune
     return cached.url;
   }
 
-  // Create new signed URL
-  const signedUrl = await createSignedUrl(path, bucket);
+  // Create new signed URL - use bucket from media or default to fortune-photos
+  const signedUrl = await createSignedUrl(path, bucket || 'fortune-photos');
   if (signedUrl) {
     signedUrlCache.set(path, {
       url: signedUrl,

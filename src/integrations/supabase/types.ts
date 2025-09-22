@@ -136,6 +136,7 @@ export type Database = {
       }
       fortune_media: {
         Row: {
+          bucket: string
           created_at: string
           fortune_id: string
           height: number | null
@@ -148,6 +149,7 @@ export type Database = {
           width: number | null
         }
         Insert: {
+          bucket?: string
           created_at?: string
           fortune_id: string
           height?: number | null
@@ -160,6 +162,7 @@ export type Database = {
           width?: number | null
         }
         Update: {
+          bucket?: string
           created_at?: string
           fortune_id?: string
           height?: number | null

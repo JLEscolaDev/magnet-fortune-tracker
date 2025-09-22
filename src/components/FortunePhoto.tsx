@@ -16,7 +16,7 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
       try {
       const media = await getFortuneMedia(fortuneId);
         if (media?.path) {
-          const signedUrl = await getCachedSignedUrl(media.path, 'fortune-photos');
+          const signedUrl = await getCachedSignedUrl(media.path, media.bucket);
           setPhotoUrl(signedUrl);
         }
       } catch (err) {
