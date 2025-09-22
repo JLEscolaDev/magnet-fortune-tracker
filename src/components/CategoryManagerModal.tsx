@@ -18,7 +18,7 @@ export const CategoryManagerModal = ({ isOpen, onClose }: CategoryManagerModalPr
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden luxury-card">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto luxury-card">
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h2 className="text-xl font-heading font-semibold flex items-center gap-2">
             <Tag size={24} className="text-gold" />
