@@ -22,6 +22,7 @@ export const LifestyleTrackerTab = () => {
   const [todayEntry, setTodayEntry] = useState<LifestyleEntry | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [autoPopupShown, setAutoPopupShown] = useState(false); // Prevent multiple auto-popups
   const { user } = useAuth();
 
   useEffect(() => {
@@ -83,14 +84,26 @@ export const LifestyleTrackerTab = () => {
   };
 
   const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-  const shouldShowModal = !todayEntry && isToday;
+  const hasTodayEntry = !!todayEntry;
 
-  // Auto-open modal if today has no entry
+  // Auto-open modal ONLY if:
+  // 1. We're viewing today
+  // 2. Today has no entry 
+  // 3. Data is loaded (not loading)
+  // 4. Modal is not already open
+  // 5. Auto-popup hasn't been shown yet in this session
   useEffect(() => {
-    if (!loading && shouldShowModal && !showModal) {
+    if (isToday && !hasTodayEntry && !loading && !showModal && !autoPopupShown) {
+      console.log('[LifestyleTracker] Auto-opening modal for today - no entry found');
       setShowModal(true);
+      setAutoPopupShown(true);
     }
-  }, [loading, shouldShowModal, showModal]);
+    
+    // Reset auto-popup flag if we have today's entry now
+    if (hasTodayEntry && autoPopupShown) {
+      setAutoPopupShown(false);
+    }
+  }, [isToday, hasTodayEntry, loading, showModal, autoPopupShown]);
 
   return (
     <div className="space-y-4 p-6 pb-24 md:pb-6">
@@ -134,7 +147,7 @@ export const LifestyleTrackerTab = () => {
       ) : (
         <>
           {/* Show prompt to track today if no entry exists for today */}
-          {!todayEntry && isToday && (
+          {!hasTodayEntry && isToday && (
             <div className="text-center py-4 bg-muted/30 rounded-lg border border-dashed border-muted-foreground/30">
               <p className="text-sm text-muted-foreground mb-3">
                 How are you feeling today? Track your daily well-being.
@@ -162,6 +175,7 @@ export const LifestyleTrackerTab = () => {
       {/* Modal for adding/editing entries */}
       <KnowMyselfModal 
         open={showModal} 
+        selectedDate={selectedDate}
         onOpenChange={(open) => {
           setShowModal(open);
           if (!open) {
