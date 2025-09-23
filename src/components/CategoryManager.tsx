@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/auth/AuthProvider';
 
 interface CustomCategory {
   id: string;
@@ -26,6 +27,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
   const [newCategoryColor, setNewCategoryColor] = useState('#6B8F71');
   const [editingId, setEditingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const defaultCategories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Other'];
 
@@ -35,7 +37,6 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
 
   const fetchCategories = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data } = await supabase
@@ -62,7 +63,6 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
     if (!newCategoryName.trim()) return;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { error } = await supabase

@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { KnowMyselfWizard } from './knowmyself/KnowMyselfWizard';
 import { LifestyleCalendar } from './LifestyleCalendar';
 import { KnowMyselfModal } from './modals/KnowMyselfModal';
+import { useAuth } from '@/auth/AuthProvider';
 
 interface LifestyleEntry {
   id: string;
@@ -21,6 +22,7 @@ export const LifestyleTrackerTab = () => {
   const [todayEntry, setTodayEntry] = useState<LifestyleEntry | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     loadEntries();
@@ -35,7 +37,6 @@ export const LifestyleTrackerTab = () => {
 
   const loadEntries = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase

@@ -15,8 +15,9 @@ import { SUBSCRIPTION_LIMITS } from '@/config/limits';
 import { addFortune, updateFortune } from '@/lib/fortunes';
 import confetti from 'canvas-confetti';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { getAccessToken } from '@/integrations/supabase/auth';
-import { getFortuneMedia, getCachedSignedUrl, type FortuneMedia } from '@/integrations/supabase/fortuneMedia';
+import { useAuth } from '@/auth/AuthProvider';
+import { getFortuneMedia, type FortuneMedia } from '@/integrations/supabase/fortuneMedia';
+import { useSignedUrl } from '@/hooks/useSignedUrl';
 import type { NativeUploaderOptions, NativeUploaderResult } from '@/types/native';
 
 interface FortuneModalProps {
@@ -113,6 +114,7 @@ export const FortuneModal = ({
   const [fortunePhoto, setFortunePhoto] = useState<string | null>(null);
   const [persistedFortuneId, setPersistedFortuneId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user, accessToken } = useAuth();
   const freePlanStatus = useFreePlanLimits();
   const { activeSubscription, fortunesCountToday, addError } = useAppState();
   const { isHighTier } = useSubscription();
@@ -162,7 +164,6 @@ export const FortuneModal = ({
 
   const loadBigWinsCount = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const now = new Date();
@@ -186,7 +187,6 @@ export const FortuneModal = ({
 
   const loadCategories = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data } = await supabase
@@ -231,11 +231,6 @@ export const FortuneModal = ({
     console.log('[PHOTO] Set photoAttaching to true');
     
     try {
-      // Get access token and user
-      console.log('[PHOTO] Getting access token...');
-      const accessToken = await getAccessToken();
-      const { data: { user } } = await supabase.auth.getUser();
-      
       console.log('[PHOTO] Auth check:', { hasToken: !!accessToken, hasUser: !!user });
       
       if (!accessToken || !user) {
@@ -393,8 +388,6 @@ export const FortuneModal = ({
       }
 
       setIsLoading(true);
-
-      const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         toast({
@@ -588,7 +581,7 @@ export const FortuneModal = ({
             <label className="block text-sm font-medium mb-2">
               Category
             </label>
-            <Select value={category || undefined} onValueChange={(value) => setCategory(value as FortuneCategory)}>
+            <Select value={category} onValueChange={(value) => setCategory(value as FortuneCategory)}>
               <SelectTrigger className="focus:border-gold focus:ring-gold/20">
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
