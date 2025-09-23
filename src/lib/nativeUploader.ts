@@ -78,30 +78,8 @@ const createMockUploader = () => {
           img.src = URL.createObjectURL(file);
           await new Promise((resolve) => { img.onload = resolve; });
 
-          // Save fortune media record
-          const mediaRecord = {
-            fortune_id: options.fortuneId,
-            user_id: options.userId,
-            bucket: 'photos',
-            path: data.path,
-            mime_type: file.type,
-            width: img.width,
-            height: img.height,
-            size_bytes: file.size
-          };
-
-          console.log('[MOCK UPLOADER] Saving media record:', mediaRecord);
-
-          const { error: mediaError } = await supabase
-            .from('fortune_media')
-            .upsert(mediaRecord);
-
-          if (mediaError) {
-            console.error('[MOCK UPLOADER] Media record error:', mediaError);
-            // Don't throw here - file is uploaded, just record saving failed
-          } else {
-            console.log('[MOCK UPLOADER] Media record saved successfully');
-          }
+          // Don't save fortune_media record here - it will be saved when fortune is created
+          // Store the upload metadata for later use
 
           resolve({
             bucket: 'photos',

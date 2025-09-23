@@ -342,7 +342,7 @@ export const FortuneModal = ({
         setFortunePhoto('pending');
         // Store pending upload info for later submission
         setPendingPhotoUpload({
-          fortuneId: targetFortuneId,
+          fortuneId: '', // Will be filled when fortune is created
           path: result.path || '',
           bucket: result.bucket || 'photos'
         });
@@ -350,9 +350,13 @@ export const FortuneModal = ({
         // Start polling for signed URL
         pollForPhotoCompletion(result.path || '', result.bucket || 'photos');
       } else {
-        // Immediate result with signed URL
+        // Immediate result with signed URL - store the upload info for later
         setFortunePhoto(result.signedUrl);
-        setPendingPhotoUpload(null);
+        setPendingPhotoUpload({
+          fortuneId: '', // Will be filled when fortune is created
+          path: result.path || '',
+          bucket: result.bucket || 'photos'
+        });
       }
 
       toast({
@@ -482,26 +486,45 @@ export const FortuneModal = ({
 
         onFortuneUpdated?.();
       } else {
-        // Create new fortune (check if already persisted for photo)
-        let result;
-        if (persistedFortuneId) {
-          // Fortune already exists from photo attachment, just update it
-          const updateData: any = {
-            text: sanitizedText,
-            category: validatedCategory,
-            impact_level: impactLevel
-          };
+        // Create new fortune 
+        let result = await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
+
+        // If there's a photo attached, save the media record with the real fortune ID
+        if (fortunePhoto && fortunePhoto !== 'pending' && result.fortuneId) {
+          console.log('[FORTUNE] Saving photo for new fortune:', result.fortuneId);
           
-          if (getCurrentCategory().hasNumericValue) {
-            updateData.fortune_value = validatedValue;
-          } else {
-            updateData.fortune_value = null;
+          // Extract storage path from signed URL or use stored photo data
+          if (pendingPhotoUpload) {
+            const mediaData = {
+              fortune_id: result.fortuneId,
+              user_id: user!.id,
+              bucket: pendingPhotoUpload.bucket,
+              path: pendingPhotoUpload.path,
+              mime_type: 'image/jpeg', // Default - could be improved
+              width: null,
+              height: null,
+              size_bytes: null
+            };
+            
+            try {
+              const { error: mediaError } = await supabase
+                .from('fortune_media')
+                .upsert(mediaData);
+                
+              if (mediaError) {
+                console.error('[FORTUNE] Error saving media record:', mediaError);
+                toast({
+                  title: "Photo saved partially",
+                  description: "Fortune created but photo link may be lost. Please re-attach if needed.",
+                  variant: "destructive",
+                });
+              } else {
+                console.log('[FORTUNE] Media record saved successfully');
+              }
+            } catch (error) {
+              console.error('[FORTUNE] Media save error:', error);
+            }
           }
-          
-          await updateFortune(persistedFortuneId, updateData);
-          result = { fortuneId: persistedFortuneId };
-        } else {
-          result = await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
         }
 
         // Celebration for first action of day
