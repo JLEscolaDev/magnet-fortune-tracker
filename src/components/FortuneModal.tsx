@@ -153,12 +153,17 @@ export const FortuneModal = ({
       setCategory(fortune.category as FortuneCategory || '');
       setFortuneValue(fortune.fortune_value ? String(fortune.fortune_value) : '');
       setImpactLevel(fortune.impact_level || 'small_step');
+      
+      // Load existing photo if available
+      loadFortunePhoto(fortune.id);
     } else if (!isEditMode && isOpen) {
       // Reset form for create mode
       setText('');
       setCategory('Wealth'); // Default to Wealth category
       setFortuneValue('');
       setImpactLevel('small_step');
+      setPersistedFortuneId(null);
+      setFortunePhoto(null);
     }
   }, [isEditMode, fortune, isOpen, categories]);
 
@@ -209,6 +214,22 @@ export const FortuneModal = ({
 
   const getCurrentCategory = () => {
     return categories.find(cat => cat.name === category) || defaultCategories[0];
+  };
+
+  const loadFortunePhoto = async (fortuneId: string) => {
+    try {
+      const media = await getFortuneMedia(fortuneId);
+      if (media) {
+        // Import the hook functions to get signed URL
+        const { getCachedSignedUrl } = await import('@/integrations/supabase/fortuneMedia');
+        const signedUrl = await getCachedSignedUrl(media.path, media.bucket);
+        if (signedUrl) {
+          setFortunePhoto(signedUrl);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading fortune photo:', error);
+    }
   };
 
   const handleAttachPhoto = async () => {
@@ -426,8 +447,27 @@ export const FortuneModal = ({
 
         onFortuneUpdated?.();
       } else {
-        // Create new fortune
-        const result = await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
+        // Create new fortune (check if already persisted for photo)
+        let result;
+        if (persistedFortuneId) {
+          // Fortune already exists from photo attachment, just update it
+          const updateData: any = {
+            text: sanitizedText,
+            category: validatedCategory,
+            impact_level: impactLevel
+          };
+          
+          if (getCurrentCategory().hasNumericValue) {
+            updateData.fortune_value = validatedValue;
+          } else {
+            updateData.fortune_value = null;
+          }
+          
+          await updateFortune(persistedFortuneId, updateData);
+          result = { fortuneId: persistedFortuneId };
+        } else {
+          result = await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
+        }
 
         // Celebration for first action of day
         if (result.streakInfo?.firstOfDay) {
@@ -487,6 +527,8 @@ export const FortuneModal = ({
       setCategory('');
       setFortuneValue('');
       setImpactLevel('small_step');
+      setPersistedFortuneId(null);
+      setFortunePhoto(null);
       onClose();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
