@@ -22,7 +22,7 @@ export const LifestyleTrackerTab = () => {
   const [todayEntry, setTodayEntry] = useState<LifestyleEntry | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [autoPopupShown, setAutoPopupShown] = useState(false); // Prevent multiple auto-popups
+  
   const { user } = useAuth();
 
   useEffect(() => {
@@ -86,24 +86,6 @@ export const LifestyleTrackerTab = () => {
   const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
   const hasTodayEntry = !!todayEntry;
 
-  // Auto-open modal ONLY if:
-  // 1. We're viewing today
-  // 2. Today has no entry 
-  // 3. Data is loaded (not loading)
-  // 4. Modal is not already open
-  // 5. Auto-popup hasn't been shown yet in this session
-  useEffect(() => {
-    if (isToday && !hasTodayEntry && !loading && !showModal && !autoPopupShown) {
-      console.log('[LifestyleTracker] Auto-opening modal for today - no entry found');
-      setShowModal(true);
-      setAutoPopupShown(true);
-    }
-    
-    // Reset auto-popup flag if we have today's entry now
-    if (hasTodayEntry && autoPopupShown) {
-      setAutoPopupShown(false);
-    }
-  }, [isToday, hasTodayEntry, loading, showModal, autoPopupShown]);
 
   return (
     <div className="space-y-4 p-6 pb-24 md:pb-6">
