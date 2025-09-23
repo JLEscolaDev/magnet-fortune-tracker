@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { getFortuneCounts } from '@/lib/fortunes';
@@ -33,6 +33,7 @@ export const useAppBootstrap = (user: User | null) => {
     retryCount: 0,
     bootstrapFailed: false,
   });
+  const bootstrapInitialized = useRef(false);
 
   const addError = useCallback((source: string, message: string) => {
     logWithPrefix(`ERROR from ${source}`, { message });
@@ -293,8 +294,16 @@ export const useAppBootstrap = (user: User | null) => {
     const isValidUser = Boolean(user?.id);
     if (!isValidUser) {
       logWithPrefix('User not yet available or invalid, delaying bootstrap until user is set');
+      bootstrapInitialized.current = false;
       return;
     }
+
+    // Guard against multiple bootstrap calls for the same user
+    if (bootstrapInitialized.current) {
+      logWithPrefix('Bootstrap already initialized for this user, skipping');
+      return;
+    }
+    bootstrapInitialized.current = true;
 
     logWithPrefix('User available, triggering bootstrap', { hasUser: !!user, userId: user?.id });
     bootstrap();

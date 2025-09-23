@@ -17,6 +17,7 @@ export interface NativeUploaderResult {
   signedUrl: string;
   replaced: boolean;
   cancelled?: boolean;
+  pending?: boolean;
 }
 
 export interface NativeUploader {

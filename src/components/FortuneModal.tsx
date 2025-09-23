@@ -113,6 +113,11 @@ export const FortuneModal = ({
   const [photoAttaching, setPhotoAttaching] = useState(false);
   const [fortunePhoto, setFortunePhoto] = useState<string | null>(null);
   const [persistedFortuneId, setPersistedFortuneId] = useState<string | null>(null);
+  const [pendingPhotoUpload, setPendingPhotoUpload] = useState<{
+    fortuneId: string;
+    path: string;
+    bucket: string;
+  } | null>(null);
   const { toast } = useToast();
   const { user, accessToken } = useAuth();
   const freePlanStatus = useFreePlanLimits();
@@ -232,6 +237,39 @@ export const FortuneModal = ({
     }
   };
 
+  const pollForPhotoCompletion = async (path: string, bucket: string, maxAttempts: number = 20) => {
+    let attempts = 0;
+    const pollInterval = setInterval(async () => {
+      attempts++;
+      console.log(`[PHOTO] Polling attempt ${attempts}/${maxAttempts} for path: ${path}`);
+      
+      try {
+        const { getCachedSignedUrl } = await import('@/integrations/supabase/fortuneMedia');
+        const signedUrl = await getCachedSignedUrl(path, bucket);
+        
+        if (signedUrl) {
+          console.log('[PHOTO] Signed URL available:', signedUrl);
+          setFortunePhoto(signedUrl);
+          clearInterval(pollInterval);
+          return;
+        }
+      } catch (error) {
+        console.error('[PHOTO] Error polling for photo:', error);
+      }
+      
+      if (attempts >= maxAttempts) {
+        console.log('[PHOTO] Max polling attempts reached');
+        clearInterval(pollInterval);
+        setFortunePhoto(null);
+        toast({
+          title: "Photo processing failed",
+          description: "The photo upload took too long to process. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }, 2000); // Poll every 2 seconds
+  };
+
   const handleAttachPhoto = async () => {
     console.log('[PHOTO] Starting photo attach process...');
     
@@ -258,10 +296,8 @@ export const FortuneModal = ({
         throw new Error('Authentication required');
       }
 
-      let targetFortuneId = persistedFortuneId;
-
-      // For create flow: persist minimal fortune first if not already done
-      if (!isEditMode && !targetFortuneId) {
+      // For create flow: require form data but don't save yet
+      if (!isEditMode) {
         console.log('[PHOTO] Create mode - checking form data...');
         if (!text.trim() || !category) {
           console.log('[PHOTO] Missing required form data:', { hasText: !!text.trim(), hasCategory: !!category });
@@ -273,31 +309,14 @@ export const FortuneModal = ({
           });
           return;
         }
-
-        console.log('[PHOTO] Creating minimal fortune...');
-        // Create minimal fortune
-        const fortuneId = await addFortune(
-          text,
-          category,
-          fortuneValue ? Number(fortuneValue) : null,
-          selectedDate,
-          impactLevel as any
-        );
-        
-        if (fortuneId.fortuneId) {
-          targetFortuneId = fortuneId.fortuneId;
-          setPersistedFortuneId(targetFortuneId);
-          console.log('[PHOTO] Created fortune with ID:', targetFortuneId);
-        } else {
-          throw new Error('Failed to create fortune');
-        }
-      } else if (isEditMode && fortune?.id) {
-        targetFortuneId = fortune.id;
-        console.log('[PHOTO] Edit mode - using fortune ID:', targetFortuneId);
       }
 
+      let targetFortuneId = persistedFortuneId || fortune?.id;
+
       if (!targetFortuneId) {
-        throw new Error('No fortune ID available');
+        // Generate temporary ID for create mode
+        targetFortuneId = `temp-${Date.now()}`;
+        console.log('[PHOTO] Using temporary ID for create mode:', targetFortuneId);
       }
 
       // Call native uploader
@@ -317,12 +336,28 @@ export const FortuneModal = ({
         return; // User cancelled, no action needed
       }
 
-      // Update photo preview
-      setFortunePhoto(result.signedUrl);
+      // Handle pending photo (needs polling) or immediate result
+      if (result.pending) {
+        console.log('[PHOTO] Upload is pending, will poll for completion');
+        setFortunePhoto('pending');
+        // Store pending upload info for later submission
+        setPendingPhotoUpload({
+          fortuneId: targetFortuneId,
+          path: result.path || '',
+          bucket: result.bucket || 'photos'
+        });
+        
+        // Start polling for signed URL
+        pollForPhotoCompletion(result.path || '', result.bucket || 'photos');
+      } else {
+        // Immediate result with signed URL
+        setFortunePhoto(result.signedUrl);
+        setPendingPhotoUpload(null);
+      }
 
       toast({
-        title: result.replaced ? "Photo updated" : "Photo attached",
-        description: "Your photo has been successfully uploaded.",
+        title: result.replaced ? "Photo updated" : "Photo attached", 
+        description: result.pending ? "Photo is processing..." : "Your photo has been successfully uploaded.",
       });
 
     } catch (error: any) {
@@ -529,6 +564,7 @@ export const FortuneModal = ({
       setImpactLevel('small_step');
       setPersistedFortuneId(null);
       setFortunePhoto(null);
+      setPendingPhotoUpload(null);
       onClose();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
