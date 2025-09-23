@@ -709,8 +709,8 @@ export const FortuneModal = ({
             )}
           </div>
 
-          {/* Photo Attachment Section - Mobile Only */}
-          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && isHighTier && (
+          {/* Photo Attachment Section - Only for existing fortunes (edit mode) */}
+          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && isHighTier && isEditMode && (
             <div>
               <label className="block text-sm font-medium mb-2 flex items-center gap-2">
                 <Camera size={16} className="text-primary" />
@@ -748,6 +748,13 @@ export const FortuneModal = ({
                   </span>
                 </Button>
               )}
+            </div>
+          )}
+
+          {/* Note for new fortunes about photo upload */}
+          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && isHighTier && !isEditMode && (
+            <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg border border-muted/50">
+              💡 <strong>Tip:</strong> Save this fortune first, then edit it to add photos. Photo uploads are only available for existing fortunes.
             </div>
           )}
 
