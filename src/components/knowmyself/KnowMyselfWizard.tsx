@@ -71,6 +71,27 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
     notes: ''
   });
 
+  // Reset data when selectedDate changes
+  useEffect(() => {
+    setData(prevData => ({
+      ...prevData,
+      date: format(selectedDate, 'yyyy-MM-dd'),
+      mood: null,
+      dream_quality: 3,
+      sexual_appetite: 3,
+      room_temperature: 3,
+      moods: [],
+      mood_causes: [],
+      pain_types: [],
+      exercise_types: [],
+      exercise_duration: 0,
+      alcohol_consumption: 0,
+      meals: '',
+      dream_description: '',
+      notes: ''
+    }));
+  }, [selectedDate]);
+
   useEffect(() => {
     if (user) {
       loadExistingData();
