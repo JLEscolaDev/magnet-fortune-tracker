@@ -89,36 +89,12 @@ export const LifestyleTrackerTab = () => {
 
   return (
     <div className="space-y-4 p-6 pb-24 md:pb-6">
-      {/* Date Navigation */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-heading font-medium flex items-center gap-2">
           <Calendar className="text-gold" size={24} />
           Know Myself
         </h3>
-        
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigateDate('prev')}
-            className="h-8 w-8"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          
-          <span className="text-sm font-medium min-w-[120px] text-center">
-            {format(selectedDate, 'MMM d, yyyy')}
-          </span>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigateDate('next')}
-            className="h-8 w-8"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
       </div>
 
       {/* Loading State */}
