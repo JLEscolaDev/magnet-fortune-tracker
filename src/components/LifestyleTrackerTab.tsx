@@ -25,8 +25,20 @@ export const LifestyleTrackerTab = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    loadEntries();
-  }, []);
+    if (user) {
+      loadEntries();
+    }
+  }, [user]);
+
+  // Listen for lifestyle data updates from other components
+  useEffect(() => {
+    const handleLifestyleUpdate = () => {
+      loadEntries();
+    };
+
+    window.addEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
+    return () => window.removeEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
+  }, [user]);
 
   useEffect(() => {
     // Check if today has an entry

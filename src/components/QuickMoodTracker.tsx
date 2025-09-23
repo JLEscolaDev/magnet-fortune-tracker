@@ -3,6 +3,7 @@ import { ThumbsUp, ThumbsDown, Undo } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/auth/AuthProvider';
 import confetti from 'canvas-confetti';
 import { format } from 'date-fns';
 
@@ -15,15 +16,27 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Load today's mood on component mount
   useEffect(() => {
-    loadTodayMood();
-  }, []);
+    if (user) {
+      loadTodayMood();
+    }
+  }, [user]);
+
+  // Listen for lifestyle data updates from other components
+  useEffect(() => {
+    const handleLifestyleUpdate = () => {
+      loadTodayMood();
+    };
+
+    window.addEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
+    return () => window.removeEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
+  }, [user]);
 
   const loadTodayMood = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const today = format(new Date(), 'yyyy-MM-dd');
@@ -39,8 +52,18 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
         return;
       }
 
-      if (data?.mood === 'good' || data?.mood === 'bad') {
-        setSelectedMood(data.mood);
+      // Map detailed moods to quick buttons
+      // good = good, very_good
+      // bad = bad, very_bad 
+      // neutral and others = null (no button selected)
+      if (data?.mood) {
+        if (data.mood === 'good' || data.mood === 'very_good') {
+          setSelectedMood('good');
+        } else if (data.mood === 'bad' || data.mood === 'very_bad') {
+          setSelectedMood('bad');
+        } else {
+          setSelectedMood(null); // neutral or other detailed entries
+        }
       }
     } catch (error) {
       console.error('Error in loadTodayMood:', error);
@@ -65,6 +88,9 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
       });
 
       if (error) throw error;
+
+      // Emit event to sync with other components
+      window.dispatchEvent(new CustomEvent('lifestyleDataUpdated'));
 
       // Analytics
       if (typeof window !== 'undefined' && (window as any).gtag) {
@@ -151,7 +177,6 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
     setSelectedMood(previousMood);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const today = format(new Date(), 'yyyy-MM-dd');
@@ -177,6 +202,9 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
 
         if (error) throw error;
       }
+
+      // Emit event to sync with other components
+      window.dispatchEvent(new CustomEvent('lifestyleDataUpdated'));
 
       toast({
         title: 'Mood undone',

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/auth/AuthProvider';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
@@ -48,6 +49,7 @@ interface KnowMyselfWizardProps {
 
 export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -70,8 +72,10 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
   });
 
   useEffect(() => {
-    loadExistingData();
-  }, [selectedDate]);
+    if (user) {
+      loadExistingData();
+    }
+  }, [selectedDate, user]);
 
   const loadExistingData = async () => {
     setLoading(true);
@@ -207,7 +211,6 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       // Map mood number back to string for database
@@ -266,6 +269,9 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         }
         throw error;
       }
+
+      // Emit event to sync with other components
+      window.dispatchEvent(new CustomEvent('lifestyleDataUpdated'));
 
       // Track daily action for streak
       try {
