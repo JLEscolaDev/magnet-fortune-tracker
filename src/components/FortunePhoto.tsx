@@ -35,14 +35,21 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
     loadMedia();
   }, [fortuneId]);
 
-  if (loading || (!signedUrl && media)) {
+  if (loading) {
     return (
       <div className={`bg-muted animate-pulse rounded ${className}`} style={{ aspectRatio: '16/9' }} />
     );
   }
 
-  if (error || !signedUrl || !media) {
+  if (error || !media) {
     return null; // Don't render anything if no photo or error
+  }
+
+  // If we have media but no signed URL, show loading
+  if (!signedUrl) {
+    return (
+      <div className={`bg-muted animate-pulse rounded ${className}`} style={{ aspectRatio: '16/9' }} />
+    );
   }
 
   return (
