@@ -32,7 +32,15 @@ const createMockUploader = () => {
           const fileName = `${options.fortuneId}-${Date.now()}.${file.name.split('.').pop()}`;
           const filePath = `${options.userId}/${fileName}`;
 
-          console.log('[MOCK UPLOADER] Uploading file:', { fileName, filePath, fileSize: file.size });
+          console.log('[MOCK UPLOADER] Uploading file:', { fileName, filePath, fileSize: file.size, fileType: file.type });
+
+          // First check if user is authenticated
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            throw new Error('User not authenticated');
+          }
+
+          console.log('[MOCK UPLOADER] User authenticated, proceeding with upload');
 
           const { data, error } = await supabase.storage
             .from('photos')
@@ -47,6 +55,13 @@ const createMockUploader = () => {
           }
 
           console.log('[MOCK UPLOADER] Upload successful:', data);
+
+          // Double check the file exists by getting public URL
+          const { data: fileInfo } = supabase.storage
+            .from('photos')
+            .getPublicUrl(data.path);
+
+          console.log('[MOCK UPLOADER] File public URL:', fileInfo.publicUrl);
 
           // Verify the file was actually uploaded
           const { data: fileList, error: listError } = await supabase.storage
