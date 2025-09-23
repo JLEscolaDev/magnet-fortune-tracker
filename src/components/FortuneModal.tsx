@@ -295,7 +295,8 @@ export const FortuneModal = ({
       if (!accessToken || !user) {
         throw new Error('Authentication required');
       }
-
+      
+      let targetFortuneId: string;
       // For create flow: require form data but don't save yet
       if (!isEditMode) {
         console.log('[PHOTO] Create mode - checking form data...');
@@ -309,14 +310,13 @@ export const FortuneModal = ({
           });
           return;
         }
-      }
-
-      let targetFortuneId = persistedFortuneId || fortune?.id;
-
-      if (!targetFortuneId) {
-        // Generate temporary ID for create mode
+        
+        // Use temporary ID for mock uploader
         targetFortuneId = `temp-${Date.now()}`;
         console.log('[PHOTO] Using temporary ID for create mode:', targetFortuneId);
+      } else {
+        targetFortuneId = fortune?.id || '';
+        console.log('[PHOTO] Edit mode - using fortune ID:', targetFortuneId);
       }
 
       // Call native uploader

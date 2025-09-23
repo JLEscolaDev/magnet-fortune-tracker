@@ -29,24 +29,79 @@ const createMockUploader = () => {
 
         try {
           // Upload to Supabase
-          const fileName = `${options.fortuneId}_${Date.now()}.${file.name.split('.').pop()}`;
+          const fileName = `${options.fortuneId}-${Date.now()}.${file.name.split('.').pop()}`;
           const filePath = `${options.userId}/${fileName}`;
+
+          console.log('[MOCK UPLOADER] Uploading file:', { fileName, filePath, fileSize: file.size });
 
           const { data, error } = await supabase.storage
             .from('photos')
-            .upload(filePath, file);
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: true
+            });
 
-          if (error) throw error;
+          if (error) {
+            console.error('[MOCK UPLOADER] Upload error:', error);
+            throw error;
+          }
+
+          console.log('[MOCK UPLOADER] Upload successful:', data);
+
+          // Verify the file was actually uploaded
+          const { data: fileList, error: listError } = await supabase.storage
+            .from('photos')
+            .list(options.userId, {
+              search: fileName
+            });
+
+          if (listError) {
+            console.warn('[MOCK UPLOADER] Could not verify upload:', listError);
+          } else {
+            console.log('[MOCK UPLOADER] File verification:', fileList);
+          }
 
           // Get signed URL
-          const { data: signedUrlData } = await supabase.storage
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
             .from('photos')
             .createSignedUrl(data.path, 300); // 5 minutes
+
+          if (signedUrlError) {
+            console.error('[MOCK UPLOADER] Signed URL error:', signedUrlError);
+            throw signedUrlError;
+          }
+
+          console.log('[MOCK UPLOADER] Signed URL created successfully');
 
           // Get image dimensions
           const img = new Image();
           img.src = URL.createObjectURL(file);
           await new Promise((resolve) => { img.onload = resolve; });
+
+          // Save fortune media record
+          const mediaRecord = {
+            fortune_id: options.fortuneId,
+            user_id: options.userId,
+            bucket: 'photos',
+            path: data.path,
+            mime_type: file.type,
+            width: img.width,
+            height: img.height,
+            size_bytes: file.size
+          };
+
+          console.log('[MOCK UPLOADER] Saving media record:', mediaRecord);
+
+          const { error: mediaError } = await supabase
+            .from('fortune_media')
+            .upsert(mediaRecord);
+
+          if (mediaError) {
+            console.error('[MOCK UPLOADER] Media record error:', mediaError);
+            // Don't throw here - file is uploaded, just record saving failed
+          } else {
+            console.log('[MOCK UPLOADER] Media record saved successfully');
+          }
 
           resolve({
             bucket: 'photos',
@@ -59,7 +114,7 @@ const createMockUploader = () => {
             replaced: false
           });
         } catch (error) {
-          console.error('Mock upload error:', error);
+          console.error('[MOCK UPLOADER] Upload failed:', error);
           resolve({
             bucket: 'photos',
             path: '',
