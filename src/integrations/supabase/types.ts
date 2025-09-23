@@ -367,6 +367,7 @@ export type Database = {
           mood: string | null
           mood_set_at: string | null
           notes: string | null
+          room_temperature: number | null
           sexual_appetite: number | null
           sexual_performance: number | null
           sickness_level: number | null
@@ -386,6 +387,7 @@ export type Database = {
           mood?: string | null
           mood_set_at?: string | null
           notes?: string | null
+          room_temperature?: number | null
           sexual_appetite?: number | null
           sexual_performance?: number | null
           sickness_level?: number | null
@@ -405,6 +407,7 @@ export type Database = {
           mood?: string | null
           mood_set_at?: string | null
           notes?: string | null
+          room_temperature?: number | null
           sexual_appetite?: number | null
           sexual_performance?: number | null
           sickness_level?: number | null
