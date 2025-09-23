@@ -125,22 +125,44 @@ serve(async (req) => {
     const replaced = !!existingMedia;
     console.log('finalize-fortune-photo: Media replacement status:', replaced);
 
-    // Upsert into fortune_media table
-    const { error: upsertError } = await userClient
-      .from('fortune_media')
-      .upsert({
-        fortune_id,
-        user_id: user.id,
-        bucket,
-        path,
-        width: width || null,
-        height: height || null,
-        size_bytes: size_bytes || null,
-        mime_type: mime
-      });
+    // Upsert into fortune_media table - handle unique constraint properly
+    let mediaUpsertError = null;
+    
+    if (replaced) {
+      // Update existing record
+      const { error: updateError } = await userClient
+        .from('fortune_media')
+        .update({
+          bucket,
+          path,
+          width: width || null,
+          height: height || null,
+          size_bytes: size_bytes || null,
+          mime_type: mime
+        })
+        .eq('fortune_id', fortune_id);
+      
+      mediaUpsertError = updateError;
+    } else {
+      // Insert new record
+      const { error: insertError } = await userClient
+        .from('fortune_media')
+        .insert({
+          fortune_id,
+          user_id: user.id,
+          bucket,
+          path,
+          width: width || null,
+          height: height || null,
+          size_bytes: size_bytes || null,
+          mime_type: mime
+        });
+      
+      mediaUpsertError = insertError;
+    }
 
-    if (upsertError) {
-      console.error('finalize-fortune-photo: Failed to save media record:', upsertError);
+    if (mediaUpsertError) {
+      console.error('finalize-fortune-photo: Failed to save media record:', mediaUpsertError);
       return new Response(JSON.stringify({ error: 'Failed to save media record' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
