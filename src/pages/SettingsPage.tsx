@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useCheckoutSuccess } from '@/hooks/useCheckoutSuccess';
 import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, Upload, Camera, SignOut, Crown, Trophy, ChartLine } from '@phosphor-icons/react';
 import betaTesterBadge from '@/assets/beta-tester-badge.webp';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ interface SettingsPageProps {
 }
 
 export const SettingsPage = ({ onBack }: SettingsPageProps) => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  useCheckoutSuccess();
   const { theme, setTheme } = useTheme();
   const isDarkMode = theme === 'dark';
   const { soundEnabled, setSoundEnabled, animationsEnabled, setAnimationsEnabled, hapticsEnabled, setHapticsEnabled, currency, setCurrency } = useSettings();
@@ -181,19 +181,6 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
     }
   };
 
-
-  // Handle successful payment from Stripe
-  useEffect(() => {
-    const sessionId = searchParams.get('session_id');
-    if (sessionId) {
-      toast({
-        title: "Payment Successful! 🎉",
-        description: "Your subscription has been activated. Welcome to Pro!",
-      });
-      // Remove session_id from URL
-      setSearchParams({});
-    }
-  }, [searchParams, setSearchParams, toast]);
 
   // Settings tutorial: show on page mount if not completed
   const { isStepCompleted, showTutorial } = useTutorial();

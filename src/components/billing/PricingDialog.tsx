@@ -117,16 +117,17 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     setCheckoutLoading(prev => ({ ...prev, [planKey]: true }));
 
     try {
+      const returnTo = window.location.pathname + window.location.search;
       const body = plan.is_early_bird 
         ? { 
             priceId: plan.price_id,
             earlyBird: true, 
             tier: plan.tier, 
-            returnUrl: window.location.origin + '/billing/success' 
+            returnTo
           }
         : { 
             priceId: plan.price_id, 
-            returnUrl: window.location.origin + '/billing/success' 
+            returnTo
           };
 
       const { data, error } = await callEdge('create-checkout-session', body);

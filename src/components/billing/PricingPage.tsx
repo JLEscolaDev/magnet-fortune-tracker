@@ -7,13 +7,16 @@ import { Check, Crown, Sparkles, Lock, X, RefreshCw } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { callEdge } from '@/lib/edge-functions';
 import { toast } from 'sonner';
+import { useCheckoutSuccess } from '@/hooks/useCheckoutSuccess';
 
 interface PricingPageProps {
   onClose?: () => void;
 }
 
 export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
-  const { 
+  useCheckoutSuccess();
+  
+  const {
     user, 
     isActive, 
     subscription, 
@@ -58,9 +61,10 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
     setLoading(prev => ({ ...prev, [planKey]: true }));
 
     try {
+      const returnTo = window.location.pathname + window.location.search;
       const body = isEarlyBird 
-        ? { earlyBird: true, tier, returnUrl: window.location.origin + '/billing/success' }
-        : { priceId, returnUrl: window.location.origin + '/billing/success' };
+        ? { earlyBird: true, tier, returnTo }
+        : { priceId, returnTo };
 
       const { data, error } = await callEdge('create-checkout-session', body);
 

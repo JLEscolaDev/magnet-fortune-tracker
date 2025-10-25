@@ -39,9 +39,9 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const { plan, priceId, earlyBird, tier, returnUrl } = await req.json();
+    const { plan, priceId, earlyBird, tier, returnTo } = await req.json();
     if (!plan && !priceId && !earlyBird) throw new Error("Plan, priceId, or earlyBird is required");
-    logStep("Request payload", { plan, priceId, earlyBird, tier, returnUrl });
+    logStep("Request payload", { plan, priceId, earlyBird, tier, returnTo });
 
     // Get user profile and trial status
     const { data: userFeatures, error: featuresError } = await supabaseService
@@ -126,9 +126,24 @@ serve(async (req) => {
       finalTier = 'essential';
     }
 
+    // Sanitize returnTo to prevent open redirects
+    const sanitizeReturnTo = (path?: string): string => {
+      if (!path) return '/settings';
+      
+      // Remove any protocol/domain to ensure it's a relative path
+      const cleanPath = path.replace(/^https?:\/\/[^\/]+/, '');
+      
+      // Allow-list of safe prefixes
+      const allowedPrefixes = ['/settings', '/pricing', '/', '/dashboard', '/app', '/account'];
+      const isAllowed = allowedPrefixes.some(prefix => cleanPath.startsWith(prefix));
+      
+      return isAllowed ? cleanPath : '/settings';
+    };
+
     const origin = req.headers.get("origin") || "https://fortune-magnet.vercel.app";
-    const successUrl = returnUrl || `${origin}/settings?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${origin}/settings`;
+    const safeReturnTo = sanitizeReturnTo(returnTo);
+    const successUrl = `${origin}${safeReturnTo}${safeReturnTo.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${origin}${safeReturnTo}`;
 
     // Create session based on actual price type from Stripe
     let sessionConfig: any = {
