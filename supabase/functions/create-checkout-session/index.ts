@@ -126,9 +126,9 @@ serve(async (req) => {
       finalTier = 'essential';
     }
 
-    const origin = req.headers.get("origin") || "http://localhost:3000";
-    const successUrl = returnUrl || `${origin}/billing/success`;
-    const cancelUrl = `${origin}/billing/cancel`;
+    const origin = req.headers.get("origin") || "https://fortune-magnet.vercel.app";
+    const successUrl = returnUrl || `${origin}/settings?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${origin}/settings`;
 
     // Create session based on actual price type from Stripe
     let sessionConfig: any = {
