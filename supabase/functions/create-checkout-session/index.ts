@@ -137,6 +137,7 @@ serve(async (req) => {
       client_reference_id: user.id,
       success_url: successUrl,
       cancel_url: cancelUrl,
+      allow_promotion_codes: true,
       metadata: {
         user_id: user.id,
         tier: finalTier,
