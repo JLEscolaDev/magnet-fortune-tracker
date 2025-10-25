@@ -112,6 +112,10 @@ serve(async (req) => {
       }
     }
 
+    // Fetch price details from Stripe to determine if it's one-time or recurring
+    const priceObject = await stripe.prices.retrieve(finalPriceId);
+    logStep("Price details fetched", { priceId: finalPriceId, type: priceObject.type });
+
     // Determine tier
     let finalTier = tier;
     if (!finalTier && plan) {
@@ -126,7 +130,7 @@ serve(async (req) => {
     const successUrl = returnUrl || `${origin}/billing/success`;
     const cancelUrl = `${origin}/billing/cancel`;
 
-    // Create session based on plan type
+    // Create session based on actual price type from Stripe
     let sessionConfig: any = {
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
@@ -140,15 +144,17 @@ serve(async (req) => {
       },
     };
 
-    if (finalTier === 'lifetime') {
+    if (priceObject.type === 'one_time') {
       // One-time payment
+      logStep("Creating one-time payment session");
       sessionConfig.mode = 'payment';
       sessionConfig.line_items = [{
         price: finalPriceId,
         quantity: 1,
       }];
     } else {
-      // Subscription
+      // Recurring subscription
+      logStep("Creating subscription session");
       sessionConfig.mode = 'subscription';
       sessionConfig.line_items = [{
         price: finalPriceId,
