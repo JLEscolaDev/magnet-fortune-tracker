@@ -1,5 +1,9 @@
 // Updated 2025-11-01
-import { CircleAlert, CircleMinus, Circle, CircleCheck, Sparkles } from 'lucide-react';
+import moodVeryBad from '@/assets/mood-very-bad.png';
+import moodBad from '@/assets/mood-bad.png';
+import moodOkay from '@/assets/mood-okay.png';
+import moodGood from '@/assets/mood-good.png';
+import moodGreat from '@/assets/mood-great.png';
 
 interface MoodStepProps {
   data: { mood: number | null };
@@ -7,11 +11,11 @@ interface MoodStepProps {
 }
 
 const MOOD_OPTIONS = [
-  { value: 1, icon: CircleAlert, label: 'Very Bad' },
-  { value: 2, icon: CircleMinus, label: 'Bad' },
-  { value: 3, icon: Circle, label: 'Okay' },
-  { value: 4, icon: CircleCheck, label: 'Good' },
-  { value: 5, icon: Sparkles, label: 'Great' },
+  { value: 1, icon: moodVeryBad, label: 'Very Bad' },
+  { value: 2, icon: moodBad, label: 'Bad' },
+  { value: 3, icon: moodOkay, label: 'Okay' },
+  { value: 4, icon: moodGood, label: 'Good' },
+  { value: 5, icon: moodGreat, label: 'Great' },
 ];
 
 export const MoodStep = ({ data, updateData }: MoodStepProps) => {
@@ -27,7 +31,6 @@ export const MoodStep = ({ data, updateData }: MoodStepProps) => {
       
       <div className="space-y-3.5">
         {MOOD_OPTIONS.map((option) => {
-          const Icon = option.icon;
           const isSelected = data.mood === option.value;
           
           return (
@@ -49,13 +52,11 @@ export const MoodStep = ({ data, updateData }: MoodStepProps) => {
               }}
               aria-label={`Select ${option.label} mood`}
             >
-              <Icon 
-                size={26}
-                strokeWidth={2.5}
-                style={{ 
-                  color: '#9A9A9A',
-                  flexShrink: 0
-                }} 
+              <img 
+                src={option.icon}
+                alt=""
+                className="w-[40px] h-[40px] flex-shrink-0"
+                style={{ opacity: 0.8 }}
                 aria-hidden="true"
               />
               <span 
