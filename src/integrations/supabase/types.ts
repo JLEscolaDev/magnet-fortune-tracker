@@ -360,6 +360,7 @@ export type Database = {
           date: string
           dream_description: string | null
           dream_quality: number | null
+          energy_level: number | null
           exercise_duration: number | null
           exercise_type: string | null
           id: string
@@ -380,6 +381,7 @@ export type Database = {
           date: string
           dream_description?: string | null
           dream_quality?: number | null
+          energy_level?: number | null
           exercise_duration?: number | null
           exercise_type?: string | null
           id?: string
@@ -400,6 +402,7 @@ export type Database = {
           date?: string
           dream_description?: string | null
           dream_quality?: number | null
+          energy_level?: number | null
           exercise_duration?: number | null
           exercise_type?: string | null
           id?: string
@@ -657,55 +660,46 @@ export type Database = {
     }
     Functions: {
       _detect_fortune_cipher: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           key_source: string
           ok: boolean
           sample: string
         }[]
       }
-      _enc_key_for: {
-        Args: { uid: string }
-        Returns: string
-      }
+      _enc_key_for: { Args: { uid: string }; Returns: string }
       _recrypt_legacy_to_appkey: {
         Args: { batch_size?: number }
         Returns: number
       }
-      derive_passphrase: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      derive_passphrase_for: {
-        Args: { _uid: string }
-        Returns: string
-      }
-      encrypt_with_app_key: {
-        Args: { plain: string }
-        Returns: string
-      }
-      fortune_add: {
-        Args:
-          | {
+      derive_passphrase: { Args: never; Returns: string }
+      derive_passphrase_for: { Args: { _uid: string }; Returns: string }
+      encrypt_with_app_key: { Args: { plain: string }; Returns: string }
+      fortune_add:
+        | {
+            Args: { p_category?: string; p_level?: number; p_text: string }
+            Returns: string
+          }
+        | {
+            Args: {
               p_category?: string
               p_created_at?: string
               p_impact_level?: Database["public"]["Enums"]["fortune_impact_level"]
               p_level?: number
               p_text: string
             }
-          | {
+            Returns: string
+          }
+        | {
+            Args: {
               p_category?: string
               p_created_at?: string
               p_level?: number
               p_text: string
             }
-          | { p_category?: string; p_level?: number; p_text: string }
-        Returns: string
-      }
-      fortune_counts: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+            Returns: string
+          }
+      fortune_counts: { Args: never; Returns: Json }
       fortune_decrypt: {
         Args: { _id: string }
         Returns: {
@@ -716,10 +710,7 @@ export type Database = {
           text: string
         }[]
       }
-      fortune_delete: {
-        Args: { p_id: string }
-        Returns: undefined
-      }
+      fortune_delete: { Args: { p_id: string }; Returns: undefined }
       fortune_get: {
         Args: { _id: string }
         Returns: {
@@ -730,18 +721,31 @@ export type Database = {
           text: string
         }[]
       }
-      fortune_list: {
-        Args: Record<PropertyKey, never> | { p_from: string; p_to: string }
-        Returns: {
-          category: string
-          created_at: string
-          fortune_level: number
-          id: string
-          impact_level: Database["public"]["Enums"]["fortune_impact_level"]
-          text: string
-          user_id: string
-        }[]
-      }
+      fortune_list:
+        | {
+            Args: never
+            Returns: {
+              category: string
+              created_at: string
+              fortune_level: number
+              id: string
+              impact_level: Database["public"]["Enums"]["fortune_impact_level"]
+              text: string
+              user_id: string
+            }[]
+          }
+        | {
+            Args: { p_from: string; p_to: string }
+            Returns: {
+              category: string
+              created_at: string
+              fortune_level: number
+              id: string
+              impact_level: Database["public"]["Enums"]["fortune_impact_level"]
+              text: string
+              user_id: string
+            }[]
+          }
       fortune_put: {
         Args: {
           p_category: string
@@ -761,34 +765,16 @@ export type Database = {
         }
         Returns: undefined
       }
-      get_app_enc_key: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_private_enc_salt: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_user_competition_stats: {
-        Args: { p_user_id: string }
-        Returns: Json
-      }
-      is_member_of_group: {
-        Args: { gid: string }
-        Returns: boolean
-      }
-      is_trial_active: {
-        Args: { p_user_id: string }
-        Returns: boolean
-      }
+      get_app_enc_key: { Args: never; Returns: string }
+      get_private_enc_salt: { Args: never; Returns: string }
+      get_user_competition_stats: { Args: { p_user_id: string }; Returns: Json }
+      is_member_of_group: { Args: { gid: string }; Returns: boolean }
+      is_trial_active: { Args: { p_user_id: string }; Returns: boolean }
       is_user_group_member: {
         Args: { check_group_id: string; check_user_id: string }
         Returns: boolean
       }
-      is_username_available: {
-        Args: { username: string }
-        Returns: boolean
-      }
+      is_username_available: { Args: { username: string }; Returns: boolean }
       set_daily_mood: {
         Args: { event_ts?: string; mood_value: string; timezone_arg?: string }
         Returns: Json
@@ -797,18 +783,12 @@ export type Database = {
         Args: { event_ts?: string; source_type: string; timezone_arg?: string }
         Returns: Json
       }
-      try_base64_text: {
-        Args: { s: string }
-        Returns: string
-      }
+      try_base64_text: { Args: { s: string }; Returns: string }
       try_decrypt_auto: {
         Args: { _uid: string; armor: string }
         Returns: string
       }
-      try_decrypt_maybe_base64: {
-        Args: { armor: string }
-        Returns: string
-      }
+      try_decrypt_maybe_base64: { Args: { armor: string }; Returns: string }
       try_decrypt_with_derived: {
         Args: { _uid: string; armor: string }
         Returns: string
