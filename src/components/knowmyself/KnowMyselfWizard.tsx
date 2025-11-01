@@ -37,7 +37,7 @@ interface WizardData {
 }
 
 const STEPS = [
-  { id: 'mood', title: 'How are you feeling?', component: MoodStep },
+  { id: 'mood', title: 'How are you feeling today?', component: MoodStep },
   { id: 'body', title: 'Energy & Sleep', component: BodyStep },
   { id: 'symptoms', title: 'Body & Activities', component: SymptomsStep },
   { id: 'notes', title: 'Additional Details', component: NotesStep },
