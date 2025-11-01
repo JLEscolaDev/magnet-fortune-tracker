@@ -15,7 +15,7 @@ interface HomeTabProps {
 
 export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
   const { profile, fortunesCountTotal, loading: appLoading } = useAppState();
-  const { isStepCompleted, showTutorial } = useTutorial();
+  const { isStepCompleted, showTutorial, isLoading: tutorialLoading } = useTutorial();
   const [recentFortunes, setRecentFortunes] = useState<FortuneRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,14 +46,14 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
 
   // Show home tutorial on first visit
   useEffect(() => {
-    if (!loading && !appLoading && !isStepCompleted('home')) {
+    if (!loading && !appLoading && !tutorialLoading && !isStepCompleted('home')) {
       const timer = setTimeout(() => {
         showTutorial('home');
       }, 1000); // Small delay to let the UI settle
       
       return () => clearTimeout(timer);
     }
-  }, [loading, appLoading, isStepCompleted, showTutorial]);
+  }, [loading, appLoading, tutorialLoading, isStepCompleted, showTutorial]);
 
   if (loading || appLoading) {
     return (

@@ -22,6 +22,7 @@ interface TutorialContextType {
   activeTutorial: TutorialStep | null;
   closeTutorial: () => void;
   hasCompletedAllTutorials: boolean;
+  isLoading: boolean;
 }
 
 export const TutorialContext = createContext<TutorialContextType | undefined>(undefined);
@@ -46,27 +47,23 @@ interface TutorialProviderProps {
 export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) => {
   const [completedSteps, setCompletedSteps] = useState<Set<TutorialStep>>(new Set());
   const [activeTutorial, setActiveTutorial] = useState<TutorialStep | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Load completed steps from localStorage on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(TUTORIAL_STORAGE_KEY);
-      if (saved) {
-        const parsedSteps = JSON.parse(saved);
-        setCompletedSteps(new Set(parsedSteps));
-      }
-    } catch (error) {
-      console.error('Failed to load tutorial progress:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
+    const loadProgress = async () => {
       try {
+        // Load from localStorage first
+        const saved = localStorage.getItem(TUTORIAL_STORAGE_KEY);
+        if (saved) {
+          const parsedSteps = JSON.parse(saved);
+          setCompletedSteps(new Set(parsedSteps));
+        }
+
+        // Then load from Supabase and merge
         const { data: { user } } = await supabase.auth.getUser();
         const remote = (user?.user_metadata?.tutorials_seen ?? {}) as Record<string, boolean>;
-        if (!cancelled && remote && Object.keys(remote).length) {
+        if (remote && Object.keys(remote).length) {
           setCompletedSteps(prev => {
             const next = new Set(prev);
             for (const [k, v] of Object.entries(remote)) {
@@ -75,12 +72,16 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
             return next;
           });
         }
-      } catch (e) {
-        console.warn('Failed loading remote tutorial progress:', e);
+      } catch (error) {
+        console.error('Failed to load tutorial progress:', error);
+      } finally {
+        setIsLoading(false);
       }
-    })();
-    return () => { cancelled = true; };
+    };
+
+    loadProgress();
   }, []);
+
 
   // Save to localStorage whenever completedSteps changes
   useEffect(() => {
@@ -152,6 +153,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
     activeTutorial,
     closeTutorial,
     hasCompletedAllTutorials,
+    isLoading,
   };
 
   return (
