@@ -394,7 +394,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
 
   return (
     <div 
-      className="w-[90%] md:w-[540pt] md:max-w-[720px] mx-auto h-full relative flex flex-col"
+      className="max-w-md mx-auto h-full relative flex flex-col"
       style={{ background: '#0B0B0C' }}
     >
       {/* Close button */}

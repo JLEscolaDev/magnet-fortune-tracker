@@ -36,8 +36,8 @@ const METRICS = [
     key: 'room_temperature' as const,
     icon: Thermometer,
     title: 'Room Temperature',
-    labels: ['Very Cold', 'Very Warm'],
-    valueLabels: ['Very Cold', 'Cold', 'Normal', 'Warm', 'Very Warm'],
+    labels: ['Cold', 'Cool', 'Normal', 'Warm', 'Hot'],
+    valueLabels: ['Cold', 'Cool', 'Normal', 'Warm', 'Hot'],
   },
 ];
 
@@ -48,7 +48,7 @@ export const BodyStep = ({ data, updateData }: BodyStepProps) => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-2 gap-4">
         {METRICS.map((metric) => {
           const Icon = metric.icon;
           const currentValue = data[metric.key];
@@ -56,9 +56,8 @@ export const BodyStep = ({ data, updateData }: BodyStepProps) => {
           return (
             <div
               key={metric.key}
-              className={`wellness-card p-5 flex flex-col ${
-                currentValue ? 'wellness-card-selected' : ''
-              }`}
+              className="wellness-card p-5 flex flex-col"
+              style={{ background: 'rgba(20, 20, 20, 0.8)' }}
             >
               <div className="flex flex-col items-center mb-4">
                 <Icon 
