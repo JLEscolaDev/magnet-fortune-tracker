@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Frown, Meh, Smile, SmilePlus, TrendingDown } from 'lucide-react';
 
 interface MoodStepProps {
   data: { mood: number | null };
@@ -6,11 +7,11 @@ interface MoodStepProps {
 }
 
 const MOOD_OPTIONS = [
-  { value: 1, emoji: '😢', label: 'Very Bad', color: 'bg-red-100 border-red-200 hover:bg-red-200 text-red-800' },
-  { value: 2, emoji: '😔', label: 'Bad', color: 'bg-orange-100 border-orange-200 hover:bg-orange-200 text-orange-800' },
-  { value: 3, emoji: '😐', label: 'Okay', color: 'bg-yellow-100 border-yellow-200 hover:bg-yellow-200 text-yellow-800' },
-  { value: 4, emoji: '😊', label: 'Good', color: 'bg-blue-100 border-blue-200 hover:bg-blue-200 text-blue-800' },
-  { value: 5, emoji: '😄', label: 'Great', color: 'bg-green-100 border-green-200 hover:bg-green-200 text-green-800' },
+  { value: 1, icon: TrendingDown, label: 'Very Bad' },
+  { value: 2, icon: Frown, label: 'Bad' },
+  { value: 3, icon: Meh, label: 'Okay' },
+  { value: 4, icon: Smile, label: 'Good' },
+  { value: 5, icon: SmilePlus, label: 'Great' },
 ];
 
 export const MoodStep = ({ data, updateData }: MoodStepProps) => {
@@ -20,34 +21,42 @@ export const MoodStep = ({ data, updateData }: MoodStepProps) => {
 
   return (
     <div className="space-y-6">
-      <p className="text-center text-muted-foreground">
-        Choose the option that best describes how you're feeling overall today
+      <p className="text-center" style={{ color: '#BEBEBE' }}>
+        Choose the option that best reflects your mindset right now.
       </p>
       
       <div className="grid gap-3">
-        {MOOD_OPTIONS.map((option) => (
-          <Button
-            key={option.value}
-            variant="outline"
-            size="lg"
-            onClick={() => handleMoodSelect(option.value)}
-            className={`
-              h-16 justify-start text-left transition-all
-              ${data.mood === option.value 
-                ? 'ring-2 ring-primary ring-offset-2 ' + option.color
-                : 'hover:' + option.color
-              }
-            `}
-            aria-label={`Select ${option.label} mood`}
-          >
-            <span className="text-2xl mr-4" aria-hidden="true">
-              {option.emoji}
-            </span>
-            <div>
-              <div className="font-medium text-base">{option.label}</div>
-            </div>
-          </Button>
-        ))}
+        {MOOD_OPTIONS.map((option) => {
+          const Icon = option.icon;
+          const isSelected = data.mood === option.value;
+          
+          return (
+            <button
+              key={option.value}
+              onClick={() => handleMoodSelect(option.value)}
+              className={`
+                h-16 px-6 flex items-center gap-4 rounded-2xl transition-all
+                ${isSelected ? 'wellness-card-selected' : 'wellness-card hover:border-[#3D3D3D]'}
+              `}
+              style={{
+                background: isSelected ? 'rgba(200, 169, 77, 0.08)' : 'rgba(20, 20, 20, 0.8)',
+              }}
+              aria-label={`Select ${option.label} mood`}
+            >
+              <Icon 
+                size={24} 
+                style={{ color: '#9A9A9A' }} 
+                aria-hidden="true"
+              />
+              <span 
+                className="text-base font-medium"
+                style={{ color: '#F3F3F1' }}
+              >
+                {option.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

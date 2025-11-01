@@ -141,6 +141,65 @@ All colors MUST be HSL.
   }
 }
 
+/* Wellness Popup Theme */
+.wellness-modal {
+  --wellness-bg: #0B0B0C;
+  --wellness-gold: #C8A94D;
+  --wellness-gold-dark: #B88A2C;
+  --wellness-text-primary: #F3F3F1;
+  --wellness-text-secondary: #BEBEBE;
+  --wellness-text-muted: #8F8F8F;
+  --wellness-border: #2D2D2D;
+  --wellness-icon-gray: #9A9A9A;
+}
+
+.wellness-card {
+  background: rgba(20, 20, 20, 0.8);
+  border: 1px solid var(--wellness-border);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.wellness-card-selected {
+  border-color: var(--wellness-gold);
+  background: rgba(200, 169, 77, 0.08);
+}
+
+.wellness-gauge-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--wellness-icon-gray);
+  transition: all 0.2s ease;
+}
+
+.wellness-gauge-dot-active {
+  background: var(--wellness-gold);
+  box-shadow: 0 0 8px rgba(200, 169, 77, 0.4);
+  transform: scale(1.2);
+}
+
+.wellness-tag {
+  background: rgba(30, 30, 30, 0.6);
+  border: 1px solid var(--wellness-border);
+  border-radius: 16px;
+  transition: all 0.2s ease;
+}
+
+.wellness-tag-selected {
+  border-color: var(--wellness-gold);
+  background: rgba(200, 169, 77, 0.12);
+}
+
+.wellness-value-pill {
+  background: linear-gradient(135deg, var(--wellness-gold), var(--wellness-gold-dark));
+  color: #000;
+  padding: 4px 16px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 @layer components {
   .luxury-card {
     @apply rounded-[18px] border border-gold/30 transition-all duration-200 ease-out;

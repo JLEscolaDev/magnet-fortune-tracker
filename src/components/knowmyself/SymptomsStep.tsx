@@ -1,12 +1,11 @@
-import { Button } from '@/components/ui/button';
+import { useState } from 'react';
+import { 
+  Brain, AlertTriangle, Meh, Activity,
+  Utensils, Skull, Thermometer, Dumbbell,
+  Bike, TreePine, Waves, Target, Circle
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-  Brain, Activity, Heart, Stethoscope, AlertTriangle,
-  Dumbbell, Target, Utensils, Thermometer, CloudRain,
-  Skull, Meh, Bike, TreePine, Users, Circle,
-  Waves, Mountain, Volleyball, Music, Shield
-} from 'lucide-react';
 
 interface SymptomsStepProps {
   data: {
@@ -22,11 +21,9 @@ const SYMPTOMS = [
   { value: 'headache', label: 'Headache', icon: Brain },
   { value: 'stress', label: 'Stress', icon: AlertTriangle },
   { value: 'tired', label: 'Tired', icon: Meh },
-  { value: 'muscle', label: 'Muscle Pain', icon: Dumbbell },
+  { value: 'muscle', label: 'Muscle Pain', icon: Activity },
   { value: 'stomach', label: 'Stomach', icon: Utensils },
   { value: 'back', label: 'Back Pain', icon: Activity },
-  { value: 'sick', label: 'Feeling Sick', icon: Skull },
-  { value: 'fever', label: 'Fever', icon: Thermometer },
 ];
 
 const EXERCISES = [
@@ -36,11 +33,12 @@ const EXERCISES = [
   { value: 'cycling', label: 'Cycling', icon: Bike },
   { value: 'swimming', label: 'Swimming', icon: Waves },
   { value: 'walking', label: 'Walking', icon: Activity },
-  { value: 'tennis', label: 'Tennis', icon: Target },
-  { value: 'football', label: 'Football', icon: Circle },
 ];
 
 export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
+  const [showMoreSymptoms, setShowMoreSymptoms] = useState(false);
+  const [showMoreExercises, setShowMoreExercises] = useState(false);
+
   const toggleSymptom = (symptom: string) => {
     const current = data.pain_types || [];
     const updated = current.includes(symptom)
@@ -57,31 +55,44 @@ export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
     updateData({ exercise_types: updated });
   };
 
+  const symptomsCount = data.pain_types?.length || 0;
+  const exercisesCount = data.exercise_types?.length || 0;
+
   return (
     <div className="space-y-8">
-      <p className="text-center text-muted-foreground">
-        Any symptoms or activities today?
-      </p>
-      
       {/* Symptoms */}
       <div className="space-y-4">
-        <Label className="text-base font-medium">Any discomfort? (Optional)</Label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex justify-between items-center">
+          <h3 style={{ color: '#F3F3F1', fontSize: '16px', fontWeight: 500 }}>
+            Any discomfort? (Optional)
+          </h3>
+          {symptomsCount > 0 && (
+            <span className="wellness-value-pill text-xs">
+              {symptomsCount}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           {SYMPTOMS.map((symptom) => {
             const Icon = symptom.icon;
             const isSelected = data.pain_types?.includes(symptom.value);
             return (
-              <Button
+              <button
                 key={symptom.value}
-                variant={isSelected ? "default" : "outline"}
-                size="sm"
                 onClick={() => toggleSymptom(symptom.value)}
-                className="h-12 text-xs flex-col gap-1 p-2"
+                className={`wellness-tag p-4 flex flex-col items-center gap-2 ${
+                  isSelected ? 'wellness-tag-selected' : ''
+                }`}
                 aria-label={`Toggle ${symptom.label}`}
               >
-                <Icon size={16} />
-                <span className="text-center">{symptom.label}</span>
-              </Button>
+                <Icon size={24} style={{ color: '#9A9A9A' }} />
+                <span 
+                  className="text-xs text-center"
+                  style={{ color: '#F3F3F1' }}
+                >
+                  {symptom.label}
+                </span>
+              </button>
             );
           })}
         </div>
@@ -89,23 +100,37 @@ export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
 
       {/* Exercise */}
       <div className="space-y-4">
-        <Label className="text-base font-medium">Physical Activities (Optional)</Label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex justify-between items-center">
+          <h3 style={{ color: '#F3F3F1', fontSize: '16px', fontWeight: 500 }}>
+            Physical Activities
+          </h3>
+          {exercisesCount > 0 && (
+            <span className="wellness-value-pill text-xs">
+              {exercisesCount}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           {EXERCISES.map((exercise) => {
             const Icon = exercise.icon;
             const isSelected = data.exercise_types?.includes(exercise.value);
             return (
-              <Button
+              <button
                 key={exercise.value}
-                variant={isSelected ? "default" : "outline"}
-                size="sm"
                 onClick={() => toggleExercise(exercise.value)}
-                className="h-12 text-xs flex-col gap-1 p-2"
+                className={`wellness-tag p-4 flex flex-col items-center gap-2 ${
+                  isSelected ? 'wellness-tag-selected' : ''
+                }`}
                 aria-label={`Toggle ${exercise.label}`}
               >
-                <Icon size={16} />
-                <span className="text-center">{exercise.label}</span>
-              </Button>
+                <Icon size={24} style={{ color: '#9A9A9A' }} />
+                <span 
+                  className="text-xs text-center"
+                  style={{ color: '#F3F3F1' }}
+                >
+                  {exercise.label}
+                </span>
+              </button>
             );
           })}
         </div>
@@ -114,25 +139,37 @@ export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
       {/* Duration and alcohol */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label className="text-sm">Exercise (min)</Label>
+          <Label style={{ color: '#BEBEBE' }} className="text-sm">
+            Exercise (min)
+          </Label>
           <Input
             type="number"
             min="0"
             max="480"
             value={data.exercise_duration}
             onChange={(e) => updateData({ exercise_duration: parseInt(e.target.value) || 0 })}
-            className="text-center"
+            className="text-center wellness-card border-[#2D2D2D]"
+            style={{ 
+              background: 'rgba(20, 20, 20, 0.8)',
+              color: '#F3F3F1'
+            }}
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-sm">Drinks</Label>
+          <Label style={{ color: '#BEBEBE' }} className="text-sm">
+            Drinks
+          </Label>
           <Input
             type="number"
             min="0"
             max="20"
             value={data.alcohol_consumption}
             onChange={(e) => updateData({ alcohol_consumption: parseInt(e.target.value) || 0 })}
-            className="text-center"
+            className="text-center wellness-card border-[#2D2D2D]"
+            style={{ 
+              background: 'rgba(20, 20, 20, 0.8)',
+              color: '#F3F3F1'
+            }}
           />
         </div>
       </div>

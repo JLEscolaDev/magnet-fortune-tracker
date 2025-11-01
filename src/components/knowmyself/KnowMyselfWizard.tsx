@@ -381,7 +381,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
+          <p className="text-sm" style={{ color: '#BEBEBE' }}>Loading...</p>
         </div>
       </div>
     );
@@ -392,23 +392,36 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
   const canProceed = canProceedFromStep(currentStep);
 
   return (
-    <div className="max-w-sm mx-auto h-full max-h-full md:min-h-0 relative flex flex-col">
+    <div 
+      className="max-w-md mx-auto h-full relative flex flex-col"
+      style={{ background: '#0B0B0C' }}
+    >
       {/* Close button */}
       {onClose && (
         <Button
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="absolute top-2 right-2 z-10 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background"
+          className="absolute top-4 right-4 z-10 h-8 w-8 rounded-full hover:bg-white/10"
+          style={{ background: 'rgba(20, 20, 20, 0.6)' }}
         >
-          <X className="h-4 w-4" />
+          <X className="h-4 w-4" style={{ color: '#9A9A9A' }} />
         </Button>
       )}
       
-      <Card className="h-full md:h-auto flex-1 flex flex-col overflow-hidden">
+      <div 
+        className="h-full flex-1 flex flex-col overflow-hidden rounded-3xl"
+        style={{ 
+          background: '#0B0B0C',
+          border: '1px solid #2D2D2D'
+        }}
+      >
         {/* Header */}
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-heading font-medium text-center mb-4">
+        <div className="p-6 border-b" style={{ borderColor: '#2D2D2D' }}>
+          <h2 
+            className="text-2xl font-serif font-medium text-center mb-5"
+            style={{ color: '#C8A94D' }}
+          >
             {STEPS[currentStep].title}
           </h2>
           
@@ -417,9 +430,12 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
             {STEPS.map((_, index) => (
               <div
                 key={index}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  index <= currentStep ? 'bg-primary' : 'bg-muted'
+                className={`w-2 h-2 rounded-full transition-all ${
+                  index === currentStep ? 'wellness-gauge-dot-active' : 'wellness-gauge-dot'
                 }`}
+                style={{
+                  background: index <= currentStep ? '#C8A94D' : '#3D3D3D',
+                }}
               />
             ))}
           </div>
@@ -431,43 +447,45 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         </div>
 
         {/* Navigation */}
-        <div className="p-6 border-t">
+        <div className="p-6 border-t" style={{ borderColor: '#2D2D2D' }}>
           <div className="flex justify-between gap-4">
             <Button
-              variant="outline"
+              variant="ghost"
               onClick={handleBack}
               disabled={currentStep === 0}
-              className="flex-1 max-w-24"
+              className="flex-1 max-w-32 rounded-2xl h-12"
+              style={{ 
+                background: 'transparent',
+                color: '#F3F3F1',
+                border: 'none'
+              }}
             >
-              <ArrowLeft className="w-4 h-4 mr-1" />
               Back
             </Button>
             
             <Button
               onClick={handleNext}
               disabled={!canProceed || saving}
-              className="flex-1"
+              className="flex-1 rounded-2xl h-12 font-semibold"
+              style={{ 
+                background: canProceed && !saving 
+                  ? 'linear-gradient(135deg, #C8A94D, #B88A2C)' 
+                  : 'rgba(200, 169, 77, 0.3)',
+                color: '#000',
+                border: 'none'
+              }}
             >
-              {saving ? (
-                'Saving...'
-              ) : isLastStep ? (
-                'Save Entry'
-              ) : (
-                <>
-                  Next
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </>
-              )}
+              {saving ? 'Saving...' : isLastStep ? 'Save Entry' : 'Next'}
             </Button>
           </div>
           
           {!canProceed && currentStep === 0 && (
-            <p className="text-sm text-destructive text-center mt-2">
+            <p className="text-sm text-center mt-3" style={{ color: '#B88A2C' }}>
               Please select how you're feeling to continue
             </p>
           )}
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
