@@ -18,6 +18,7 @@ interface WizardData {
   
   // Step 2: Body metrics
   dream_quality: number;
+  energy_level: number;
   sexual_appetite: number;
   room_temperature: number;
   
@@ -58,6 +59,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
     date: format(selectedDate, 'yyyy-MM-dd'),
     mood: null,
     dream_quality: 3,
+    energy_level: 3,
     sexual_appetite: 3,
     room_temperature: 3,
     moods: [],
@@ -151,6 +153,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
           date: dateStr,
           mood: existingEntry.mood ? (moodMapping[existingEntry.mood] || 3) : null,
           dream_quality: existingEntry.dream_quality || 3,
+          energy_level: (existingEntry as any).energy_level || 3,
           sexual_appetite: existingEntry.sexual_appetite || 3,
           room_temperature: (existingEntry as any).room_temperature || 3,
           moods: parsedMoodData.moods || [],
@@ -169,6 +172,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
           date: dateStr,
           mood: null,
           dream_quality: 3,
+          energy_level: 3,
           sexual_appetite: 3,
           room_temperature: 3,
           moods: [],
@@ -265,6 +269,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         sickness_level: data.pain_types.length,
         exercise_type: data.exercise_types.join(','),
         exercise_duration: data.exercise_duration,
+        energy_level: data.energy_level,
         sexual_appetite: data.sexual_appetite,
         room_temperature: data.room_temperature,
         notes: combinedNotes

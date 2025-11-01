@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 interface BodyStepProps {
   data: { 
     dream_quality: number;
+    energy_level: number;
     sexual_appetite: number;
     room_temperature: number;
   };
@@ -73,6 +74,30 @@ export const BodyStep = ({ data, updateData }: BodyStepProps) => {
             <span>Okay</span>
             <span>Good</span>
             <span>Excellent</span>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <Label className="text-base font-medium">Energy Level</Label>
+            <span className="text-sm font-medium text-primary">
+              {getEnergyLabel(data.energy_level)}
+            </span>
+          </div>
+          <Slider
+            value={[data.energy_level]}
+            onValueChange={(value) => updateData({ energy_level: value[0] })}
+            max={5}
+            min={1}
+            step={1}
+            className="w-full"
+          />
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Very Low</span>
+            <span>Low</span>
+            <span>Normal</span>
+            <span>High</span>
+            <span>Very High</span>
           </div>
         </div>
 
