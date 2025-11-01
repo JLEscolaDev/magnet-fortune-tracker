@@ -1,4 +1,5 @@
 import { Moon, Zap, Heart, Thermometer } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 
 interface BodyStepProps {
   data: { 
@@ -76,19 +77,15 @@ export const BodyStep = ({ data, updateData }: BodyStepProps) => {
                 </div>
               </div>
 
-              <div className="space-y-2.5">
-                <div className="flex justify-between items-center gap-1.5">
-                  {[1, 2, 3, 4, 5].map((value) => (
-                    <button
-                      key={value}
-                      onClick={() => handleValueChange(metric.key, value)}
-                      className={`wellness-gauge-dot ${
-                        currentValue === value ? 'wellness-gauge-dot-active' : ''
-                      }`}
-                      aria-label={`Set ${metric.title} to ${metric.valueLabels[value - 1]}`}
-                    />
-                  ))}
-                </div>
+              <div className="space-y-3">
+                <Slider
+                  value={[currentValue]}
+                  onValueChange={(values) => handleValueChange(metric.key, values[0])}
+                  min={1}
+                  max={5}
+                  step={1}
+                  className="w-full"
+                />
 
                 <div className="flex justify-between text-[11px]" style={{ color: '#8F8F8F' }}>
                   <span>{metric.labels[0]}</span>
