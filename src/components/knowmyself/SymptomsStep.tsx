@@ -91,7 +91,7 @@ export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
                 }}
                 aria-label={`Toggle ${symptom.label}`}
               >
-                <Icon size={28} strokeWidth={2} fill="#9A9A9A" style={{ color: '#9A9A9A' }} />
+                <Icon size={28} strokeWidth={2} style={{ color: '#9A9A9A' }} />
                 <span 
                   className="text-sm font-medium text-center"
                   style={{ color: '#F3F3F1' }}
@@ -135,7 +135,7 @@ export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
                 }}
                 aria-label={`Toggle ${exercise.label}`}
               >
-                <Icon size={28} strokeWidth={2} fill="#9A9A9A" style={{ color: '#9A9A9A' }} />
+                <Icon size={28} strokeWidth={2} style={{ color: '#9A9A9A' }} />
                 <span 
                   className="text-sm font-medium text-center"
                   style={{ color: '#F3F3F1' }}

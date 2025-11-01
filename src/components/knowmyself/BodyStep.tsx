@@ -62,8 +62,7 @@ export const BodyStep = ({ data, updateData }: BodyStepProps) => {
               <div className="flex flex-col items-center mb-4">
                 <Icon 
                   size={40} 
-                  strokeWidth={0}
-                  fill="#9A9A9A"
+                  strokeWidth={1.5}
                   style={{ color: '#9A9A9A', marginBottom: '12px' }} 
                 />
                 <h3 

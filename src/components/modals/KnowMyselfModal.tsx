@@ -14,8 +14,12 @@ export const KnowMyselfModal = ({ open, onOpenChange, selectedDate }: KnowMyself
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="p-0 border-0 bg-transparent shadow-none max-w-md w-full h-[90vh] max-h-[90vh] overflow-hidden"
-        style={{ background: 'transparent' }}
+        className="p-0 border-0 bg-transparent shadow-none max-w-md w-full overflow-hidden flex flex-col"
+        style={{ 
+          background: 'transparent',
+          height: '90vh',
+          maxHeight: '90vh'
+        }}
       >
         <KnowMyselfWizard selectedDate={dateToUse} onClose={() => onOpenChange(false)} />
       </DialogContent>

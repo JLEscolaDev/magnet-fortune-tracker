@@ -51,8 +51,7 @@ export const MoodStep = ({ data, updateData }: MoodStepProps) => {
             >
               <Icon 
                 size={26}
-                strokeWidth={2}
-                fill="#9A9A9A"
+                strokeWidth={2.5}
                 style={{ 
                   color: '#9A9A9A',
                   flexShrink: 0
