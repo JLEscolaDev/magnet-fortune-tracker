@@ -337,8 +337,8 @@ export const TutorialModal = () => {
   };
 
   const handleSkip = () => {
-    // Complete all tutorial steps when skip is pressed
-    getAllSteps().forEach(tutorialStep => completeStep(tutorialStep));
+    // Only skip the current tutorial step
+    completeStep(step);
     closeTutorial();
   };
 
