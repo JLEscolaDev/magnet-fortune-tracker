@@ -14,7 +14,7 @@ export const KnowMyselfModal = ({ open, onOpenChange, selectedDate }: KnowMyself
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="p-0 border-0 bg-transparent shadow-none w-[90%] md:w-[540pt] md:max-w-[720px] overflow-hidden flex flex-col"
+        className="p-0 border-0 bg-transparent shadow-none w-[90%] md:w-[540pt] md:max-w-[720px] overflow-hidden flex flex-col [&>button]:hidden"
         style={{ 
           background: 'transparent',
           height: '90vh',

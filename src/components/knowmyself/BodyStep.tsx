@@ -106,9 +106,9 @@ export const BodyStep = ({ data, updateData }: BodyStepProps) => {
                   ))}
                 </div>
 
-                <div className="flex justify-between text-[11px] px-2" style={{ color: '#8F8F8F' }}>
-                  <span>{metric.labels[0]}</span>
-                  <span>{metric.labels[metric.labels.length - 1]}</span>
+                <div className="flex justify-between text-[10px] sm:text-[11px] px-1" style={{ color: '#8F8F8F' }}>
+                  <span className="whitespace-nowrap text-left flex-1">{metric.labels[0]}</span>
+                  <span className="whitespace-nowrap text-right flex-1">{metric.labels[metric.labels.length - 1]}</span>
                 </div>
               </div>
             </div>
