@@ -78,7 +78,7 @@ export const BodyStep = ({ data, updateData }: BodyStepProps) => {
 
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <Label className="text-base font-medium">Energy Level</Label>
+            <Label className="text-base font-medium">Sexual Appetite</Label>
             <span className="text-sm font-medium text-primary">
               {getEnergyLabel(data.sexual_appetite)}
             </span>
