@@ -1,5 +1,4 @@
 import { Moon, Zap, Heart, Thermometer } from 'lucide-react';
-import { Slider } from '@/components/ui/slider';
 
 interface BodyStepProps {
   data: { 
@@ -60,34 +59,54 @@ export const BodyStep = ({ data, updateData }: BodyStepProps) => {
               className="wellness-card p-5 flex flex-col"
               style={{ background: 'rgba(20, 20, 20, 0.8)' }}
             >
-              <div className="flex flex-col items-center mb-4">
+              <div className="flex flex-col items-center mb-5">
                 <Icon 
-                  size={40} 
-                  strokeWidth={1.5}
-                  style={{ color: '#9A9A9A', marginBottom: '12px' }} 
+                  size={48} 
+                  strokeWidth={0}
+                  fill="#C8A94D"
+                  style={{ color: '#C8A94D', marginBottom: '16px' }} 
                 />
                 <h3 
-                  className="text-sm font-medium mb-2 text-center"
-                  style={{ color: '#F3F3F1' }}
+                  className="text-base font-medium mb-3 text-center"
+                  style={{ color: '#C8A94D', fontFamily: 'serif' }}
                 >
                   {metric.title}
                 </h3>
-                <div className="wellness-value-pill inline-block text-xs px-3 py-1">
+                <div 
+                  className="inline-block text-xs px-4 py-1.5 rounded-full font-medium"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #C8A94D, #B88A2C)',
+                    color: '#0B0B0C'
+                  }}
+                >
                   {metric.valueLabels[currentValue - 1]}
                 </div>
               </div>
 
               <div className="space-y-3">
-                <Slider
-                  value={[currentValue]}
-                  onValueChange={(values) => handleValueChange(metric.key, values[0])}
-                  min={1}
-                  max={5}
-                  step={1}
-                  className="w-full"
-                />
+                <div className="flex justify-center items-center gap-3">
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <button
+                      key={value}
+                      onClick={() => handleValueChange(metric.key, value)}
+                      className="transition-all duration-200"
+                      style={{
+                        width: currentValue === value ? '14px' : '12px',
+                        height: currentValue === value ? '14px' : '12px',
+                        borderRadius: '50%',
+                        background: currentValue === value 
+                          ? 'linear-gradient(135deg, #C8A94D, #B88A2C)'
+                          : '#3A3A3A',
+                        border: 'none',
+                        cursor: 'pointer',
+                        boxShadow: currentValue === value ? '0 2px 8px rgba(200, 169, 77, 0.4)' : 'none'
+                      }}
+                      aria-label={`Set ${metric.title} to ${metric.valueLabels[value - 1]}`}
+                    />
+                  ))}
+                </div>
 
-                <div className="flex justify-between text-[11px]" style={{ color: '#8F8F8F' }}>
+                <div className="flex justify-between text-[11px] px-2" style={{ color: '#8F8F8F' }}>
                   <span>{metric.labels[0]}</span>
                   <span>{metric.labels[metric.labels.length - 1]}</span>
                 </div>
