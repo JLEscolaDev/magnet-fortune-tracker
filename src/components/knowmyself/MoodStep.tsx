@@ -1,3 +1,4 @@
+// Updated 2025-11-01
 import { CircleAlert, CircleMinus, Circle, CircleCheck, Sparkles } from 'lucide-react';
 
 interface MoodStepProps {

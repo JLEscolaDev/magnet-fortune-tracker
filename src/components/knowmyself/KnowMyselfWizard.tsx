@@ -1,3 +1,4 @@
+// Wellness wizard - Updated 2025-11-01
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
