@@ -453,11 +453,12 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
               variant="ghost"
               onClick={handleBack}
               disabled={currentStep === 0}
-              className="flex-1 max-w-32 rounded-2xl h-12"
+              className="flex-1 max-w-[140px] rounded-[28px] h-14 font-semibold"
               style={{ 
-                background: 'transparent',
+                background: 'rgba(20, 20, 20, 0.9)',
                 color: '#F3F3F1',
-                border: 'none'
+                border: '1px solid #C8A94D',
+                opacity: currentStep === 0 ? '0.4' : '1'
               }}
             >
               Back
@@ -466,13 +467,15 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
             <Button
               onClick={handleNext}
               disabled={!canProceed || saving}
-              className="flex-1 rounded-2xl h-12 font-semibold"
+              className="flex-1 rounded-[28px] h-14 font-semibold transition-all"
               style={{ 
                 background: canProceed && !saving 
                   ? 'linear-gradient(135deg, #C8A94D, #B88A2C)' 
                   : 'rgba(200, 169, 77, 0.3)',
                 color: '#000',
-                border: 'none'
+                border: 'none',
+                boxShadow: canProceed && !saving ? '0 4px 12px rgba(200, 169, 77, 0.3)' : 'none',
+                opacity: !canProceed || saving ? '0.5' : '1'
               }}
             >
               {saving ? 'Saving...' : isLastStep ? 'Save Entry' : 'Next'}

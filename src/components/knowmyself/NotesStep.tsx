@@ -12,7 +12,7 @@ interface NotesStepProps {
 
 export const NotesStep = ({ data, updateData }: NotesStepProps) => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="space-y-5">
         <div className="space-y-3">
           <Label style={{ color: '#BEBEBE' }} className="text-sm font-medium">
@@ -23,7 +23,7 @@ export const NotesStep = ({ data, updateData }: NotesStepProps) => {
               placeholder="Breakfast, lunch, dinner, snacks..."
               value={data.meals}
               onChange={(e) => updateData({ meals: e.target.value })}
-              className="min-h-20 resize-none wellness-card border-[#2D2D2D]"
+              className="min-h-20 resize-none rounded-[20px] border-[#2D2D2D] focus:border-[#C8A94D] transition-colors"
               style={{ 
                 background: 'rgba(20, 20, 20, 0.8)',
                 color: '#F3F3F1'
@@ -48,7 +48,7 @@ export const NotesStep = ({ data, updateData }: NotesStepProps) => {
               placeholder="Describe your dreams or sleep quality..."
               value={data.dream_description}
               onChange={(e) => updateData({ dream_description: e.target.value })}
-              className="min-h-20 resize-none wellness-card border-[#2D2D2D]"
+              className="min-h-20 resize-none rounded-[20px] border-[#2D2D2D] focus:border-[#C8A94D] transition-colors"
               style={{ 
                 background: 'rgba(20, 20, 20, 0.8)',
                 color: '#F3F3F1'
@@ -73,7 +73,7 @@ export const NotesStep = ({ data, updateData }: NotesStepProps) => {
               placeholder="Anything else notable about your day..."
               value={data.notes}
               onChange={(e) => updateData({ notes: e.target.value })}
-              className="min-h-20 resize-none wellness-card border-[#2D2D2D]"
+              className="min-h-20 resize-none rounded-[20px] border-[#2D2D2D] focus:border-[#C8A94D] transition-colors"
               style={{ 
                 background: 'rgba(20, 20, 20, 0.8)',
                 color: '#F3F3F1'

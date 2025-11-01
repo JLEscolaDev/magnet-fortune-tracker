@@ -59,23 +59,26 @@ export const BodyStep = ({ data, updateData }: BodyStepProps) => {
               className="wellness-card p-5 flex flex-col"
               style={{ background: 'rgba(20, 20, 20, 0.8)' }}
             >
-              <div className="flex items-center gap-3 mb-4">
-                <Icon size={28} style={{ color: '#9A9A9A' }} />
-                <div className="flex-1">
-                  <h3 
-                    className="text-sm font-medium mb-1"
-                    style={{ color: '#F3F3F1' }}
-                  >
-                    {metric.title}
-                  </h3>
-                  <div className="wellness-value-pill inline-block text-xs">
-                    {metric.valueLabels[currentValue - 1]}
-                  </div>
+              <div className="flex flex-col items-center mb-4">
+                <Icon 
+                  size={40} 
+                  strokeWidth={0}
+                  fill="#9A9A9A"
+                  style={{ color: '#9A9A9A', marginBottom: '12px' }} 
+                />
+                <h3 
+                  className="text-sm font-medium mb-2 text-center"
+                  style={{ color: '#F3F3F1' }}
+                >
+                  {metric.title}
+                </h3>
+                <div className="wellness-value-pill inline-block text-xs px-3 py-1">
+                  {metric.valueLabels[currentValue - 1]}
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex justify-between items-center gap-1">
+              <div className="space-y-2.5">
+                <div className="flex justify-between items-center gap-1.5">
                   {[1, 2, 3, 4, 5].map((value) => (
                     <button
                       key={value}
@@ -88,7 +91,7 @@ export const BodyStep = ({ data, updateData }: BodyStepProps) => {
                   ))}
                 </div>
 
-                <div className="flex justify-between text-[10px]" style={{ color: '#8F8F8F' }}>
+                <div className="flex justify-between text-[11px]" style={{ color: '#8F8F8F' }}>
                   <span>{metric.labels[0]}</span>
                   <span>{metric.labels[metric.labels.length - 1]}</span>
                 </div>

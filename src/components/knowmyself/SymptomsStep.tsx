@@ -80,14 +80,20 @@ export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
               <button
                 key={symptom.value}
                 onClick={() => toggleSymptom(symptom.value)}
-                className={`wellness-tag p-4 flex flex-col items-center gap-2 ${
-                  isSelected ? 'wellness-tag-selected' : ''
-                }`}
+                className="h-[100px] flex flex-col items-center justify-center gap-2 rounded-[18px] transition-all"
+                style={{
+                  background: isSelected 
+                    ? 'rgba(200, 169, 77, 0.08)'
+                    : 'rgba(17, 17, 17, 0.8)',
+                  border: isSelected 
+                    ? '1.5px solid #C8A94D'
+                    : '1px solid #2D2D2D',
+                }}
                 aria-label={`Toggle ${symptom.label}`}
               >
-                <Icon size={24} style={{ color: '#9A9A9A' }} />
+                <Icon size={28} strokeWidth={2} fill="#9A9A9A" style={{ color: '#9A9A9A' }} />
                 <span 
-                  className="text-xs text-center"
+                  className="text-sm font-medium text-center"
                   style={{ color: '#F3F3F1' }}
                 >
                   {symptom.label}
@@ -118,14 +124,20 @@ export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
               <button
                 key={exercise.value}
                 onClick={() => toggleExercise(exercise.value)}
-                className={`wellness-tag p-4 flex flex-col items-center gap-2 ${
-                  isSelected ? 'wellness-tag-selected' : ''
-                }`}
+                className="h-[100px] flex flex-col items-center justify-center gap-2 rounded-[18px] transition-all"
+                style={{
+                  background: isSelected 
+                    ? 'rgba(200, 169, 77, 0.08)'
+                    : 'rgba(17, 17, 17, 0.8)',
+                  border: isSelected 
+                    ? '1.5px solid #C8A94D'
+                    : '1px solid #2D2D2D',
+                }}
                 aria-label={`Toggle ${exercise.label}`}
               >
-                <Icon size={24} style={{ color: '#9A9A9A' }} />
+                <Icon size={28} strokeWidth={2} fill="#9A9A9A" style={{ color: '#9A9A9A' }} />
                 <span 
-                  className="text-xs text-center"
+                  className="text-sm font-medium text-center"
                   style={{ color: '#F3F3F1' }}
                 >
                   {exercise.label}
@@ -137,9 +149,9 @@ export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
       </div>
 
       {/* Duration and alcohol */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 pt-2">
         <div className="space-y-2">
-          <Label style={{ color: '#BEBEBE' }} className="text-sm">
+          <Label style={{ color: '#BEBEBE' }} className="text-xs font-medium">
             Exercise (min)
           </Label>
           <Input
@@ -148,7 +160,7 @@ export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
             max="480"
             value={data.exercise_duration}
             onChange={(e) => updateData({ exercise_duration: parseInt(e.target.value) || 0 })}
-            className="text-center wellness-card border-[#2D2D2D]"
+            className="text-center h-12 rounded-xl border-[#2D2D2D] focus:border-[#C8A94D] transition-colors"
             style={{ 
               background: 'rgba(20, 20, 20, 0.8)',
               color: '#F3F3F1'
@@ -156,7 +168,7 @@ export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
           />
         </div>
         <div className="space-y-2">
-          <Label style={{ color: '#BEBEBE' }} className="text-sm">
+          <Label style={{ color: '#BEBEBE' }} className="text-xs font-medium">
             Drinks
           </Label>
           <Input
@@ -165,7 +177,7 @@ export const SymptomsStep = ({ data, updateData }: SymptomsStepProps) => {
             max="20"
             value={data.alcohol_consumption}
             onChange={(e) => updateData({ alcohol_consumption: parseInt(e.target.value) || 0 })}
-            className="text-center wellness-card border-[#2D2D2D]"
+            className="text-center h-12 rounded-xl border-[#2D2D2D] focus:border-[#C8A94D] transition-colors"
             style={{ 
               background: 'rgba(20, 20, 20, 0.8)',
               color: '#F3F3F1'
