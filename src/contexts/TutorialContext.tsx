@@ -131,6 +131,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   const getAllSteps = () => ALL_TUTORIAL_STEPS;
 
   const showTutorial = (step: TutorialStep) => {
+    if (isLoading) return; // Don't show tutorials while progress is still loading
     setActiveTutorial(prev => {
       if (prev) return prev; // do not override an active tutorial
       if (completedSteps.has(step)) return prev; // do not show if already completed
