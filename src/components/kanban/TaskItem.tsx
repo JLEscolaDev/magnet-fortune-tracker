@@ -3,6 +3,20 @@ import { Task, TaskStatus } from '@/types/task';
 import { EmojiPicker } from './EmojiPicker';
 import { TaskActionsModal } from './TaskActionsModal';
 import { DeleteConfirmDialog } from './DeleteConfirmDialog';
+import { format } from 'date-fns';
+
+const getTaskDate = (task: Task): string | null => {
+  if (task.status === 'done' && task.completed_at) {
+    return format(new Date(task.completed_at), 'dd/MM');
+  }
+  if (task.status === 'in_progress' && task.blocked_at) {
+    return format(new Date(task.blocked_at), 'dd/MM');
+  }
+  if (task.status === 'todo') {
+    return format(new Date(task.created_at), 'dd/MM');
+  }
+  return null;
+};
 
 interface TaskItemProps {
   task: Task;
@@ -106,6 +120,13 @@ export function TaskItem({ task, onDelete, onUpdate }: TaskItemProps) {
           >
             {task.title}
           </button>
+        )}
+
+        {/* Date display */}
+        {getTaskDate(task) && (
+          <span className="text-xs text-muted-foreground flex-shrink-0">
+            {getTaskDate(task)}
+          </span>
         )}
 
         {/* Status indicator dot */}

@@ -6,4 +6,6 @@ export interface Task {
   icon: string;
   status: TaskStatus;
   created_at: string;
+  blocked_at?: string;
+  completed_at?: string;
 }
