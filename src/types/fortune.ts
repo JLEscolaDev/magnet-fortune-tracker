@@ -9,7 +9,7 @@ export interface Fortune {
   impact_level?: string | null; // New field for impact level
 }
 
-export type FortuneCategory = 'Wealth' | 'Health' | 'Love' | 'Opportunity' | 'Other' | string;
+export type FortuneCategory = 'Wealth' | 'Health' | 'Love' | 'Opportunity' | 'Tasks' | 'Other' | string;
 
 export interface CategoryData {
   name: string;

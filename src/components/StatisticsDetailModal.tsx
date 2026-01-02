@@ -15,7 +15,7 @@ export const StatisticsDetailModal = ({ isOpen, onClose, fortunes }: StatisticsD
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<'week' | 'month' | 'all'>('month');
 
-  const categories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Other'];
+  const categories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Tasks', 'Other'];
   const filteredFortunes = selectedCategory 
     ? fortunes.filter(f => f.category === selectedCategory)
     : fortunes;
@@ -33,7 +33,7 @@ export const StatisticsDetailModal = ({ isOpen, onClose, fortunes }: StatisticsD
   };
 
   const getCategoryBreakdown = () => {
-    const categories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Other'];
+    const categories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Tasks', 'Other'];
     return categories.map(category => {
       const categoryFortunes = fortunes.filter(f => f.category === category);
       return {

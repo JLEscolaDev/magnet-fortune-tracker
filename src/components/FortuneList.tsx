@@ -11,7 +11,8 @@ import {
   Trash,
   TrendUp,
   Star,
-  Trophy
+  Trophy,
+  CheckSquare
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { FortuneModal } from '@/components/FortuneModal';
@@ -61,6 +62,8 @@ const getCategoryIcon = (category: string) => {
       return <Heart size={16} className="text-white" />;
     case 'Opportunity':
       return <Sparkle size={16} className="text-white" />;
+    case 'Tasks':
+      return <CheckSquare size={16} className="text-white" />;
     default:
       return <Question size={16} className="text-white" />;
   }
@@ -76,6 +79,8 @@ const getCategoryColor = (category: string) => {
       return 'bg-pink-400/30 text-pink-300 border-pink-400/50';
     case 'Opportunity':
       return 'bg-emerald/30 text-emerald border-emerald/50';
+    case 'Tasks':
+      return 'bg-blue-400/30 text-blue-300 border-blue-400/50';
     default:
       return 'bg-white/20 text-white border-white/30';
   }

@@ -29,7 +29,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const defaultCategories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Other'];
+  const defaultCategories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Tasks', 'Other'];
 
   useEffect(() => {
     fetchCategories();
