@@ -35,6 +35,7 @@ const defaultCategories: CategoryData[] = [
   { name: 'Health', hasNumericValue: false, color: 'hsl(var(--health))' },
   { name: 'Love', hasNumericValue: false, color: 'hsl(var(--love))' },
   { name: 'Opportunity', hasNumericValue: false, color: 'hsl(var(--opportunity))' },
+  { name: 'Tasks', hasNumericValue: false, color: 'hsl(210, 70%, 60%)' },
   { name: 'Other', hasNumericValue: false, color: 'hsl(var(--muted-foreground))' }
 ];
 
