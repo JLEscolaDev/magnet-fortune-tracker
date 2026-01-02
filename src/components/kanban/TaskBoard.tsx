@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/auth/AuthProvider';
 import { toast } from 'sonner';
+import { haptics } from '@/lib/haptics';
 
 export function TaskBoard() {
   const { user } = useAuth();
@@ -119,6 +120,7 @@ export function TaskBoard() {
 
         // Remove from local state
         setTasks((prev) => prev.filter((t) => t.id !== id));
+        haptics.success();
         toast.success('Task completed and added to Fortunes!');
         
         // Trigger fortune list refresh
