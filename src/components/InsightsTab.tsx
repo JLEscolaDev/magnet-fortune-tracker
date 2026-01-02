@@ -280,7 +280,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
   }, [refreshTrigger, selectedDate]);
 
   const getFortunesByCategory = () => {
-    const categories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Other'];
+    const categories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Tasks', 'Other'];
     return categories.map(category => ({
       category,
       count: fortunes.filter(f => f.category === category).length
