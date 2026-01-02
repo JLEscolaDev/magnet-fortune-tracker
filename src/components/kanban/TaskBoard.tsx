@@ -45,7 +45,26 @@ export function TaskBoard() {
 
   const handleUpdateTask = (id: string, updates: Partial<Task>) => {
     setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        
+        const newUpdates = { ...updates };
+        
+        // Track status change timestamps
+        if (updates.status && updates.status !== t.status) {
+          if (updates.status === 'in_progress') {
+            newUpdates.blocked_at = new Date().toISOString();
+            newUpdates.completed_at = undefined;
+          } else if (updates.status === 'done') {
+            newUpdates.completed_at = new Date().toISOString();
+          } else if (updates.status === 'todo') {
+            newUpdates.blocked_at = undefined;
+            newUpdates.completed_at = undefined;
+          }
+        }
+        
+        return { ...t, ...newUpdates };
+      })
     );
   };
 
