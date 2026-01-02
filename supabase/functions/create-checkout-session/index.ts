@@ -7,10 +7,93 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const logStep = (step: string, details?: any) => {
+// Allowed tiers for validation
+const ALLOWED_TIERS = ['essential', 'growth', 'pro', 'lifetime'] as const;
+type AllowedTier = typeof ALLOWED_TIERS[number];
+
+// Allowed plans for validation
+const ALLOWED_PLANS = [
+  'basic_28d',
+  'basic_annual',
+  'growth_28d',
+  'growth_annual',
+  'lifetime_oneoff',
+  'basic_annual_eb',
+  'growth_annual_eb'
+] as const;
+type AllowedPlan = typeof ALLOWED_PLANS[number];
+
+const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
 };
+
+// Input validation
+interface CheckoutInput {
+  plan?: string;
+  priceId?: string;
+  earlyBird?: boolean;
+  tier?: string;
+  returnTo?: string;
+}
+
+function validateCheckoutInput(body: CheckoutInput): { valid: boolean; error?: string } {
+  // At least one of plan, priceId, or earlyBird must be provided
+  if (!body.plan && !body.priceId && !body.earlyBird) {
+    return { valid: false, error: 'Plan, priceId, or earlyBird is required' };
+  }
+
+  // Validate plan if provided
+  if (body.plan !== undefined) {
+    if (typeof body.plan !== 'string') {
+      return { valid: false, error: 'Plan must be a string' };
+    }
+    if (!ALLOWED_PLANS.includes(body.plan as AllowedPlan)) {
+      return { valid: false, error: `Invalid plan: ${body.plan}` };
+    }
+  }
+
+  // Validate priceId if provided (Stripe price ID format)
+  if (body.priceId !== undefined) {
+    if (typeof body.priceId !== 'string') {
+      return { valid: false, error: 'priceId must be a string' };
+    }
+    // Stripe price IDs start with 'price_'
+    if (!body.priceId.startsWith('price_')) {
+      return { valid: false, error: 'Invalid priceId format' };
+    }
+    if (body.priceId.length > 100) {
+      return { valid: false, error: 'priceId too long' };
+    }
+  }
+
+  // Validate earlyBird if provided
+  if (body.earlyBird !== undefined && typeof body.earlyBird !== 'boolean') {
+    return { valid: false, error: 'earlyBird must be a boolean' };
+  }
+
+  // Validate tier if provided
+  if (body.tier !== undefined) {
+    if (typeof body.tier !== 'string') {
+      return { valid: false, error: 'tier must be a string' };
+    }
+    if (!ALLOWED_TIERS.includes(body.tier as AllowedTier)) {
+      return { valid: false, error: `Invalid tier: ${body.tier}` };
+    }
+  }
+
+  // Validate returnTo if provided
+  if (body.returnTo !== undefined) {
+    if (typeof body.returnTo !== 'string') {
+      return { valid: false, error: 'returnTo must be a string' };
+    }
+    if (body.returnTo.length > 500) {
+      return { valid: false, error: 'returnTo too long' };
+    }
+  }
+
+  return { valid: true };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -39,8 +122,28 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const { plan, priceId, earlyBird, tier, returnTo } = await req.json();
-    if (!plan && !priceId && !earlyBird) throw new Error("Plan, priceId, or earlyBird is required");
+    // Parse request body
+    let body: CheckoutInput;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    // Validate input
+    const validation = validateCheckoutInput(body);
+    if (!validation.valid) {
+      logStep("Validation failed", { error: validation.error });
+      return new Response(JSON.stringify({ error: validation.error }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    const { plan, priceId, earlyBird, tier, returnTo } = body;
     logStep("Request payload", { plan, priceId, earlyBird, tier, returnTo });
 
     // Get user profile and trial status
@@ -78,7 +181,7 @@ serve(async (req) => {
     
     if (earlyBird && tier) {
       // Early bird pricing
-      const earlyBirdPriceMap: { [key: string]: string } = {
+      const earlyBirdPriceMap: Record<string, string> = {
         'essential': Deno.env.get("PRICE_ESSENTIAL_ANNUAL_EB") || "",
         'growth': Deno.env.get("PRICE_GROWTH_ANNUAL_EB") || "",
         'pro': Deno.env.get("PRICE_PRO_ANNUAL_EB") || "",
@@ -86,11 +189,11 @@ serve(async (req) => {
       finalPriceId = earlyBirdPriceMap[tier];
       if (!finalPriceId) throw new Error(`Invalid early bird tier: ${tier}`);
     } else if (priceId) {
-      // Direct price ID
+      // Direct price ID (already validated format above)
       finalPriceId = priceId;
     } else if (plan) {
-      // Legacy plan mapping
-      const priceMap: { [key: string]: string } = {
+      // Legacy plan mapping (already validated above)
+      const priceMap: Record<string, string> = {
         'basic_28d': Deno.env.get("PRICE_ESSENTIAL_28D") || "",
         'basic_annual': Deno.env.get("PRICE_ESSENTIAL_ANNUAL") || "",
         'growth_28d': Deno.env.get("PRICE_GROWTH_28D") || "",
@@ -100,7 +203,7 @@ serve(async (req) => {
         'growth_annual_eb': Deno.env.get("PRICE_GROWTH_ANNUAL_EB") || "",
       };
       finalPriceId = priceMap[plan];
-      if (!finalPriceId) throw new Error(`Invalid plan: ${plan}`);
+      if (!finalPriceId) throw new Error(`Price not configured for plan: ${plan}`);
     } else {
       throw new Error("No valid price identifier provided");
     }
@@ -146,8 +249,8 @@ serve(async (req) => {
     const cancelUrl = `${origin}${safeReturnTo}`;
 
     // Create session based on actual price type from Stripe
-    let sessionConfig: any = {
-      customer: customerId,
+    const sessionConfig: Stripe.Checkout.SessionCreateParams = {
+      customer: customerId || undefined,
       customer_email: customerId ? undefined : user.email,
       client_reference_id: user.id,
       success_url: successUrl,
@@ -158,24 +261,17 @@ serve(async (req) => {
         tier: finalTier,
         plan: plan || `${finalTier}_${earlyBird ? 'annual_eb' : 'direct'}`,
       },
+      mode: priceObject.type === 'one_time' ? 'payment' : 'subscription',
+      line_items: [{
+        price: finalPriceId,
+        quantity: 1,
+      }],
     };
 
     if (priceObject.type === 'one_time') {
-      // One-time payment
       logStep("Creating one-time payment session");
-      sessionConfig.mode = 'payment';
-      sessionConfig.line_items = [{
-        price: finalPriceId,
-        quantity: 1,
-      }];
     } else {
-      // Recurring subscription
       logStep("Creating subscription session");
-      sessionConfig.mode = 'subscription';
-      sessionConfig.line_items = [{
-        price: finalPriceId,
-        quantity: 1,
-      }];
 
       // Add promotion code for early bird if using that method and available
       if (earlyBird) {

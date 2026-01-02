@@ -7,6 +7,15 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 }
 
+// Input validation constants
+const MAX_TEXT_LENGTH = 10000
+const MAX_CATEGORY_LENGTH = 100
+const MIN_FORTUNE_VALUE = 0
+const MAX_FORTUNE_VALUE = 1000000
+
+// Allowed category values (General + can be custom)
+const DEFAULT_CATEGORIES = ['General', 'Work', 'Health', 'Relationships', 'Finance', 'Personal']
+
 interface FortuneInsertRequest {
   text: string
   category: string
@@ -19,6 +28,64 @@ interface FortuneInsertResponse {
   error?: string
   error_code?: string
   data?: any
+}
+
+// Input validation helper
+function validateFortuneInput(body: FortuneInsertRequest): { valid: boolean; error?: string } {
+  // Validate text
+  if (!body.text || typeof body.text !== 'string') {
+    return { valid: false, error: 'Text is required and must be a string' }
+  }
+  if (body.text.trim().length === 0) {
+    return { valid: false, error: 'Text cannot be empty' }
+  }
+  if (body.text.length > MAX_TEXT_LENGTH) {
+    return { valid: false, error: `Text must be ${MAX_TEXT_LENGTH} characters or less` }
+  }
+
+  // Validate category
+  if (!body.category || typeof body.category !== 'string') {
+    return { valid: false, error: 'Category is required and must be a string' }
+  }
+  if (body.category.trim().length === 0) {
+    return { valid: false, error: 'Category cannot be empty' }
+  }
+  if (body.category.length > MAX_CATEGORY_LENGTH) {
+    return { valid: false, error: `Category must be ${MAX_CATEGORY_LENGTH} characters or less` }
+  }
+  // Block HTML/script injection in category
+  if (/<script|<\/script|javascript:/i.test(body.category)) {
+    return { valid: false, error: 'Invalid category format' }
+  }
+
+  // Validate fortune_value if provided
+  if (body.fortune_value !== undefined && body.fortune_value !== null) {
+    if (typeof body.fortune_value !== 'number' || isNaN(body.fortune_value)) {
+      return { valid: false, error: 'Fortune value must be a number' }
+    }
+    if (body.fortune_value < MIN_FORTUNE_VALUE || body.fortune_value > MAX_FORTUNE_VALUE) {
+      return { valid: false, error: `Fortune value must be between ${MIN_FORTUNE_VALUE} and ${MAX_FORTUNE_VALUE}` }
+    }
+  }
+
+  // Validate created_at if provided (ISO 8601 date format)
+  if (body.created_at !== undefined && body.created_at !== null) {
+    if (typeof body.created_at !== 'string') {
+      return { valid: false, error: 'Created at must be a valid date string' }
+    }
+    const date = new Date(body.created_at)
+    if (isNaN(date.getTime())) {
+      return { valid: false, error: 'Created at must be a valid ISO 8601 date' }
+    }
+    // Prevent future dates more than 1 day ahead
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    if (date > tomorrow) {
+      return { valid: false, error: 'Created at cannot be in the future' }
+    }
+  }
+
+  return { valid: true }
 }
 
 serve(async (req) => {
@@ -52,6 +119,23 @@ serve(async (req) => {
     // Parse request body
     const body: FortuneInsertRequest = await req.json()
 
+    // Validate input
+    const validation = validateFortuneInput(body)
+    if (!validation.valid) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: validation.error,
+        error_code: 'VALIDATION_ERROR'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      })
+    }
+
+    // Sanitize text - trim whitespace
+    const sanitizedText = body.text.trim()
+    const sanitizedCategory = body.category.trim()
+
     // Constants for free plan limits
     const FREE_TRIAL_DAYS = 60
     const FREE_TRIAL_FORTUNE_LIMIT = 100
@@ -72,9 +156,9 @@ serve(async (req) => {
         .from('fortunes')
         .insert([{
           user_id: user.id,
-          text: body.text,
-          category: body.category,
-          fortune_value: body.fortune_value || null,
+          text: sanitizedText,
+          category: sanitizedCategory,
+          fortune_value: body.fortune_value ?? null,
           created_at: body.created_at || new Date().toISOString()
         }])
         .select()
@@ -114,9 +198,9 @@ serve(async (req) => {
         .from('fortunes')
         .insert([{
           user_id: user.id,
-          text: body.text,
-          category: body.category,
-          fortune_value: body.fortune_value || null,
+          text: sanitizedText,
+          category: sanitizedCategory,
+          fortune_value: body.fortune_value ?? null,
           created_at: body.created_at || new Date().toISOString()
         }])
         .select()
@@ -158,9 +242,9 @@ serve(async (req) => {
       .from('fortunes')
       .insert([{
         user_id: user.id,
-        text: body.text,
-        category: body.category,
-        fortune_value: body.fortune_value || null,
+        text: sanitizedText,
+        category: sanitizedCategory,
+        fortune_value: body.fortune_value ?? null,
         created_at: body.created_at || new Date().toISOString()
       }])
       .select()
@@ -177,7 +261,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error instanceof Error ? error.message : 'Internal server error'
+        error: 'An error occurred while processing your request'
       }),
       {
         status: 500,

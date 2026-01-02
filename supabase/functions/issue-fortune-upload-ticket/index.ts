@@ -7,6 +7,52 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Allowed MIME types for photo uploads
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif'
+] as const;
+
+type AllowedMimeType = typeof ALLOWED_MIME_TYPES[number];
+
+// Validate input parameters
+function validateInput(fortune_id: unknown, mime: unknown): { valid: boolean; error?: string } {
+  // Validate fortune_id
+  if (!fortune_id || typeof fortune_id !== 'string') {
+    return { valid: false, error: 'fortune_id is required and must be a string' };
+  }
+  
+  // Validate UUID format for fortune_id
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(fortune_id)) {
+    return { valid: false, error: 'fortune_id must be a valid UUID' };
+  }
+
+  // Validate mime type
+  if (!mime || typeof mime !== 'string') {
+    return { valid: false, error: 'mime is required and must be a string' };
+  }
+
+  if (!ALLOWED_MIME_TYPES.includes(mime as AllowedMimeType)) {
+    return { valid: false, error: `mime must be one of: ${ALLOWED_MIME_TYPES.join(', ')}` };
+  }
+
+  return { valid: true };
+}
+
+// Get file extension from MIME type
+function getExtensionFromMime(mime: AllowedMimeType): string {
+  const mimeToExt: Record<AllowedMimeType, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif'
+  };
+  return mimeToExt[mime];
+}
+
 serve(async (req) => {
   console.log('issue-fortune-upload-ticket: Request received');
   
@@ -34,15 +80,29 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { fortune_id, mime } = await req.json();
-    console.log('issue-fortune-upload-ticket: Processing for fortune_id:', fortune_id, 'mime:', mime);
-
-    if (!fortune_id || !mime) {
-      return new Response(JSON.stringify({ error: 'fortune_id and mime are required' }), {
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    const { fortune_id, mime } = body as { fortune_id?: unknown; mime?: unknown };
+    
+    // Validate input
+    const validation = validateInput(fortune_id, mime);
+    if (!validation.valid) {
+      console.log('issue-fortune-upload-ticket: Validation failed:', validation.error);
+      return new Response(JSON.stringify({ error: validation.error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('issue-fortune-upload-ticket: Processing for fortune_id:', fortune_id, 'mime:', mime);
 
     // Create client with user token for validation
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -70,7 +130,7 @@ serve(async (req) => {
     const { data: fortune, error: fortuneError } = await userClient
       .from('fortunes')
       .select('id, user_id')
-      .eq('id', fortune_id)
+      .eq('id', fortune_id as string)
       .single();
 
     if (fortuneError || !fortune) {
@@ -115,8 +175,8 @@ serve(async (req) => {
       });
     }
 
-    // Generate file path
-    const extension = mime === 'image/jpeg' ? 'jpg' : 'png';
+    // Generate file path with validated MIME type
+    const extension = getExtensionFromMime(mime as AllowedMimeType);
     const randomSuffix = crypto.randomUUID().slice(0, 8);
     const path = `${user.id}/${fortune_id}-${randomSuffix}.${extension}`;
 
@@ -132,7 +192,7 @@ serve(async (req) => {
 
     if (error) {
       console.error('issue-fortune-upload-ticket: Upload URL creation failed:', error);
-      return new Response(JSON.stringify({ error: error.message }), {
+      return new Response(JSON.stringify({ error: 'Failed to create upload URL' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
