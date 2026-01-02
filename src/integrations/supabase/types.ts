@@ -593,6 +593,39 @@ export type Database = {
         }
         Relationships: []
       }
+      tasks: {
+        Row: {
+          blocked_at: string | null
+          completed_at: string | null
+          created_at: string
+          icon: string
+          id: string
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          blocked_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          icon?: string
+          id?: string
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          blocked_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          icon?: string
+          id?: string
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       available_plans_v: {
