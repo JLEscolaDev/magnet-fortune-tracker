@@ -127,16 +127,15 @@ serve(async (req) => {
 
     // Parse request body for return URL (support both snake_case and camelCase)
     const body = await req.json().catch(() => ({}));
-    const siteUrl =
-      Deno.env.get('SITE_URL') ||
-      Deno.env.get('APP_URL') ||
-      Deno.env.get('NEXT_PUBLIC_SITE_URL') ||
-      null;
-
+    
+    // Production fallback URL
+    const PRODUCTION_URL = 'https://fortune-magnet.vercel.app';
+    
+    // Use client-provided return_url, or fallback to production
     const computedReturnUrl =
       body.return_url ??
       body.returnUrl ??
-      (siteUrl ? `${siteUrl.replace(/\/$/, '')}/settings` : 'https://example.com/settings');
+      PRODUCTION_URL;
     
     // Create Stripe portal session
     const session = await stripe.billingPortal.sessions.create({
