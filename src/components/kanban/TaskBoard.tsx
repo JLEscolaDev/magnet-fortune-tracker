@@ -120,6 +120,9 @@ export function TaskBoard() {
         // Remove from local state
         setTasks((prev) => prev.filter((t) => t.id !== id));
         toast.success('Task completed and added to Fortunes!');
+        
+        // Trigger fortune list refresh
+        window.dispatchEvent(new Event("fortunesUpdated"));
         return;
       } catch (err) {
         console.error('Error completing task:', err);
