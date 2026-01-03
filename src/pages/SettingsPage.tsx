@@ -154,7 +154,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
     try {
       setOpeningPortal(true);
       const { data, error } = await supabase.functions.invoke('create-portal-session', {
-        body: { return_url: `${window.location.origin}/settings` },
+        body: { return_url: window.location.origin },
       });
 
       if (error) throw error;
