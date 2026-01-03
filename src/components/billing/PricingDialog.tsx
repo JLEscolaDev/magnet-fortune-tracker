@@ -150,7 +150,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
 
     try {
       const { data, error } = await callEdge('create-portal-session', {
-        returnUrl: window.location.origin + '/settings'
+        returnUrl: window.location.origin
       });
 
       if (error) throw new Error(error);

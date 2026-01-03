@@ -113,7 +113,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
 
     try {
       const { data, error } = await callEdge('create-portal-session', {
-        returnUrl: window.location.origin + '/settings'
+        returnUrl: window.location.origin
       });
 
       if (error) throw new Error(error);
