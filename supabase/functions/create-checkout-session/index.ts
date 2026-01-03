@@ -8,23 +8,23 @@ const corsHeaders = {
 };
 
 // Allowed tiers for validation
-const ALLOWED_TIERS = ['essential', 'growth', 'pro', 'lifetime'] as const;
+const ALLOWED_TIERS = ["essential", "growth", "pro", "lifetime"] as const;
 type AllowedTier = typeof ALLOWED_TIERS[number];
 
 // Allowed plans for validation
 const ALLOWED_PLANS = [
-  'basic_28d',
-  'basic_annual',
-  'growth_28d',
-  'growth_annual',
-  'lifetime_oneoff',
-  'basic_annual_eb',
-  'growth_annual_eb'
+  "basic_28d",
+  "basic_annual",
+  "growth_28d",
+  "growth_annual",
+  "lifetime_oneoff",
+  "basic_annual_eb",
+  "growth_annual_eb",
 ] as const;
 type AllowedPlan = typeof ALLOWED_PLANS[number];
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
   console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
 };
 
@@ -40,13 +40,13 @@ interface CheckoutInput {
 function validateCheckoutInput(body: CheckoutInput): { valid: boolean; error?: string } {
   // At least one of plan, priceId, or earlyBird must be provided
   if (!body.plan && !body.priceId && !body.earlyBird) {
-    return { valid: false, error: 'Plan, priceId, or earlyBird is required' };
+    return { valid: false, error: "Plan, priceId, or earlyBird is required" };
   }
 
   // Validate plan if provided
   if (body.plan !== undefined) {
-    if (typeof body.plan !== 'string') {
-      return { valid: false, error: 'Plan must be a string' };
+    if (typeof body.plan !== "string") {
+      return { valid: false, error: "Plan must be a string" };
     }
     if (!ALLOWED_PLANS.includes(body.plan as AllowedPlan)) {
       return { valid: false, error: `Invalid plan: ${body.plan}` };
@@ -55,27 +55,27 @@ function validateCheckoutInput(body: CheckoutInput): { valid: boolean; error?: s
 
   // Validate priceId if provided (Stripe price ID format)
   if (body.priceId !== undefined) {
-    if (typeof body.priceId !== 'string') {
-      return { valid: false, error: 'priceId must be a string' };
+    if (typeof body.priceId !== "string") {
+      return { valid: false, error: "priceId must be a string" };
     }
     // Stripe price IDs start with 'price_'
-    if (!body.priceId.startsWith('price_')) {
-      return { valid: false, error: 'Invalid priceId format' };
+    if (!body.priceId.startsWith("price_")) {
+      return { valid: false, error: "Invalid priceId format" };
     }
     if (body.priceId.length > 100) {
-      return { valid: false, error: 'priceId too long' };
+      return { valid: false, error: "priceId too long" };
     }
   }
 
   // Validate earlyBird if provided
-  if (body.earlyBird !== undefined && typeof body.earlyBird !== 'boolean') {
-    return { valid: false, error: 'earlyBird must be a boolean' };
+  if (body.earlyBird !== undefined && typeof body.earlyBird !== "boolean") {
+    return { valid: false, error: "earlyBird must be a boolean" };
   }
 
   // Validate tier if provided
   if (body.tier !== undefined) {
-    if (typeof body.tier !== 'string') {
-      return { valid: false, error: 'tier must be a string' };
+    if (typeof body.tier !== "string") {
+      return { valid: false, error: "tier must be a string" };
     }
     if (!ALLOWED_TIERS.includes(body.tier as AllowedTier)) {
       return { valid: false, error: `Invalid tier: ${body.tier}` };
@@ -84,11 +84,11 @@ function validateCheckoutInput(body: CheckoutInput): { valid: boolean; error?: s
 
   // Validate returnTo if provided
   if (body.returnTo !== undefined) {
-    if (typeof body.returnTo !== 'string') {
-      return { valid: false, error: 'returnTo must be a string' };
+    if (typeof body.returnTo !== "string") {
+      return { valid: false, error: "returnTo must be a string" };
     }
     if (body.returnTo.length > 500) {
-      return { valid: false, error: 'returnTo too long' };
+      return { valid: false, error: "returnTo too long" };
     }
   }
 
@@ -118,6 +118,7 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseService.auth.getUser(token);
     if (userError) throw new Error(`Authentication error: ${userError.message}`);
+
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
@@ -169,22 +170,19 @@ serve(async (req) => {
       if (customers.data.length > 0) {
         customerId = customers.data[0].id;
         // Update profile with customer ID
-        await supabaseService
-          .from("profiles")
-          .update({ stripe_customer_id: customerId })
-          .eq("user_id", user.id);
+        await supabaseService.from("profiles").update({ stripe_customer_id: customerId }).eq("user_id", user.id);
       }
     }
 
     // Determine price ID
     let finalPriceId: string;
-    
+
     if (earlyBird && tier) {
       // Early bird pricing
       const earlyBirdPriceMap: Record<string, string> = {
-        'essential': Deno.env.get("PRICE_ESSENTIAL_ANNUAL_EB") || "",
-        'growth': Deno.env.get("PRICE_GROWTH_ANNUAL_EB") || "",
-        'pro': Deno.env.get("PRICE_PRO_ANNUAL_EB") || "",
+        essential: Deno.env.get("PRICE_ESSENTIAL_ANNUAL_EB") || "",
+        growth: Deno.env.get("PRICE_GROWTH_ANNUAL_EB") || "",
+        pro: Deno.env.get("PRICE_PRO_ANNUAL_EB") || "",
       };
       finalPriceId = earlyBirdPriceMap[tier];
       if (!finalPriceId) throw new Error(`Invalid early bird tier: ${tier}`);
@@ -194,13 +192,13 @@ serve(async (req) => {
     } else if (plan) {
       // Legacy plan mapping (already validated above)
       const priceMap: Record<string, string> = {
-        'basic_28d': Deno.env.get("PRICE_ESSENTIAL_28D") || "",
-        'basic_annual': Deno.env.get("PRICE_ESSENTIAL_ANNUAL") || "",
-        'growth_28d': Deno.env.get("PRICE_GROWTH_28D") || "",
-        'growth_annual': Deno.env.get("PRICE_GROWTH_ANNUAL") || "",
-        'lifetime_oneoff': Deno.env.get("PRICE_LIFETIME_ONEOFF") || "",
-        'basic_annual_eb': Deno.env.get("PRICE_ESSENTIAL_ANNUAL_EB") || "",
-        'growth_annual_eb': Deno.env.get("PRICE_GROWTH_ANNUAL_EB") || "",
+        basic_28d: Deno.env.get("PRICE_ESSENTIAL_28D") || "",
+        basic_annual: Deno.env.get("PRICE_ESSENTIAL_ANNUAL") || "",
+        growth_28d: Deno.env.get("PRICE_GROWTH_28D") || "",
+        growth_annual: Deno.env.get("PRICE_GROWTH_ANNUAL") || "",
+        lifetime_oneoff: Deno.env.get("PRICE_LIFETIME_ONEOFF") || "",
+        basic_annual_eb: Deno.env.get("PRICE_ESSENTIAL_ANNUAL_EB") || "",
+        growth_annual_eb: Deno.env.get("PRICE_GROWTH_ANNUAL_EB") || "",
       };
       finalPriceId = priceMap[plan];
       if (!finalPriceId) throw new Error(`Price not configured for plan: ${plan}`);
@@ -222,30 +220,38 @@ serve(async (req) => {
     // Determine tier
     let finalTier = tier;
     if (!finalTier && plan) {
-      if (plan.includes('growth')) finalTier = 'growth';
-      else if (plan.includes('lifetime')) finalTier = 'lifetime';
-      else finalTier = 'essential';
+      if (plan.includes("growth")) finalTier = "growth";
+      else if (plan.includes("lifetime")) finalTier = "lifetime";
+      else finalTier = "essential";
     } else if (!finalTier) {
-      finalTier = 'essential';
+      finalTier = "essential";
     }
 
     // Sanitize returnTo to prevent open redirects
     const sanitizeReturnTo = (path?: string): string => {
-      if (!path) return '/settings';
-      
+      if (!path) return "/";
+
       // Remove any protocol/domain to ensure it's a relative path
-      const cleanPath = path.replace(/^https?:\/\/[^\/]+/, '');
-      
-      // Allow-list of safe prefixes
-      const allowedPrefixes = ['/settings', '/pricing', '/', '/dashboard', '/app', '/account'];
-      const isAllowed = allowedPrefixes.some(prefix => cleanPath.startsWith(prefix));
-      
-      return isAllowed ? cleanPath : '/settings';
+      const clean = path.replace(/^https?:\/\/[^/]+/i, "").trim();
+
+      // Ensure it starts with a single slash
+      const cleanPath = clean.startsWith("/") ? clean : `/${clean}`;
+
+      // Normalize dangerous double-slash paths
+      if (cleanPath.startsWith("//")) return "/";
+
+      const allowedPrefixes = ["/", "/pricing", "/dashboard", "/app", "/account"];
+      const isAllowed = allowedPrefixes.some((prefix) => cleanPath.startsWith(prefix));
+
+      return isAllowed ? cleanPath : "/";
     };
 
-    const origin = req.headers.get("origin") || "https://fortune-magnet.vercel.app";
+    // Prefer explicit production URL fallback to avoid missing Origin headers
+    const PRODUCTION_URL = "https://fortune-magnet.vercel.app";
+    const origin = req.headers.get("origin") || PRODUCTION_URL;
+
     const safeReturnTo = sanitizeReturnTo(returnTo);
-    const successUrl = `${origin}${safeReturnTo}${safeReturnTo.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}`;
+    const successUrl = `${origin}${safeReturnTo}${safeReturnTo.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${origin}${safeReturnTo}`;
 
     // Create session based on actual price type from Stripe
@@ -259,26 +265,29 @@ serve(async (req) => {
       metadata: {
         user_id: user.id,
         tier: finalTier,
-        plan: plan || `${finalTier}_${earlyBird ? 'annual_eb' : 'direct'}`,
+        plan: plan || `${finalTier}_${earlyBird ? "annual_eb" : "direct"}`,
       },
-      mode: priceObject.type === 'one_time' ? 'payment' : 'subscription',
-      line_items: [{
-        price: finalPriceId,
-        quantity: 1,
-      }],
+      mode: priceObject.type === "one_time" ? "payment" : "subscription",
+      line_items: [
+        {
+          price: finalPriceId,
+          quantity: 1,
+        },
+      ],
     };
 
-    if (priceObject.type === 'one_time') {
+    if (priceObject.type === "one_time") {
       logStep("Creating one-time payment session");
     } else {
       logStep("Creating subscription session");
 
       // Add promotion code for early bird if using that method and available
       if (earlyBird) {
-        const promoCode = finalTier === 'essential' ? 
-          Deno.env.get("PROMO_EARLY_BIRD_ESSENTIAL_ANNUAL_CODE") : 
-          Deno.env.get("PROMO_EARLY_BIRD_GROWTH_ANNUAL_CODE");
-        
+        const promoCode =
+          finalTier === "essential"
+            ? Deno.env.get("PROMO_EARLY_BIRD_ESSENTIAL_ANNUAL_CODE")
+            : Deno.env.get("PROMO_EARLY_BIRD_GROWTH_ANNUAL_CODE");
+
         if (promoCode) {
           sessionConfig.discounts = [{ promotion_code: promoCode }];
         }
@@ -292,10 +301,10 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
+
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
