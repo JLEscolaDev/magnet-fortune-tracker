@@ -12,19 +12,19 @@ export async function getActiveSubscription(
   supabase: SupabaseClient<Database>
 ): Promise<ActiveSubscription | null> {
   try {
-    // Check if user is authenticated
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return null;
-    }
+    if (authError || !user) return null;
 
-    // Query the subscriptions table directly with active status filter
+    const now = new Date().toISOString();
+
     const { data, error } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
-      .eq('status', 'active')
-      .gte('current_period_end', new Date().toISOString())
+      .or(
+        `and(is_lifetime.eq.true,status.eq.active),
+         and(status.eq.active,current_period_end.gte.${now})`
+      )
       .maybeSingle();
 
     if (error) {
@@ -32,7 +32,7 @@ export async function getActiveSubscription(
       return null;
     }
 
-    return data as ActiveSubscription | null;
+    return data ?? null;
   } catch (error) {
     console.error('Error in getActiveSubscription:', error);
     return null;
