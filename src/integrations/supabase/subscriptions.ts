@@ -21,10 +21,7 @@ export async function getActiveSubscription(
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
-      .or(
-        `and(is_lifetime.eq.true,status.eq.active),
-         and(status.eq.active,current_period_end.gte.${now})`
-      )
+      .or(`and(is_lifetime.eq.true,status.eq.active),and(status.eq.active,current_period_end.gte.${now})`)
       .maybeSingle();
 
     if (error) {

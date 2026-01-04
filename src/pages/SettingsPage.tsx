@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useCheckoutSuccess } from '@/hooks/useCheckoutSuccess';
-import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, Upload, Camera, SignOut, Crown, Trophy, ChartLine } from '@phosphor-icons/react';
+import { ArrowLeft, Moon, Sun, Bell, SpeakerSimpleHigh, SpeakerSimpleSlash, SignOut, Crown, Trophy, ChartLine } from '@phosphor-icons/react';
 import betaTesterBadge from '@/assets/beta-tester-badge.webp';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -21,7 +20,7 @@ interface SettingsPageProps {
 }
 
 export const SettingsPage = ({ onBack }: SettingsPageProps) => {
-  useCheckoutSuccess();
+  // Note: Checkout success handling is now done in SubscriptionContext
   const { theme, setTheme } = useTheme();
   const isDarkMode = theme === 'dark';
   const { soundEnabled, setSoundEnabled, animationsEnabled, setAnimationsEnabled, hapticsEnabled, setHapticsEnabled, currency, setCurrency } = useSettings();
@@ -384,22 +383,26 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
             {isActive ? (
               <div className="space-y-3">
                 <div className="p-3 bg-emerald/10 border border-emerald/20 rounded-lg">
-                  <p className="font-medium text-emerald">Pro Plan Active</p>
+                  <p className="font-medium text-emerald">
+                    {subscription?.is_lifetime ? 'Lifetime Plan Active' : `${subscription?.tier ? subscription.tier.charAt(0).toUpperCase() + subscription.tier.slice(1) : 'Pro'} Plan Active`}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    Valid until {subscription?.current_period_end ? 
-                      new Date(subscription.current_period_end).toLocaleDateString() : 
-                      'Unknown'
+                    {subscription?.is_lifetime 
+                      ? 'Forever access' 
+                      : `Valid until ${subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'Unknown'}`
                     }
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={handleManageBilling}
-                  className="w-full justify-start"
-                  disabled={openingPortal}
-                >
-                  {openingPortal ? 'Opening…' : 'Manage Billing'}
-                </Button>
+                {!subscription?.is_lifetime && (
+                  <Button
+                    variant="outline"
+                    onClick={handleManageBilling}
+                    className="w-full justify-start"
+                    disabled={openingPortal}
+                  >
+                    {openingPortal ? 'Opening…' : 'Manage Billing'}
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-3">

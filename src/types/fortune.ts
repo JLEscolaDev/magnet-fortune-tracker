@@ -38,6 +38,9 @@ export interface Subscription {
   current_period_end: string;
   stripe_subscription_id?: string | null;
   stripe_customer_id?: string | null;
+  stripe_price_id?: string | null;
+  is_lifetime?: boolean | null;
+  tier?: string | null;
   created_at: string;
   updated_at: string;
 }

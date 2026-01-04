@@ -1,9 +1,9 @@
 import FortuneApp from '@/components/FortuneApp';
 import { TutorialProvider } from '@/contexts/TutorialContext';
-import { useCheckoutSuccess } from '@/hooks/useCheckoutSuccess';
 
 const Index = () => {
-  useCheckoutSuccess();
+  // Note: Checkout success handling is now done in SubscriptionContext
+  // to prevent race conditions from multiple hook instances
   
   return (
     <TutorialProvider>

@@ -7,15 +7,13 @@ import { Check, Crown, Sparkles, Lock, X, RefreshCw } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { callEdge } from '@/lib/edge-functions';
 import { toast } from 'sonner';
-import { useCheckoutSuccess } from '@/hooks/useCheckoutSuccess';
 
 interface PricingPageProps {
   onClose?: () => void;
 }
 
 export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
-  useCheckoutSuccess();
-  
+  // Note: Checkout success handling is now done in SubscriptionContext
   const {
     user, 
     isActive, 

@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, ReactNode, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { getActiveSubscription, ActiveSubscription } from '@/integrations/supabase/subscriptions';
-import { Session, User } from '@supabase/supabase-js';
+import { Session, User, RealtimeChannel } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 
 interface Plan {
   id: string;
@@ -47,6 +49,7 @@ interface SubscriptionProviderProps {
 }
 
 export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ children }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<ActiveSubscription | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -59,36 +62,59 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const [allPlans, setAllPlans] = useState<Plan[]>([]);
   const [earlyBirdEligible, setEarlyBirdEligible] = useState(false);
 
-  const fetchSubscription = async () => {
+  // Ref to track if we've already handled a checkout session
+  const handledSessionIdRef = useRef<string | null>(null);
+  // Ref to track the realtime channel
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  // Ref to hold latest fetchSubscription for use in event callbacks
+  const fetchSubscriptionRef = useRef<() => Promise<ActiveSubscription | null>>(() => Promise.resolve(null));
+
+  const fetchSubscription = useCallback(async (): Promise<ActiveSubscription | null> => {
     try {
       setLoading(true);
       const activeSubscription = await getActiveSubscription(supabase);
       setSubscription(activeSubscription);
       
-        // Also fetch user features if user is available
-        if (user) {
-          const { data: features, error } = await supabase
-            .from('user_features')
-            .select('*')
-            .eq('user_id', user.id)
-            .single();
-          
-          if (error) {
-            console.error('Error fetching user features:', error);
-          }
-          
-          setUserFeatures(features);
-          setEarlyBirdEligible(!!(features as any)?.early_bird_eligible);
+      // Also fetch user features if user is available
+      if (user) {
+        const { data: features, error } = await supabase
+          .from('user_features')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching user features:', error);
         }
+        
+        setUserFeatures(features);
+        setEarlyBirdEligible(!!(features as any)?.early_bird_eligible);
+      }
+      
+      return activeSubscription;
     } catch (error) {
       console.error('Error fetching subscription:', error);
       setSubscription(null);
+      return null;
     } finally {
       setLoading(false);
     }
+  }, [user]);
+
+  // Keep ref in sync for use in event callbacks
+  useEffect(() => {
+    fetchSubscriptionRef.current = fetchSubscription;
+  }, [fetchSubscription]);
+
+  const getTierFromName = (name: string): string => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('essential')) return 'essential';
+    if (lowerName.includes('growth')) return 'growth';
+    if (lowerName.includes('pro')) return 'pro';
+    return 'unknown';
   };
 
-  const fetchPlans = async () => {
+  const fetchPlans = useCallback(async () => {
     try {
       setPlansLoading(true);
       const { data: plans, error } = await supabase
@@ -99,46 +125,101 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
       if (error) throw error;
 
       // Group plans by billing_period  
-      const plansByCycle: PlansByCycle = { '28d': [], annual: [] };
+      const grouped: PlansByCycle = { '28d': [], annual: [] };
       
-      plans?.forEach((plan: any) => {
+      plans?.forEach((plan: Record<string, unknown>) => {
         // Add tier field based on name if not present
         const planWithTier = {
           ...plan,
-          tier: plan.tier || getTierFromName(plan.name)
+          tier: (plan.tier as string) || getTierFromName(plan.name as string)
         };
         
         if (plan.billing_period === '28d') {
-          plansByCycle['28d'].push(planWithTier);
+          grouped['28d'].push(planWithTier as Plan);
         } else if (plan.billing_period === 'annual') {
-          plansByCycle.annual.push(planWithTier);
+          grouped.annual.push(planWithTier as Plan);
         } else if (plan.billing_period === 'lifetime') {
-          plansByCycle.lifetime = planWithTier;
+          grouped.lifetime = planWithTier as Plan;
         }
       });
 
-      setPlansByCycle(plansByCycle);
-      setAllPlans(plans?.map((plan: any) => ({ 
+      setPlansByCycle(grouped);
+      setAllPlans(plans?.map((plan: Record<string, unknown>) => ({ 
         ...plan, 
-        tier: plan.tier || getTierFromName(plan.name),
+        tier: (plan.tier as string) || getTierFromName(plan.name as string),
         billing_period: plan.billing_period as '28d' | 'annual' | 'lifetime',
-        is_early_bird: plan.is_early_bird || false
-      })) || []);
+        is_early_bird: (plan.is_early_bird as boolean) || false
+      } as Plan)) || []);
     } catch (error) {
       console.error('Error fetching plans:', error);
     } finally {
       setPlansLoading(false);
     }
-  };
+  }, []);
 
-  const getTierFromName = (name: string): string => {
-    const lowerName = name.toLowerCase();
-    if (lowerName.includes('essential')) return 'essential';
-    if (lowerName.includes('growth')) return 'growth';
-    if (lowerName.includes('pro')) return 'pro';
-    return 'unknown';
-  };
 
+  // Handle checkout success with smart polling
+  const handleCheckoutSuccess = useCallback(async (sessionId: string) => {
+    // Avoid duplicate handling
+    if (handledSessionIdRef.current === sessionId) {
+      return;
+    }
+    handledSessionIdRef.current = sessionId;
+
+    console.log('[SUBSCRIPTION] Handling checkout success:', sessionId);
+
+    toast.success('Payment successful! 🎉', {
+      description: 'Updating your plan…',
+    });
+
+    // Remove session_id from URL without navigation (create new URLSearchParams to avoid mutation)
+    setSearchParams((prev) => {
+      const newParams = new URLSearchParams(prev);
+      newParams.delete('session_id');
+      return newParams;
+    }, { replace: true });
+
+    // Smart polling: retry until subscription is found or max attempts reached
+    const maxAttempts = 10;
+    const delaysMs = [300, 500, 800, 1200, 1500, 2000, 2500, 3000, 3500, 4000];
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      console.log(`[SUBSCRIPTION] Polling attempt ${attempt + 1}/${maxAttempts}`);
+      
+      const result = await fetchSubscription();
+      
+      if (result) {
+        console.log('[SUBSCRIPTION] Subscription found:', result);
+        toast.success('Plan updated ✅', {
+          description: result.is_lifetime 
+            ? 'Your lifetime access is now active!' 
+            : 'Your subscription is now active.',
+        });
+        return;
+      }
+
+      // Wait before next attempt
+      if (attempt < maxAttempts - 1) {
+        await new Promise((r) => setTimeout(r, delaysMs[attempt] || 2000));
+      }
+    }
+
+    // Final attempt completed without finding subscription
+    console.warn('[SUBSCRIPTION] Could not confirm subscription after polling');
+    toast.info('Plan update in progress', {
+      description: 'Your plan should activate shortly. Try refreshing if needed.',
+    });
+  }, [fetchSubscription, setSearchParams]);
+
+  // Check for session_id in URL on mount and when searchParams change
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    if (sessionId && sessionId !== handledSessionIdRef.current && user) {
+      handleCheckoutSuccess(sessionId);
+    }
+  }, [searchParams, user, handleCheckoutSuccess]);
+
+  // Auth state management - uses ref to access latest fetchSubscription in callback
   useEffect(() => {
     const getInitialSession = async () => {
       setAuthLoading(true);
@@ -154,7 +235,8 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
       setUser(newSession?.user ?? null);
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        fetchSubscription(); // refetch on login or token refresh
+        // Use ref to get latest fetchSubscription to avoid stale closure
+        fetchSubscriptionRef.current();
       }
 
       if (event === 'SIGNED_OUT') {
@@ -170,24 +252,64 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     };
   }, []);
 
-  // When user changes, (re)fetch subscription & user features
+  // When user changes, (re)fetch subscription & user features + setup realtime
   useEffect(() => {
     if (user) {
       // ensures we have earlyBirdEligible/isTrialActive as soon as the session is ready
       fetchSubscription();
+
+      // Setup Realtime subscription for instant updates
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+      }
+
+      const channel = supabase
+        .channel(`subscriptions:${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // Listen to INSERT, UPDATE, DELETE
+            schema: 'public',
+            table: 'subscriptions',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('[SUBSCRIPTION] Realtime update received:', payload);
+            // Use ref to get latest fetchSubscription to avoid stale closure
+            fetchSubscriptionRef.current();
+          }
+        )
+        .subscribe((status) => {
+          console.log('[SUBSCRIPTION] Realtime subscription status:', status);
+        });
+
+      realtimeChannelRef.current = channel;
     } else {
       // clear feature flags on logout / no session
       setUserFeatures(null);
       setEarlyBirdEligible(false);
+
+      // Cleanup realtime channel
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
     }
-  }, [user]);
+
+    return () => {
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
+    };
+  }, [user, fetchSubscription]);
 
   // Fetch plans on mount
   useEffect(() => {
     fetchPlans();
-  }, []);
+  }, [fetchPlans]);
 
-  // Manual refresh check every 5 minutes for subscription updates
+  // Manual refresh check every 5 minutes for subscription updates (backup mechanism)
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
     
@@ -215,9 +337,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         clearInterval(intervalId);
       }
     };
-  }, [user]);
-
-  // Real-time updates removed - using auth state changes for subscription updates
+  }, [user, fetchSubscription]);
 
   const isActive = useMemo(() => {
     const sub = subscription as any;
@@ -237,11 +357,15 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     return isActive || (subscription as any)?.is_lifetime || (userFeatures?.has_full_access ?? false) || (userFeatures?.is_trial_active ?? false);
   }, [isActive, subscription, userFeatures]);
 
+  const refetchWrapper = useCallback(async () => {
+    await fetchSubscription();
+  }, [fetchSubscription]);
+
   const value: SubscriptionContextType = {
     loading,
     isActive,
     subscription,
-    refetch: fetchSubscription,
+    refetch: refetchWrapper,
     session,
     user,
     authLoading,
