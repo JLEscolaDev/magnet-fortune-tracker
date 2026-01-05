@@ -92,13 +92,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const fetchSubscription = useCallback(async (forceRefreshUserFeatures = false): Promise<ActiveSubscription | null> => {
     try {
       setLoading(true);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:fetchSubscription:start',message:'Starting fetchSubscription',data:{forceRefreshUserFeatures,userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'FETCH1'})}).catch(()=>{});
-      // #endregion
       const activeSubscription = await getActiveSubscription(supabase);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:fetchSubscription:result',message:'getActiveSubscription result',data:{found:!!activeSubscription,subscriptionId:activeSubscription?.id,status:activeSubscription?.status,is_lifetime:activeSubscription?.is_lifetime},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'FETCH2'})}).catch(()=>{});
-      // #endregion
       setSubscription(activeSubscription);
       
       // Also fetch user features if user is available (with cache)
@@ -265,16 +259,9 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       console.log(`[SUBSCRIPTION] Polling attempt ${attempt + 1}/${maxAttempts}`);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:polling:attempt',message:'Polling attempt',data:{attempt:attempt+1,maxAttempts,sessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'POLL1'})}).catch(()=>{});
-      // #endregion
       
       // Force refresh user features when polling after checkout (bypass debounce)
       const result = await fetchSubscription(true);
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:polling:result',message:'Polling result',data:{attempt:attempt+1,found:!!result,subscriptionId:result?.id,status:result?.status},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'POLL2'})}).catch(()=>{});
-      // #endregion
       
       if (result) {
         console.log('[SUBSCRIPTION] Subscription found:', result);
@@ -314,14 +301,8 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   // Auth state management - uses ref to access latest fetchSubscription in callback
   useEffect(() => {
     const getInitialSession = async () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:getInitialSession',message:'Getting initial session',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       setAuthLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:getInitialSession:result',message:'Initial session result',data:{hasSession:!!session,hasUser:!!session?.user,userId:session?.user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       setSession(session);
       setUser(session?.user ?? null);
       setAuthLoading(false);
@@ -329,16 +310,10 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     };
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:onAuthStateChange',message:'Auth state change event',data:{event,hasSession:!!newSession,hasUser:!!newSession?.user,userId:newSession?.user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       setSession(newSession);
       setUser(newSession?.user ?? null);
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:onAuthStateChange:SIGNED_IN',message:'SIGNED_IN event detected',data:{event,userId:newSession?.user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         // Use ref to get latest fetchSubscription to avoid stale closure
         fetchSubscriptionRef.current();
       }

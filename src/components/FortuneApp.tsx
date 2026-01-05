@@ -34,9 +34,6 @@ class ErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('Error caught by boundary:', error, errorInfo);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FortuneApp.tsx:ErrorBoundary',message:'Error caught',data:{error:error.message,stack:error.stack},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'ERROR'})}).catch(()=>{});
-    // #endregion
   }
 
   render() {
@@ -75,13 +72,7 @@ const FortuneApp = () => {
     setSelectedFortuneDate(date);
   };
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FortuneApp.tsx:render',message:'FortuneApp render check',data:{sessionUndefined:session===undefined,hasUser:!!user,hasSession:!!session,bootstrapLoading:bootstrapState?.loading,bootstrapFailed:bootstrapState?.bootstrapFailed,hasProfile:!!bootstrapState?.profile},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
   if (session === undefined) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FortuneApp.tsx:sessionUndefined',message:'Blocked by session undefined check',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="luxury-card p-8 text-center">
@@ -121,16 +112,8 @@ const FortuneApp = () => {
               </div>
             </div>
           ) : !user ? (
-            (() => {
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FortuneApp.tsx:noUser',message:'Rendering AuthPage - no user after session init',data:{hasSession:!!session,authLoading,sessionInitialized},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-              // #endregion
-              return <AuthPage />;
-            })()
-          ) : (() => {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FortuneApp.tsx:hasUser',message:'User exists, checking bootstrap',data:{userId:user?.id,bootstrapLoading:bootstrapState?.loading,bootstrapFailed:bootstrapState?.bootstrapFailed,hasProfile:!!bootstrapState?.profile},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
+            <AuthPage />
+          ) : (
             return (
             <>
               {/* Debugging bootstrap state before loading/profile check */}
@@ -144,9 +127,6 @@ const FortuneApp = () => {
                 
                 // Wait for bootstrap to complete or fail
                 if (!bootstrapState || bootstrapState.loading) {
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FortuneApp.tsx:bootstrapLoading',message:'Bootstrap still loading',data:{hasBootstrapState:!!bootstrapState,loading:bootstrapState?.loading,retryCount:bootstrapState?.retryCount,errors:bootstrapState?.errors?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-                  // #endregion
                   return (
                     <div className="min-h-screen bg-background flex items-center justify-center">
                       <div className="luxury-card p-8 text-center max-w-md">
@@ -166,9 +146,6 @@ const FortuneApp = () => {
                 
                 // If bootstrap failed completely after all retries, logout and show auth page
                 if (bootstrapState.bootstrapFailed) {
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FortuneApp.tsx:bootstrapFailed',message:'Bootstrap failed, logging out',data:{errors:bootstrapState?.errors},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-                  // #endregion
                   console.log('[BOOTSTRAP] Bootstrap failed completely, signing out user');
                   supabase.auth.signOut();
                   return <AuthPage />;
@@ -176,25 +153,15 @@ const FortuneApp = () => {
                 
                 // If no profile after successful bootstrap, something is wrong - logout
                 if (!bootstrapState.profile) {
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FortuneApp.tsx:noProfile',message:'No profile after bootstrap, logging out',data:{loading:bootstrapState?.loading},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-                  // #endregion
                   console.log('[BOOTSTRAP] No profile found after bootstrap, signing out user');
                   supabase.auth.signOut();
                   return <AuthPage />;
                 }
                 
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FortuneApp.tsx:bootstrapReady',message:'Bootstrap ready, should render app',data:{hasProfile:!!bootstrapState.profile},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-                // #endregion
                 return null;
               })()}
               
-              {bootstrapState && !bootstrapState.loading && !bootstrapState.bootstrapFailed && bootstrapState.profile && (() => {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FortuneApp.tsx:renderApp',message:'Rendering main app',data:{hasProfile:!!bootstrapState.profile},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-                // #endregion
-                return (
+              {bootstrapState && !bootstrapState.loading && !bootstrapState.bootstrapFailed && bootstrapState.profile && (
                 <AppStateProvider value={bootstrapState}>
                   <div className="min-h-screen bg-background text-foreground">
                     <div className="max-w-6xl mx-auto">
@@ -263,8 +230,7 @@ const FortuneApp = () => {
                     </div>
                   </div>
                 </AppStateProvider>
-                );
-              })()}
+              )}
             </>
           )
         })()}
