@@ -114,7 +114,6 @@ const FortuneApp = () => {
           ) : !user ? (
             <AuthPage />
           ) : (
-            return (
             <>
               {/* Debugging bootstrap state before loading/profile check */}
               {(() => {
@@ -232,8 +231,7 @@ const FortuneApp = () => {
                 </AppStateProvider>
               )}
             </>
-          )
-        })()}
+          )}
         </>
       )}
       </TutorialProvider>
