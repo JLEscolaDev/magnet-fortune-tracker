@@ -14,6 +14,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useAppState } from '@/contexts/AppStateContext';
 import { useTutorial } from '@/contexts/TutorialContext';
 import { TutorialModal } from '@/components/TutorialModal';
+import { useAvatar } from '@/hooks/useAvatar';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -39,7 +40,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const profile = appState?.profile ?? null;
   const effectiveProfile = profile ?? fallbackProfile;
   const currentLevel = effectiveProfile?.level ?? 1;
-  const displayName = effectiveProfile?.display_name ?? effectiveProfile?.displayName ?? userEmail ?? 'Fortune Seeker';
+  const displayName = effectiveProfile?.display_name ?? userEmail ?? 'Fortune Seeker';
 
   useEffect(() => {
     let cancelled = false;
@@ -75,39 +76,10 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
     return () => { cancelled = true; };
   }, [profile]);
 
-  // Avatar + level for Settings preview (reuse AppState to avoid stale level 1)
-  const [avatar, setAvatar] = useState<{ url: string | null; title: string | null } | null>(null);
-
-  useEffect(() => {
-    const level = effectiveProfile?.level ?? 1;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        // Fetch avatar for the current level
-        const { data: av, error } = await supabase
-          .from('avatars')
-          .select('url,title')
-          .eq('level', level)
-          .single();
-
-        if (error) {
-          console.warn('Settings avatar fetch error:', error);
-        }
-        if (!cancelled) {
-          setAvatar(av ? { url: av.url, title: av.title } : null);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          console.warn('Settings avatar preview load failed:', e);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [effectiveProfile?.level]);
+  // Avatar + level for Settings preview (use shared hook with cache)
+  const level = effectiveProfile?.level ?? 1;
+  const { avatar: avatarData } = useAvatar(level);
+  const avatar = avatarData ? { url: avatarData.url, title: avatarData.title } : null;
 
   const handleLogout = async () => {
     try {

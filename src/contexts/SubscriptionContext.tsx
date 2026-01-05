@@ -74,28 +74,75 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   // Ref to track the realtime channel
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   // Ref to hold latest fetchSubscription for use in event callbacks
-  const fetchSubscriptionRef = useRef<() => Promise<ActiveSubscription | null>>(() => Promise.resolve(null));
+  const fetchSubscriptionRef = useRef<(forceRefresh?: boolean) => Promise<ActiveSubscription | null>>(() => Promise.resolve(null));
+  
+  // Cache for user_features with TTL
+  const userFeaturesCacheRef = useRef<{
+    data: UserFeatures | null;
+    timestamp: number;
+    userId: string | null;
+  }>({ data: null, timestamp: 0, userId: null });
+  const USER_FEATURES_TTL = 30000; // 30 seconds
+  
+  // Debouncing refs
+  const fetchSubscriptionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingFetchRef = useRef<Promise<ActiveSubscription | null> | null>(null);
+  const DEBOUNCE_MS = 300; // 300ms debounce
 
-  const fetchSubscription = useCallback(async (): Promise<ActiveSubscription | null> => {
+  const fetchSubscription = useCallback(async (forceRefreshUserFeatures = false): Promise<ActiveSubscription | null> => {
     try {
       setLoading(true);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:fetchSubscription:start',message:'Starting fetchSubscription',data:{forceRefreshUserFeatures,userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'FETCH1'})}).catch(()=>{});
+      // #endregion
       const activeSubscription = await getActiveSubscription(supabase);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:fetchSubscription:result',message:'getActiveSubscription result',data:{found:!!activeSubscription,subscriptionId:activeSubscription?.id,status:activeSubscription?.status,is_lifetime:activeSubscription?.is_lifetime},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'FETCH2'})}).catch(()=>{});
+      // #endregion
       setSubscription(activeSubscription);
       
-      // Also fetch user features if user is available
+      // Also fetch user features if user is available (with cache)
       if (user) {
-        const { data: features, error } = await supabase
-          .from('user_features')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
+        const cache = userFeaturesCacheRef.current;
+        const now = Date.now();
         
-        if (error) {
-          console.error('Error fetching user features:', error);
+        // If we found a subscription and didn't have one before, invalidate cache
+        const hadSubscription = !!subscription;
+        const hasSubscriptionNow = !!activeSubscription;
+        const subscriptionChanged = hadSubscription !== hasSubscriptionNow || 
+          (subscription?.id !== activeSubscription?.id);
+        
+        // Check cache: valid if same user, data exists, not expired, and subscription hasn't changed
+        if (
+          !forceRefreshUserFeatures &&
+          !subscriptionChanged &&
+          cache.data &&
+          cache.userId === user.id &&
+          (now - cache.timestamp) < USER_FEATURES_TTL
+        ) {
+          setUserFeatures(cache.data);
+          setEarlyBirdEligible(!!cache.data?.early_bird_eligible);
+        } else {
+          // Fetch fresh data (subscription changed or cache expired)
+          const { data: features, error } = await supabase
+            .from('user_features')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (error) {
+            console.error('Error fetching user features:', error);
+          } else if (features) {
+            // Update cache
+            userFeaturesCacheRef.current = {
+              data: features as UserFeatures,
+              timestamp: now,
+              userId: user.id,
+            };
+            setUserFeatures(features as UserFeatures);
+            setEarlyBirdEligible(!!(features as UserFeatures)?.early_bird_eligible);
+          }
         }
-        
-        setUserFeatures(features as UserFeatures);
-        setEarlyBirdEligible(!!(features as UserFeatures)?.early_bird_eligible);
       }
       
       return activeSubscription;
@@ -106,12 +153,38 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, subscription]);
 
-  // Keep ref in sync for use in event callbacks
+  // Debounced version of fetchSubscription to prevent duplicate calls
+  const fetchSubscriptionDebounced = useCallback((forceRefresh = false): Promise<ActiveSubscription | null> => {
+    // If there's a pending fetch and we're not forcing refresh, return that promise
+    if (pendingFetchRef.current && !forceRefresh) {
+      return pendingFetchRef.current;
+    }
+
+    // Clear any existing timeout
+    if (fetchSubscriptionTimeoutRef.current) {
+      clearTimeout(fetchSubscriptionTimeoutRef.current);
+    }
+
+    // Create a new debounced fetch
+    const promise = new Promise<ActiveSubscription | null>((resolve) => {
+      const delay = forceRefresh ? 0 : DEBOUNCE_MS; // No debounce if forcing refresh
+      fetchSubscriptionTimeoutRef.current = setTimeout(async () => {
+        const result = await fetchSubscription(forceRefresh);
+        pendingFetchRef.current = null;
+        resolve(result);
+      }, delay);
+    });
+
+    pendingFetchRef.current = promise;
+    return promise;
+  }, [fetchSubscription, user]);
+
+  // Keep ref in sync for use in event callbacks (use debounced version)
   useEffect(() => {
-    fetchSubscriptionRef.current = fetchSubscription;
-  }, [fetchSubscription]);
+    fetchSubscriptionRef.current = fetchSubscriptionDebounced;
+  }, [fetchSubscriptionDebounced]);
 
   const getTierFromName = (name: string): string => {
     const lowerName = name.toLowerCase();
@@ -192,11 +265,23 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       console.log(`[SUBSCRIPTION] Polling attempt ${attempt + 1}/${maxAttempts}`);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:polling:attempt',message:'Polling attempt',data:{attempt:attempt+1,maxAttempts,sessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'POLL1'})}).catch(()=>{});
+      // #endregion
       
-      const result = await fetchSubscription();
+      // Force refresh user features when polling after checkout (bypass debounce)
+      const result = await fetchSubscription(true);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:polling:result',message:'Polling result',data:{attempt:attempt+1,found:!!result,subscriptionId:result?.id,status:result?.status},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'POLL2'})}).catch(()=>{});
+      // #endregion
       
       if (result) {
         console.log('[SUBSCRIPTION] Subscription found:', result);
+        // Invalidate cache to ensure fresh user features
+        userFeaturesCacheRef.current = { data: null, timestamp: 0, userId: null };
+        // Force one more fetch to get fresh user features
+        await fetchSubscription(true);
         toast.success('Plan updated ✅', {
           description: result.is_lifetime 
             ? 'Your lifetime access is now active!' 
@@ -261,6 +346,8 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
       if (event === 'SIGNED_OUT') {
         setSubscription(null); // clear on logout
         setUserFeatures(null);
+        // Clear cache on logout
+        userFeaturesCacheRef.current = { data: null, timestamp: 0, userId: null };
       }
     });
 
@@ -274,8 +361,12 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   // When user changes, (re)fetch subscription & user features + setup realtime
   useEffect(() => {
     if (user) {
+      // Clear cache when user changes
+      userFeaturesCacheRef.current = { data: null, timestamp: 0, userId: null };
       // ensures we have earlyBirdEligible/isTrialActive as soon as the session is ready
-      fetchSubscription();
+      // Use forceRefresh=true to bypass debounce and ensure immediate execution on user change
+      // Use ref to avoid stale closure and infinite loops
+      fetchSubscriptionRef.current(true);
 
       // Setup Realtime subscription for instant updates
       if (realtimeChannelRef.current) {
@@ -320,8 +411,14 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         supabase.removeChannel(realtimeChannelRef.current);
         realtimeChannelRef.current = null;
       }
+      // Clear timeout on unmount
+      if (fetchSubscriptionTimeoutRef.current) {
+        clearTimeout(fetchSubscriptionTimeoutRef.current);
+        fetchSubscriptionTimeoutRef.current = null;
+      }
     };
-  }, [user, fetchSubscription]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]); // Only depend on user, not fetchSubscriptionDebounced to avoid infinite loops
 
   // Fetch plans on mount
   useEffect(() => {
@@ -356,7 +453,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         clearInterval(intervalId);
       }
     };
-  }, [user, fetchSubscription]);
+  }, [user, fetchSubscriptionDebounced]);
 
   const isActive = useMemo(() => {
     const sub = subscription;
@@ -377,6 +474,8 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   }, [isActive, subscription, userFeatures]);
 
   const refetchWrapper = useCallback(async () => {
+    // Clear cache on manual refetch
+    userFeaturesCacheRef.current = { data: null, timestamp: 0, userId: null };
     await fetchSubscription();
   }, [fetchSubscription]);
 

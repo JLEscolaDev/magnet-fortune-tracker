@@ -6,25 +6,19 @@ import { Progress } from '@/components/ui/progress';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { KnowMyselfModal } from './modals/KnowMyselfModal';
+import { useAvatar } from '@/hooks/useAvatar';
+import { toast } from 'sonner';
 import betaTesterBadge from '@/assets/beta-tester-badge.webp';
-
-interface Avatar {
-  id: string;
-  level: number;
-  url: string;
-  title: string | null;
-}
 
 interface LuxuryAvatarSectionProps {
   profile: Profile;
   fortuneCount: number;
   onLevelUp?: () => void;
+  onOpenPricing?: () => void;
 }
 
-export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: LuxuryAvatarSectionProps) => {
-  const [avatar, setAvatar] = useState<Avatar | null>(null);
+export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPricing }: LuxuryAvatarSectionProps) => {
   const [isLevelingUp, setIsLevelingUp] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [isBetaTester, setIsBetaTester] = useState(false);
   const [showKnowMyselfModal, setShowKnowMyselfModal] = useState(false);
   const { animationsEnabled } = useSettings();
@@ -35,54 +29,41 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
   const progressInCurrentLevel = fortuneCount % fortunesPerLevel;
   const progressPercentage = (progressInCurrentLevel / fortunesPerLevel) * 100;
 
+  // Use shared avatar hook with cache
+  const { avatar, loading } = useAvatar(currentLevel);
+
+  // Check if user leveled up and update profile
   useEffect(() => {
-    const fetchAvatar = async () => {
-      try {
-        const { data: avatarData, error } = await supabase
-          .from('avatars')
-          .select('*')
-          .eq('level', currentLevel)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Error fetching avatar:', error);
-        }
-
-        if (avatarData) {
-          setAvatar(avatarData);
-        }
-
-        // Check if user leveled up
-        if ((profile.level || 1) < currentLevel) {
-          if (animationsEnabled) {
-            setIsLevelingUp(true);
-          }
-          
-          // Update user's level and avatar_url in profile
-          await supabase
-            .from('profiles')
-            .update({ 
-              level: currentLevel, 
-              avatar_url: avatarData?.url || null 
-            })
-            .eq('user_id', profile.user_id);
-
-          onLevelUp?.();
-          
-          // Reset level up animation after 3 seconds (only if animations are enabled)
-          if (animationsEnabled) {
-            setTimeout(() => setIsLevelingUp(false), 3000);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching avatar:', error);
-      } finally {
-        setLoading(false);
+    if (!avatar || !profile?.user_id) return;
+    
+    const currentProfileLevel = profile.level || 1;
+    if (currentProfileLevel < currentLevel) {
+      if (animationsEnabled) {
+        setIsLevelingUp(true);
       }
-    };
-
-    fetchAvatar();
-  }, [currentLevel, profile.level, profile.user_id, onLevelUp, animationsEnabled]);
+      
+      // Update user's level and avatar_url in profile
+      supabase
+        .from('profiles')
+        .update({ 
+          level: currentLevel, 
+          avatar_url: avatar.url || null 
+        })
+        .eq('user_id', profile.user_id)
+        .then(() => {
+          onLevelUp?.();
+        })
+        .catch((error) => {
+          console.error('Error updating profile level:', error);
+        });
+      
+      // Reset level up animation after 3 seconds (only if animations are enabled)
+      if (animationsEnabled) {
+        const timeoutId = setTimeout(() => setIsLevelingUp(false), 3000);
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [avatar, currentLevel, profile?.level, profile?.user_id, onLevelUp, animationsEnabled]);
 
   // Check if user is a beta tester (registered before 2026)
   useEffect(() => {
@@ -102,9 +83,27 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
   }, [profile?.created_at]);
 
   const handleAvatarClick = () => {
+    console.log('[AVATAR] Click handler called', { hasActiveSub });
     // Only show the modal if user has active subscription (tier-based access)
     if (hasActiveSub) {
+      console.log('[AVATAR] Opening KnowMyself modal');
       setShowKnowMyselfModal(true);
+    } else {
+      console.log('[AVATAR] No active subscription, showing upgrade message');
+      toast.info('Premium Feature', {
+        description: 'Upgrade to Pro or Lifetime to access the daily wellness survey',
+        action: {
+          label: 'View Plans',
+          onClick: () => {
+            if (onOpenPricing) {
+              onOpenPricing();
+            } else {
+              // Fallback: navigate to settings page
+              window.location.hash = '#settings';
+            }
+          }
+        }
+      });
     }
   };
 
@@ -137,15 +136,15 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
         aria-label={hasActiveSub ? "Open daily wellness survey" : "Avatar (Premium feature)"}
       >
       {/* Background Avatar Image */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 pointer-events-none">
         {avatar?.url ? (
           <img
             src={avatar.url}
             alt={avatar.title || 'Avatar'}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover pointer-events-none"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-emerald via-emerald/80 to-gold flex items-center justify-center">
+          <div className="w-full h-full bg-gradient-to-br from-emerald via-emerald/80 to-gold flex items-center justify-center pointer-events-none">
             <Crown size={64} weight="fill" className="text-ivory opacity-80" />
           </div>
         )}
@@ -153,17 +152,17 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
 
       {/* Gold ring that pulses on level up */}
       <div className={`
-        absolute inset-0 rounded-2xl
+        absolute inset-0 rounded-2xl pointer-events-none
         border-2 border-gold/40
         transition-all duration-1000 ease-out
         ${isLevelingUp ? 'animate-[pulse_1s_ease-in-out_2] scale-[1.02] border-gold/80' : ''}
       `} />
 
       {/* Dark gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
 
       {/* Content overlay */}
-      <div className="absolute bottom-0 left-0 right-0 p-6 text-center">
+      <div className="absolute bottom-0 left-0 right-0 p-6 text-center pointer-events-none">
         {/* Avatar Title */}
         <h3 className="font-heading text-xl font-semibold text-white mb-2 drop-shadow-lg">
           {avatar?.title || 'Fortune Seeker'}
@@ -204,11 +203,11 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
 
       {/* Beta Tester Badge */}
       {isBetaTester && (
-        <div className="absolute top-3 right-3 w-12 h-12">
+        <div className="absolute top-3 right-3 w-12 h-12 pointer-events-none">
           <img 
             src={betaTesterBadge} 
             alt="Beta Tester Badge" 
-            className="w-full h-full object-contain drop-shadow-lg"
+            className="w-full h-full object-contain drop-shadow-lg pointer-events-none"
           />
         </div>
         )}

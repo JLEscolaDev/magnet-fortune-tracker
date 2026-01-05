@@ -12,9 +12,10 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface HomeTabProps {
   refreshTrigger: number;
+  onOpenPricing?: () => void;
 }
 
-export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
+export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
   const { profile, fortunesCountTotal, loading: appLoading } = useAppState();
   const { isStepCompleted, showTutorial, isLoading: tutorialLoading } = useTutorial();
   const [recentFortunes, setRecentFortunes] = useState<FortuneRecord[]>([]);
@@ -107,6 +108,7 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
             profile={profile} 
             fortuneCount={fortunesCountTotal}
             onLevelUp={handleLevelUp}
+            onOpenPricing={onOpenPricing}
           />
         </div>
         <QuickMoodTracker className="flex-shrink-0" />

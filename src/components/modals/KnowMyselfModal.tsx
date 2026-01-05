@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { KnowMyselfWizard } from '../knowmyself/KnowMyselfWizard';
 
 interface KnowMyselfModalProps {
@@ -21,6 +21,10 @@ export const KnowMyselfModal = ({ open, onOpenChange, selectedDate }: KnowMyself
           maxHeight: '90vh'
         }}
       >
+        <DialogTitle className="sr-only">Daily Wellness Survey</DialogTitle>
+        <DialogDescription className="sr-only">
+          Track your daily mood, energy levels, and wellness metrics
+        </DialogDescription>
         <KnowMyselfWizard selectedDate={dateToUse} onClose={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>

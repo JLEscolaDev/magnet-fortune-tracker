@@ -153,40 +153,12 @@ export const useAppBootstrap = (user: User | null) => {
     }
   };
 
-  const fetchActiveSubscription = async (userId: string): Promise<Subscription | null> => {
-    try {
-      if (!userId) {
-        logWithPrefix('ERROR: No userId provided for fetching subscription');
-        addError('subscriptions-fetch', 'No userId provided');
-        return null;
-      }
-      
-      logWithPrefix('Fetching active subscription', { userId });
-
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId as unknown as Database['public']['Tables']['subscriptions']['Row']['user_id'])
-        .eq('status', 'active' as Database['public']['Tables']['subscriptions']['Row']['status'])
-        .gte('current_period_end', new Date().toISOString())
-        .maybeSingle();
-
-      if (error) {
-        console.warn(`[QUERY:subscriptions] Error fetching subscription: ${error.message}`);
-        addError('subscriptions-fetch', error.message);
-        return null;
-      }
-
-      if (data && !('error' in data)) {
-        logWithPrefix('Subscription fetch completed', { hasActive: !!data });
-        return data;
-      }
-      return null;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      addError('subscriptions-fetch', message);
-      return null;
-    }
+  // Note: Subscription fetching is now handled by SubscriptionContext
+  // This function is kept for backwards compatibility but returns null
+  // Components should use useSubscription() hook instead
+  const fetchActiveSubscription = async (_userId: string): Promise<Subscription | null> => {
+    logWithPrefix('Subscription fetch skipped - using SubscriptionContext instead');
+    return null;
   };
 
   const bootstrap = useCallback(async (retryAttempt: number = 0) => {
@@ -221,12 +193,13 @@ export const useAppBootstrap = (user: User | null) => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Run all fetches in parallel with timeout
+      // Note: Subscription is now handled by SubscriptionContext, so we skip it here
       logWithPrefix('Starting parallel data fetch with timeout');
       
       const fetchPromise = Promise.all([
         ensureProfile(user),
         fetchCounts(user.id),
-        fetchActiveSubscription(user.id)
+        Promise.resolve(null as Subscription | null) // Subscription handled by SubscriptionContext
       ]);
 
       const [profile, counts, subscription] = await Promise.race([

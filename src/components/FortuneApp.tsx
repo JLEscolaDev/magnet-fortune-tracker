@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, Component, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { TopBar } from '@/components/TopBar';
 import { SettingsDrawer } from '@/components/SettingsDrawer';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { HomeTab } from '@/components/HomeTab';
+import { PricingDialog } from '@/components/billing/PricingDialog';
 import { InsightsTab } from '@/components/InsightsTab';
 import FriendsTab from '@/components/FriendsTab';
 import { TabBar } from '@/components/TabBar';
@@ -21,6 +22,30 @@ import { SettingsProvider } from '@/contexts/SettingsContext';
 import { useGroupInviteHandler } from '@/hooks/useGroupInviteHandler';
 import { TutorialProvider } from '@/contexts/TutorialContext';
 import { TutorialModal } from '@/components/TutorialModal';
+import { Button } from '@/components/ui/button';
+
+// Simple Error Boundary component
+class ErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FortuneApp.tsx:ErrorBoundary',message:'Error caught',data:{error:error.message,stack:error.stack},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'ERROR'})}).catch(()=>{});
+    // #endregion
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
 
 const FortuneApp = () => {
   const { user, session, authLoading, sessionInitialized } = useSubscription();
@@ -28,6 +53,7 @@ const FortuneApp = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSettingsPage, setShowSettingsPage] = useState(false);
   const [addFortuneOpen, setAddFortuneOpen] = useState(false);
+  const [showPricingDialog, setShowPricingDialog] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedFortuneDate, setSelectedFortuneDate] = useState<Date | null>(null);
 
@@ -70,7 +96,20 @@ const FortuneApp = () => {
     <SettingsProvider>
       <TutorialProvider>
       {showSettingsPage ? (
-        <SettingsPage onBack={() => setShowSettingsPage(false)} />
+        bootstrapState && !bootstrapState.loading && !bootstrapState.bootstrapFailed && bootstrapState.profile ? (
+          <AppStateProvider value={bootstrapState}>
+            <ErrorBoundary fallback={<div className="min-h-screen bg-background flex items-center justify-center"><div className="luxury-card p-8 text-center"><p className="text-destructive">Error loading settings</p><Button onClick={() => setShowSettingsPage(false)} className="mt-4">Go Back</Button></div></div>}>
+              <SettingsPage onBack={() => setShowSettingsPage(false)} />
+            </ErrorBoundary>
+          </AppStateProvider>
+        ) : (
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="luxury-card p-8 text-center">
+              <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading settings...</p>
+            </div>
+          </div>
+        )
       ) : (
         <>
           {/* Wait for session initialization before deciding to show auth page */}
@@ -170,7 +209,10 @@ const FortuneApp = () => {
 
                       <main className="relative">
                         {activeTab === 'home' && (
-                          <HomeTab refreshTrigger={refreshTrigger} />
+                          <HomeTab 
+                            refreshTrigger={refreshTrigger}
+                            onOpenPricing={() => setShowPricingDialog(true)}
+                          />
                         )}
                         {activeTab === 'insights' && (
                           <InsightsTab 
@@ -208,6 +250,11 @@ const FortuneApp = () => {
                         onFortuneAdded={handleFortuneAdded}
                         selectedDate={activeTab === 'home' ? null : selectedFortuneDate}
                         mode="create"
+                      />
+
+                      <PricingDialog
+                        isOpen={showPricingDialog}
+                        onClose={() => setShowPricingDialog(false)}
                       />
 
                       <DebugPanel user={user} />

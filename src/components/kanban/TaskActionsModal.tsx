@@ -28,6 +28,14 @@ export function TaskActionsModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const handleSave = useCallback(() => {
+    if (title.trim() && title !== task.title) {
+      onUpdateTitle(title.trim());
+    } else {
+      onClose();
+    }
+  }, [title, task.title, onUpdateTitle, onClose]);
+
   useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
@@ -42,14 +50,6 @@ export function TaskActionsModal({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [handleSave]);
-
-  const handleSave = useCallback(() => {
-    if (title.trim() && title !== task.title) {
-      onUpdateTitle(title.trim());
-    } else {
-      onClose();
-    }
-  }, [title, task.title, onUpdateTitle, onClose]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {

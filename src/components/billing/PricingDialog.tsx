@@ -44,22 +44,13 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('28d');
 
-  // Lock body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
-    }
-  }, [isOpen]);
-
-  // Process plans and fetch pricing when modal opens
-  useEffect(() => {
-    if (isOpen && !plansLoading) {
-      loadPricingData();
-    }
-  }, [isOpen, plansLoading, loadPricingData]);
+  const getTierFromName = (name: string): string => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('essential')) return 'essential';
+    if (lowerName.includes('growth')) return 'growth';
+    if (lowerName.includes('pro')) return 'pro';
+    return 'unknown';
+  };
 
   const loadPricingData = useCallback(async () => {
     setLoading(true);
@@ -99,13 +90,22 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     }
   }, [plansByCycle]);
 
-  const getTierFromName = (name: string): string => {
-    const lowerName = name.toLowerCase();
-    if (lowerName.includes('essential')) return 'essential';
-    if (lowerName.includes('growth')) return 'growth';
-    if (lowerName.includes('pro')) return 'pro';
-    return 'unknown';
-  };
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [isOpen]);
+
+  // Process plans and fetch pricing when modal opens
+  useEffect(() => {
+    if (isOpen && !plansLoading) {
+      loadPricingData();
+    }
+  }, [isOpen, plansLoading, loadPricingData]);
 
   const handleCheckout = async (plan: PlanWithPrice) => {
     if (!user) {

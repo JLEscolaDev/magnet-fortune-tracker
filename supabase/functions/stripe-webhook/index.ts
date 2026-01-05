@@ -244,6 +244,15 @@ serve(async (req) => {
         const priceId = subscription.items.data[0]?.price?.id ?? null;
         const tier = tierFromPriceId(priceId);
 
+        // Safely convert timestamps to ISO strings, handling null/undefined values
+        const currentPeriodStart = subscription.current_period_start 
+          ? new Date(subscription.current_period_start * 1000).toISOString()
+          : new Date().toISOString();
+        
+        const currentPeriodEnd = subscription.current_period_end
+          ? new Date(subscription.current_period_end * 1000).toISOString()
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // Default to 30 days from now
+
         const { error } = await upsertSubscriptionByUser({
           user_id: userId,
           tier,
@@ -251,8 +260,8 @@ serve(async (req) => {
           is_lifetime: false,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscription.id,
-          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          current_period_start: currentPeriodStart,
+          current_period_end: currentPeriodEnd,
           plan_id: priceId ?? "",
           stripe_price_id: priceId,
           updated_at: new Date().toISOString(),
