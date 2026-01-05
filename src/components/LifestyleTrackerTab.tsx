@@ -25,29 +25,6 @@ export const LifestyleTrackerTab = () => {
   
   const { user } = useAuth();
 
-  useEffect(() => {
-    if (user) {
-      loadEntries();
-    }
-  }, [user, loadEntries]);
-
-  // Listen for lifestyle data updates from other components
-  useEffect(() => {
-    const handleLifestyleUpdate = () => {
-      loadEntries();
-    };
-
-    window.addEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
-    return () => window.removeEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
-  }, [user, loadEntries]);
-
-  useEffect(() => {
-    // Check if today has an entry
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const todayData = entries.find(entry => entry.date === today);
-    setTodayEntry(todayData || null);
-  }, [entries]);
-
   const loadEntries = useCallback(async () => {
     try {
       if (!user) return;
@@ -66,6 +43,29 @@ export const LifestyleTrackerTab = () => {
       setLoading(false);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadEntries();
+    }
+  }, [user, loadEntries]);
+
+  // Listen for lifestyle data updates from other components
+  useEffect(() => {
+    const handleLifestyleUpdate = () => {
+      loadEntries();
+    };
+
+    window.addEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
+    return () => window.removeEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
+  }, [loadEntries]);
+
+  useEffect(() => {
+    // Check if today has an entry
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const todayData = entries.find(entry => entry.date === today);
+    setTodayEntry(todayData || null);
+  }, [entries]);
 
   const navigateDate = (direction: 'prev' | 'next') => {
     setSelectedDate(prev => 
