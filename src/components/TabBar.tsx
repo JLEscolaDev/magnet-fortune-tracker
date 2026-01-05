@@ -25,7 +25,7 @@ export const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
       className="fixed bottom-0 left-0 right-0 md:hidden bg-card border-t border-gold/30 z-50"
       style={{
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        ['--bottom-nav-height' as any]: '56px'
+        ['--bottom-nav-height' as string]: '56px'
       }}
     >
       <div className="grid grid-cols-3">

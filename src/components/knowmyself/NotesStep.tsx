@@ -7,7 +7,7 @@ interface NotesStepProps {
     dream_description: string;
     notes: string;
   };
-  updateData: (updates: any) => void;
+  updateData: (updates: Partial<{ meals: string; dream_description: string; notes: string }>) => void;
 }
 
 export const NotesStep = ({ data, updateData }: NotesStepProps) => {

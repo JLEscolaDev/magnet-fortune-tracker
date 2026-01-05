@@ -17,7 +17,7 @@ interface AppBootstrapState {
   bootstrapFailed: boolean;
 }
 
-const logWithPrefix = (step: string, details?: any) => {
+const logWithPrefix = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[BOOTSTRAP] ${step}${detailsStr}`);
 };
@@ -266,8 +266,14 @@ export const useAppBootstrap = (user: User | null) => {
         todayFortunes: counts.today,
         hasSubscription: !!subscription 
       });
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useAppBootstrap.ts:bootstrap:success',message:'Bootstrap completed successfully',data:{hasProfile:!!profile,profileDisplayName:profile?.display_name,totalFortunes:counts.total,todayFortunes:counts.today,hasSubscription:!!subscription},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useAppBootstrap.ts:bootstrap:error',message:'Bootstrap error',data:{error:message,retryAttempt,willRetry:retryAttempt<MAX_RETRIES-1},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       logWithPrefix(`Bootstrap failed on attempt ${retryAttempt + 1}`, { error: message });
       addError('bootstrap', message);
 
@@ -291,8 +297,14 @@ export const useAppBootstrap = (user: User | null) => {
 
   // Run bootstrap when user changes - direct dependency on user
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useAppBootstrap.ts:useEffect',message:'Bootstrap effect triggered',data:{hasUser:!!user,userId:user?.id,alreadyInitialized:bootstrapInitialized.current},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     const isValidUser = Boolean(user?.id);
     if (!isValidUser) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useAppBootstrap.ts:useEffect:noUser',message:'User not valid, skipping bootstrap',data:{hasUser:!!user,userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       logWithPrefix('User not yet available or invalid, delaying bootstrap until user is set');
       bootstrapInitialized.current = false;
       return;
@@ -300,11 +312,17 @@ export const useAppBootstrap = (user: User | null) => {
 
     // Guard against multiple bootstrap calls for the same user
     if (bootstrapInitialized.current) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useAppBootstrap.ts:useEffect:alreadyInit',message:'Bootstrap already initialized, skipping',data:{userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       logWithPrefix('Bootstrap already initialized for this user, skipping');
       return;
     }
     bootstrapInitialized.current = true;
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useAppBootstrap.ts:useEffect:triggering',message:'Triggering bootstrap',data:{userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     logWithPrefix('User available, triggering bootstrap', { hasUser: !!user, userId: user?.id });
     bootstrap();
   }, [user, bootstrap]);

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Task, TaskStatus } from '@/types/task';
 import { X, Check, Clock, ListTodo, Trash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,15 +41,15 @@ export function TaskActionsModal({
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [title]);
+  }, [handleSave]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (title.trim() && title !== task.title) {
       onUpdateTitle(title.trim());
     } else {
       onClose();
     }
-  };
+  }, [title, task.title, onUpdateTitle, onClose]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {

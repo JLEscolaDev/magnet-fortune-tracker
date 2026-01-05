@@ -15,7 +15,7 @@ export async function addFortune(
 ): Promise<{ fortuneId: string; streakInfo?: { firstOfDay: boolean; currentStreak: number; longestStreak: number } }> {
   console.log('[FORTUNES:addFortune] Adding fortune with RPC', { selectedDate });
   
-  const { data, error } = await (supabase.rpc as any)('fortune_add', {
+  const { data, error } = await supabase.rpc('fortune_add', {
     p_text: text,
     p_category: category ?? null,
     p_level: level ?? null,
@@ -136,10 +136,10 @@ export async function getFortunesByUser(userId: string): Promise<Fortune[]> {
 }
 
 // Update fortune using RPC to handle encryption properly
-export async function updateFortune(id: string, updates: any) {
+export async function updateFortune(id: string, updates: { text?: string; category?: string; fortune_value?: number; impact_level?: string }) {
   console.log('[FORTUNES:updateFortune] Updating fortune with RPC', { id, updates });
   
-  const { data, error } = await (supabase.rpc as any)('fortune_update', {
+  const { data, error } = await supabase.rpc('fortune_update', {
     p_id: id,
     p_text: updates.text || null,
     p_category: updates.category || null,

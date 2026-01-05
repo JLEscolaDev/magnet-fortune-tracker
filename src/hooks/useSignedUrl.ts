@@ -39,7 +39,7 @@ const createSignedUrlWithRetry = async (bucket: string, path: string, ttlSec: nu
   }
 
   const promise = (async (): Promise<string | null> => {
-    let lastError: any;
+    let lastError: Error | unknown;
     const backoffDelays = [300, 600, 1200, 2400]; // ms
     
     for (let attempt = 0; attempt < 4; attempt++) {

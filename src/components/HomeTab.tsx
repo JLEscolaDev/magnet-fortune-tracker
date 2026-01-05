@@ -112,7 +112,7 @@ export const HomeTab = ({ refreshTrigger }: HomeTabProps) => {
         <QuickMoodTracker className="flex-shrink-0" />
       </div>
       <FortuneList 
-        fortunes={recentFortunes as any} 
+        fortunes={recentFortunes} 
         title="Today's Fortunes"
         onFortunesUpdated={fetchRecentFortunes}
       />

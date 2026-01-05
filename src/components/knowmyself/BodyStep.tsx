@@ -7,7 +7,7 @@ interface BodyStepProps {
     sexual_appetite: number;
     room_temperature: number;
   };
-  updateData: (updates: any) => void;
+  updateData: (updates: Partial<BodyStepData>) => void;
 }
 
 const METRICS = [

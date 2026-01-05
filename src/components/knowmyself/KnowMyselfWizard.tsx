@@ -95,13 +95,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
     }));
   }, [selectedDate]);
 
-  useEffect(() => {
-    if (user) {
-      loadExistingData();
-    }
-  }, [selectedDate, user]);
-
-  const loadExistingData = async () => {
+  const loadExistingData = useCallback(async () => {
     setLoading(true);
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -127,7 +121,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         // Parse mood data from notes field
         let parsedMoodData = { moods: [], mood_causes: [], pain_types: [] };
         let cleanNotes = existingEntry.notes || '';
-        let cleanMeals = '';
+        const cleanMeals = '';
         
         if (existingEntry.notes && existingEntry.notes.includes('[MOOD_DATA]')) {
           const moodDataMatch = existingEntry.notes.match(/\[MOOD_DATA\](.*?)\[\/MOOD_DATA\]/);
@@ -154,9 +148,9 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
           date: dateStr,
           mood: existingEntry.mood ? (moodMapping[existingEntry.mood] || 3) : null,
           dream_quality: existingEntry.dream_quality || 3,
-          energy_level: (existingEntry as any).energy_level || 3,
+          energy_level: existingEntry.energy_level || 3,
           sexual_appetite: existingEntry.sexual_appetite || 3,
-          room_temperature: (existingEntry as any).room_temperature || 3,
+          room_temperature: existingEntry.room_temperature || 3,
           moods: parsedMoodData.moods || [],
           mood_causes: parsedMoodData.mood_causes || [],
           pain_types: parsedMoodData.pain_types || [],
@@ -197,7 +191,13 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate, user, toast]);
+
+  useEffect(() => {
+    if (user) {
+      loadExistingData();
+    }
+  }, [selectedDate, user, loadExistingData]);
 
   const updateData = (updates: Partial<WizardData>) => {
     setData(prev => ({ ...prev, ...updates }));
@@ -317,11 +317,11 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         // Celebration for first action of day
         if (result?.firstOfDay) {
           // Emit analytics
-          if (typeof window !== 'undefined' && (window as any).gtag) {
-            (window as any).gtag('event', 'first_action_of_day', {
+          if (typeof window !== 'undefined' && window.gtag) {
+            window.gtag('event', 'first_action_of_day', {
               source: 'know'
             });
-            (window as any).gtag('event', 'streak_celebrate', {
+            window.gtag('event', 'streak_celebrate', {
               currentStreak: result.currentStreak
             });
           }

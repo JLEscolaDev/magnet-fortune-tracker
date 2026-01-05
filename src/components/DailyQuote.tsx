@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppState } from '@/contexts/AppStateContext';
 
@@ -27,7 +27,7 @@ export const DailyQuote = () => {
     return Math.abs(hash);
   };
 
-  const fetchDailyQuote = async () => {
+  const fetchDailyQuote = useCallback(async () => {
     if (!profile?.user_id) return;
 
     try {
@@ -36,7 +36,7 @@ export const DailyQuote = () => {
       
       // First, get total count of quotes
       const { count, error: countError } = await supabase
-        .from('quotes_master' as any)
+        .from('quotes_master')
         .select('*', { count: 'exact', head: true });
 
       if (countError || !count || count === 0) {
@@ -50,7 +50,7 @@ export const DailyQuote = () => {
 
       // Fetch the specific quote at that index
       const { data: quotes, error } = await supabase
-        .from('quotes_master' as any)
+        .from('quotes_master')
         .select('id, text_en, text_es, author, source')
         .range(quoteIndex, quoteIndex)
         .limit(1);
@@ -68,11 +68,11 @@ export const DailyQuote = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile?.user_id]);
 
   useEffect(() => {
     fetchDailyQuote();
-  }, [profile?.user_id]);
+  }, [fetchDailyQuote]);
 
   if (loading) {
     return (

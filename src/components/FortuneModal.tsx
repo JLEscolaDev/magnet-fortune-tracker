@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Plus, Sparkle, CurrencyDollar, Crown, Lock, TrendUp, Trophy, Star, Camera, Image } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -138,6 +138,53 @@ export const FortuneModal = ({
     });
   }
 
+  // Define loadBigWinsCount before it's used in useEffect
+  const loadBigWinsCount = useCallback(async () => {
+    try {
+      if (!user) return;
+
+      const now = new Date();
+      const startOfYear = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+      const endOfYear = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 1));
+
+      // Use the fortune_list RPC and filter on client side
+      const { data } = await supabase.rpc('fortune_list', {
+        p_from: startOfYear.toISOString(),
+        p_to: endOfYear.toISOString()
+      });
+
+      if (data) {
+        const bigWins = data.filter((fortune) => fortune.impact_level === 'big_win');
+        setBigWinsCount(bigWins.length);
+      }
+    } catch (error) {
+      console.error('Error loading big wins count:', error);
+    }
+  }, [user]);
+
+  // Define loadCategories before it's used in useEffect
+  const loadCategories = useCallback(async () => {
+    try {
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('custom_categories')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (data) {
+        const customCatsData = data.map(cat => ({
+          name: cat.name,
+          hasNumericValue: cat.has_numeric_value,
+          color: cat.color
+        }));
+        setCategories([...defaultCategories, ...customCatsData]);
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  }, [user, defaultCategories]);
+
   // Load custom categories and big wins count on mount
   useEffect(() => {
     if (isOpen) {
@@ -146,7 +193,7 @@ export const FortuneModal = ({
         loadBigWinsCount();
       }
     }
-  }, [isOpen, isEditMode]);
+  }, [isOpen, isEditMode, loadCategories, loadBigWinsCount]);
 
   // Populate form when editing - wait for categories to load
   useEffect(() => {
@@ -172,51 +219,6 @@ export const FortuneModal = ({
       setFortunePhoto(null);
     }
   }, [isEditMode, fortune, isOpen, categories]);
-
-  const loadBigWinsCount = async () => {
-    try {
-      if (!user) return;
-
-      const now = new Date();
-      const startOfYear = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
-      const endOfYear = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 1));
-
-      // Use the fortune_list RPC and filter on client side to avoid TypeScript issues
-      const { data } = await (supabase.rpc as any)('fortune_list', {
-        p_from: startOfYear.toISOString(),
-        p_to: endOfYear.toISOString()
-      });
-
-      if (data) {
-        const bigWins = data.filter((fortune: any) => fortune.impact_level === 'big_win');
-        setBigWinsCount(bigWins.length);
-      }
-    } catch (error) {
-      console.error('Error loading big wins count:', error);
-    }
-  };
-
-  const loadCategories = async () => {
-    try {
-      if (!user) return;
-
-      const { data } = await supabase
-        .from('custom_categories')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (data) {
-        const customCatsData = data.map(cat => ({
-          name: cat.name,
-          hasNumericValue: cat.has_numeric_value,
-          color: cat.color
-        }));
-        setCategories([...defaultCategories, ...customCatsData]);
-      }
-    } catch (error) {
-      console.error('Error loading categories:', error);
-    }
-  };
 
   const getCurrentCategory = () => {
     return categories.find(cat => cat.name === category) || defaultCategories[0];
@@ -365,11 +367,12 @@ export const FortuneModal = ({
         description: result.pending ? "Photo is processing..." : "Your photo has been successfully uploaded.",
       });
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('[PHOTO] Error attaching photo:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to attach photo. Please try again.";
       toast({
         title: "Upload failed",
-        description: error.message || "Failed to attach photo. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -461,7 +464,7 @@ export const FortuneModal = ({
 
       if (isEditMode && fortune) {
         // Update existing fortune
-        const updateData: any = {
+        const updateData: { text: string; category: string; fortune_value?: number } = {
           text: sanitizedText,
           category: validatedCategory,
         };
@@ -488,7 +491,7 @@ export const FortuneModal = ({
         onFortuneUpdated?.();
       } else {
         // Create new fortune 
-        let result = await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
+        const result = await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
 
         // If there's a photo attached, save the media record with the real fortune ID
         if (fortunePhoto && fortunePhoto !== 'pending' && result.fortuneId) {
@@ -531,11 +534,11 @@ export const FortuneModal = ({
         // Celebration for first action of day
         if (result.streakInfo?.firstOfDay) {
           // Emit analytics
-          if (typeof window !== 'undefined' && (window as any).gtag) {
-            (window as any).gtag('event', 'first_action_of_day', {
+          if (typeof window !== 'undefined' && window.gtag) {
+            window.gtag('event', 'first_action_of_day', {
               source: 'fortune'
             });
-            (window as any).gtag('event', 'streak_celebrate', {
+            window.gtag('event', 'streak_celebrate', {
               currentStreak: result.streakInfo.currentStreak
             });
           }
@@ -711,7 +714,7 @@ export const FortuneModal = ({
           </div>
 
           {/* Photo Attachment Section - Only for existing fortunes (edit mode) */}
-          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && isHighTier && isEditMode && (
+          {typeof window !== 'undefined' && window.NativeUploaderAvailable && isHighTier && isEditMode && (
             <div>
               <label className="block text-sm font-medium mb-2 flex items-center gap-2">
                 <Camera size={16} className="text-primary" />
@@ -753,14 +756,14 @@ export const FortuneModal = ({
           )}
 
           {/* Note for new fortunes about photo upload */}
-          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && isHighTier && !isEditMode && (
+          {typeof window !== 'undefined' && window.NativeUploaderAvailable && isHighTier && !isEditMode && (
             <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg border border-muted/50">
               💡 <strong>Tip:</strong> Save this fortune first, then edit it to add photos. Photo uploads are only available for existing fortunes.
             </div>
           )}
 
           {/* Upgrade prompt for non-high tier users on mobile */}
-          {typeof window !== 'undefined' && (window as any).NativeUploaderAvailable && !isHighTier && (
+          {typeof window !== 'undefined' && window.NativeUploaderAvailable && !isHighTier && (
             <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-lg p-3">
               <div className="flex items-center gap-2">
                 <Camera size={16} className="text-warning" />

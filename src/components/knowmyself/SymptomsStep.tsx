@@ -14,7 +14,7 @@ interface SymptomsStepProps {
     exercise_duration: number;
     alcohol_consumption: number;
   };
-  updateData: (updates: any) => void;
+  updateData: (updates: Partial<{ moods: string[]; mood_causes: string[]; pain_types: string[]; exercise_types: string[]; exercise_duration: number; alcohol_consumption: number }>) => void;
 }
 
 const SYMPTOMS = [

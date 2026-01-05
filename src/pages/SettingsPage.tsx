@@ -30,15 +30,12 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const { toast } = useToast();
   const { isActive, subscription } = useSubscription();
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [fallbackProfile, setFallbackProfile] = useState<any>(null);
+  const [fallbackProfile, setFallbackProfile] = useState<{ display_name?: string | null; level?: number | null; created_at?: string | null } | null>(null);
   const [isBetaTester, setIsBetaTester] = useState(false);
-  // Safely consume AppState if the provider exists; fall back gracefully when absent.
-  let appState: any = null;
-  try {
-    appState = useAppState();
-  } catch (_) {
-    appState = null;
-  }
+  
+  // Always call the hook - if context is missing, it will throw and component should not render
+  // This is the correct React pattern - hooks must be called unconditionally
+  const appState = useAppState();
   const profile = appState?.profile ?? null;
   const effectiveProfile = profile ?? fallbackProfile;
   const currentLevel = effectiveProfile?.level ?? 1;
@@ -160,9 +157,11 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
       if (!data?.url) throw new Error('No portal URL returned');
 
       window.location.href = data.url;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Portal error:', error);
-      if (error?.message?.includes('No active subscription') || error?.status === 400) {
+      const errorMessage = error instanceof Error ? error.message : '';
+      const errorStatus = 'status' in error && typeof error.status === 'number' ? error.status : null;
+      if (errorMessage.includes('No active subscription') || errorStatus === 400) {
         setShowPricingDialog(true);
         toast({
           title: 'Subscription Required',

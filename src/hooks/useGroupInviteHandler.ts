@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { User } from '@supabase/supabase-js';
 
-export const useGroupInviteHandler = (user: any) => {
+export const useGroupInviteHandler = (user: User | null) => {
   useEffect(() => {
     if (!user) return;
 

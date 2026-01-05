@@ -29,7 +29,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
 
   useEffect(() => {
     if (userFeatures) {
-      setEarlyBirdDismissed(userFeatures?.early_bird_seen || false);
+      const earlyBirdSeen = (userFeatures as { early_bird_seen?: boolean })?.early_bird_seen;
+      setEarlyBirdDismissed(earlyBirdSeen || false);
     }
   }, [userFeatures]);
 
@@ -64,7 +65,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
         ? { earlyBird: true, tier, returnTo }
         : { priceId, returnTo };
 
-      const { data, error } = await callEdge('create-checkout-session', body);
+      const { data, error } = await callEdge<{ url: string }>('create-checkout-session', body);
 
       if (error) throw new Error(error);
 
@@ -83,7 +84,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
     if (!user) return;
 
     try {
-      const { data, error } = await callEdge('create-portal-session', {
+      const { data, error } = await callEdge<{ url: string }>('create-portal-session', {
         returnUrl: window.location.origin
       });
 
@@ -153,7 +154,19 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onClose }) => {
 
   const showEarlyBird = earlyBirdEligible && !earlyBirdDismissed;
 
-  const renderPlanCard = (plan: any, tabType: string) => {
+  interface Plan {
+    id: string;
+    name: string;
+    tier?: string;
+    price_id: string;
+    level: number;
+    billing_period: '28d' | 'annual' | 'lifetime';
+    is_early_bird: boolean;
+    visibility: 'visible' | 'hidden' | 'teaser';
+    created_at: string | null;
+  }
+
+  const renderPlanCard = (plan: Plan, tabType: string) => {
     const tier = getPlanTier(plan.name);
     const isEarlyBird = showEarlyBird && tabType === 'annual' && tier !== 'lifetime';
     const isPro = tier === 'pro';

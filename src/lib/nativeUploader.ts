@@ -1,9 +1,9 @@
-import { NativeUploaderOptions, NativeUploaderResult } from '@/types/native';
+import { NativeUploaderOptions, NativeUploaderResult, NativeUploader } from '@/types/native';
 import { supabase } from '@/integrations/supabase/client';
 import { getAccessToken } from '@/integrations/supabase/auth';
 
 // Development mock for testing in browser/simulator
-const createMockUploader = () => {
+const createMockUploader = (): NativeUploader => {
   const pickAndUploadFortunePhoto = async (options: NativeUploaderOptions): Promise<NativeUploaderResult> => {
     // Simulate file picker in development
     return new Promise((resolve) => {
@@ -136,15 +136,15 @@ export const initializeNativeUploader = () => {
 
   if (isDevelopment || mockNativeUploader) {
     console.log('🔧 Development mode: Enabling mock native uploader');
-    (window as any).NativeUploaderAvailable = true;
-    (window as any).NativeUploader = createMockUploader();
-  } else if ((window as any).NativeUploader) {
+    window.NativeUploaderAvailable = true;
+    window.NativeUploader = createMockUploader();
+  } else if (window.NativeUploader) {
     // Real native uploader is available
     console.log('📱 Native uploader detected');
-    (window as any).NativeUploaderAvailable = true;
+    window.NativeUploaderAvailable = true;
   } else {
     console.log('❌ No native uploader available');
-    (window as any).NativeUploaderAvailable = false;
+    window.NativeUploaderAvailable = false;
   }
 };
 
@@ -158,6 +158,6 @@ export const enableMockUploader = () => {
 
 export const disableMockUploader = () => {
   localStorage.removeItem('mockNativeUploader');
-  (window as any).NativeUploaderAvailable = false;
+  window.NativeUploaderAvailable = false;
   console.log('❌ Mock native uploader disabled.');
 };

@@ -23,6 +23,13 @@ interface PlansByCycle {
   lifetime?: Plan;
 }
 
+interface UserFeatures {
+  early_bird_eligible?: boolean;
+  has_full_access?: boolean;
+  is_trial_active?: boolean;
+  [key: string]: unknown;
+}
+
 interface SubscriptionContextType {
   loading: boolean;
   isActive: boolean;
@@ -32,7 +39,7 @@ interface SubscriptionContextType {
   user: User | null;
   authLoading: boolean;
   sessionInitialized: boolean;
-  userFeatures: any | null;
+  userFeatures: UserFeatures | null;
   isTrialActive: boolean;
   earlyBirdEligible: boolean;
   plansByCycle: PlansByCycle;
@@ -56,7 +63,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [sessionInitialized, setSessionInitialized] = useState(false);
-  const [userFeatures, setUserFeatures] = useState<any>(null);
+  const [userFeatures, setUserFeatures] = useState<UserFeatures | null>(null);
   const [plansByCycle, setPlansByCycle] = useState<PlansByCycle>({ '28d': [], annual: [] });
   const [plansLoading, setPlansLoading] = useState(true);
   const [allPlans, setAllPlans] = useState<Plan[]>([]);
@@ -87,8 +94,8 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
           console.error('Error fetching user features:', error);
         }
         
-        setUserFeatures(features);
-        setEarlyBirdEligible(!!(features as any)?.early_bird_eligible);
+        setUserFeatures(features as UserFeatures);
+        setEarlyBirdEligible(!!(features as UserFeatures)?.early_bird_eligible);
       }
       
       return activeSubscription;
@@ -222,8 +229,14 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   // Auth state management - uses ref to access latest fetchSubscription in callback
   useEffect(() => {
     const getInitialSession = async () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:getInitialSession',message:'Getting initial session',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       setAuthLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:getInitialSession:result',message:'Initial session result',data:{hasSession:!!session,hasUser:!!session?.user,userId:session?.user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       setSession(session);
       setUser(session?.user ?? null);
       setAuthLoading(false);
@@ -231,10 +244,16 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     };
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:onAuthStateChange',message:'Auth state change event',data:{event,hasSession:!!newSession,hasUser:!!newSession?.user,userId:newSession?.user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       setSession(newSession);
       setUser(newSession?.user ?? null);
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/9668e307-86e2-4d4d-997d-e4e0575f8e45',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SubscriptionContext.tsx:onAuthStateChange:SIGNED_IN',message:'SIGNED_IN event detected',data:{event,userId:newSession?.user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         // Use ref to get latest fetchSubscription to avoid stale closure
         fetchSubscriptionRef.current();
       }
@@ -340,7 +359,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   }, [user, fetchSubscription]);
 
   const isActive = useMemo(() => {
-    const sub = subscription as any;
+    const sub = subscription;
     if (!sub) return false;
     if (sub.is_lifetime) return true;
     if (!sub.current_period_end) return false;
@@ -354,7 +373,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
   const isHighTier = useMemo(() => {
     // Photo attachments require Pro subscription, Lifetime, or active trial
-    return isActive || (subscription as any)?.is_lifetime || (userFeatures?.has_full_access ?? false) || (userFeatures?.is_trial_active ?? false);
+    return isActive || subscription?.is_lifetime || (userFeatures?.has_full_access ?? false) || (userFeatures?.is_trial_active ?? false);
   }, [isActive, subscription, userFeatures]);
 
   const refetchWrapper = useCallback(async () => {

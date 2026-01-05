@@ -42,14 +42,18 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ open, onOpenChange
   };
 
   // Pull Pro pricing from Supabase plans (annual + early-bird + monthly)
+  interface PlanWithTier {
+    tier?: string;
+    is_early_bird?: boolean;
+  }
   const proMonthly = plansByCycle?.['28d']?.find(
-    (p: any) => p.tier?.toLowerCase?.() === 'pro' && !p.is_early_bird
+    (p): p is PlanWithPrice & PlanWithTier => (p as PlanWithTier).tier?.toLowerCase() === 'pro' && !(p as PlanWithTier).is_early_bird
   ) as PlanWithPrice | undefined;
   const proAnnual = plansByCycle?.annual?.find(
-    (p: any) => p.tier?.toLowerCase?.() === 'pro' && !p.is_early_bird
+    (p): p is PlanWithPrice & PlanWithTier => (p as PlanWithTier).tier?.toLowerCase() === 'pro' && !(p as PlanWithTier).is_early_bird
   ) as PlanWithPrice | undefined;
   const proAnnualEB = plansByCycle?.annual?.find(
-    (p: any) => p.tier?.toLowerCase?.() === 'pro' && p.is_early_bird
+    (p): p is PlanWithPrice & PlanWithTier => (p as PlanWithTier).tier?.toLowerCase() === 'pro' && (p as PlanWithTier).is_early_bird
   ) as PlanWithPrice | undefined;
 
   // Safe formatter that understands our optional priceData

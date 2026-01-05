@@ -1,13 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export interface EdgeFunctionResponse<T = any> {
+export interface EdgeFunctionResponse<T = unknown> {
   data?: T;
   error?: string;
 }
 
-export const callEdge = async <T = any>(
+export const callEdge = async <T = unknown>(
   functionName: string,
-  body: any = {},
+  body: Record<string, unknown> = {},
   requireAuth: boolean = true
 ): Promise<EdgeFunctionResponse<T>> => {
   try {

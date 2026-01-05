@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ThumbsUp, ThumbsDown, Undo } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,24 +18,7 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Load today's mood on component mount
-  useEffect(() => {
-    if (user) {
-      loadTodayMood();
-    }
-  }, [user]);
-
-  // Listen for lifestyle data updates from other components
-  useEffect(() => {
-    const handleLifestyleUpdate = () => {
-      loadTodayMood();
-    };
-
-    window.addEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
-    return () => window.removeEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
-  }, [user]);
-
-  const loadTodayMood = async () => {
+  const loadTodayMood = useCallback(async () => {
     try {
       if (!user) return;
 
@@ -70,7 +53,24 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
     } finally {
       setInitialLoading(false);
     }
-  };
+  }, [user]);
+
+  // Load today's mood on component mount
+  useEffect(() => {
+    if (user) {
+      loadTodayMood();
+    }
+  }, [user, loadTodayMood]);
+
+  // Listen for lifestyle data updates from other components
+  useEffect(() => {
+    const handleLifestyleUpdate = () => {
+      loadTodayMood();
+    };
+
+    window.addEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
+    return () => window.removeEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
+  }, [user, loadTodayMood]);
 
   const handleMoodSelect = async (mood: 'good' | 'bad') => {
     if (loading || mood === selectedMood) return;
@@ -93,8 +93,8 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
       window.dispatchEvent(new CustomEvent('lifestyleDataUpdated'));
 
       // Analytics
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'mood_logged', {
+      if (typeof window !== 'undefined' && window.gtag) {
+        window.gtag('event', 'mood_logged', {
           mood: mood
         });
       }
@@ -105,11 +105,11 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
       // Celebration for first action of day
       if (result.firstOfDay) {
         // Emit analytics
-        if (typeof window !== 'undefined' && (window as any).gtag) {
-          (window as any).gtag('event', 'first_action_of_day', {
+        if (typeof window !== 'undefined' && window.gtag) {
+          window.gtag('event', 'first_action_of_day', {
             source: 'mood'
           });
-          (window as any).gtag('event', 'streak_celebrate', {
+          window.gtag('event', 'streak_celebrate', {
             currentStreak: result.currentStreak
           });
         }

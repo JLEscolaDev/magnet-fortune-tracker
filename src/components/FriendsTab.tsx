@@ -38,13 +38,29 @@ interface UserStats {
   weekly_fortunes: number;
 }
 
+interface GroupInvitation {
+  id: string;
+  group_id: string;
+  invited_by: string;
+  invited_user_id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SearchResult {
+  user_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
 const FriendsTab: React.FC = () => {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pendingRequests, setPendingRequests] = useState<Friend[]>([]);
-  const [groupInvitations, setGroupInvitations] = useState<any[]>([]);
+  const [groupInvitations, setGroupInvitations] = useState<GroupInvitation[]>([]);
   const [groups, setGroups] = useState<CompetitionGroup[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<CompetitionGroup | null>(null);
   const [groupStats, setGroupStats] = useState<UserStats[]>([]);
   const [newGroupName, setNewGroupName] = useState('');
@@ -104,8 +120,8 @@ const FriendsTab: React.FC = () => {
         f.status === 'pending' && f.is_incoming
       );
       
-      setFriends(accepted as any[]);
-      setPendingRequests(incomingPending as any[]);
+      setFriends(accepted);
+      setPendingRequests(incomingPending);
     } catch (error) {
       console.error('Friends loading error:', error);
       toast({ title: "Error loading friends", variant: "destructive" });
@@ -130,7 +146,7 @@ const FriendsTab: React.FC = () => {
         return;
       }
 
-      const memberGroupIds: string[] = (memberRows || []).map((r: any) => r.group_id as string);
+      const memberGroupIds: string[] = (memberRows || []).map((r) => r.group_id);
 
       // 2) Fetch groups CREATED by the user
       const { data: createdGroups, error: createdErr } = await supabase
@@ -145,7 +161,7 @@ const FriendsTab: React.FC = () => {
       }
 
       // 3) Fetch groups where the user is a MEMBER (by IDs)
-      let memberGroups: any[] = [];
+      let memberGroups: CompetitionGroup[] = [];
       if (memberGroupIds.length > 0) {
         const { data: mg, error: mgErr } = await supabase
           .from('competition_groups')
@@ -161,17 +177,17 @@ const FriendsTab: React.FC = () => {
       }
 
       // 4) Merge and de-duplicate (member ∪ created), newest first
-      const map = new Map<string, any>();
+      const map = new Map<string, CompetitionGroup>();
       for (const g of [...memberGroups, ...(createdGroups || [])]) {
         map.set(g.id, g);
       }
       const mergedGroups = Array.from(map.values()).sort(
-        (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
       // 5) Enrich with counts and membership flags
       const groupsWithCounts = await Promise.all(
-        mergedGroups.map(async (group: any) => {
+        mergedGroups.map(async (group) => {
           const { count } = await supabase
             .from('group_members')
             .select('*', { count: 'exact', head: true })
@@ -504,7 +520,7 @@ const FriendsTab: React.FC = () => {
 
       console.log('Group members:', members);
 
-      const statsPromises = (members || []).map(async (member: any) => {
+      const statsPromises = (members || []).map(async (member: { user_id: string }) => {
         // Get profile data
         const { data: profileData } = await supabase
           .from('profiles')
@@ -522,13 +538,13 @@ const FriendsTab: React.FC = () => {
           return null;
         }
 
-        const stats = statsData as any;
+        const stats = statsData as { total_fortunes?: number; monthly_fortunes?: number; weekly_fortunes?: number } | null;
         return {
           user_id: member.user_id,
           display_name: profileData?.display_name || 'Unknown',
-          total_fortunes: stats.total_fortunes || 0,
-          monthly_fortunes: stats.monthly_fortunes || 0,
-          weekly_fortunes: stats.weekly_fortunes || 0
+          total_fortunes: stats?.total_fortunes || 0,
+          monthly_fortunes: stats?.monthly_fortunes || 0,
+          weekly_fortunes: stats?.weekly_fortunes || 0
         };
       });
 
@@ -710,7 +726,7 @@ const FriendsTab: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {groupInvitations.map((invitation: any) => (
+                  {groupInvitations.map((invitation) => (
                     <div key={invitation.id} className="flex items-center justify-between p-2 border rounded">
                       <div>
                         <span className="font-medium">{invitation.competition_groups?.name}</span>

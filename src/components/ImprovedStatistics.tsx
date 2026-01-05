@@ -131,7 +131,7 @@ export const ImprovedStatistics = ({ fortunes, achievements }: ImprovedStatistic
     // Determine aggregation level based on timeFilter
     const shouldAggregateMonthly = timeFilter === '6m' || timeFilter === '1y';
     
-    let chartData = [];
+    const chartData = [];
     
     if (shouldAggregateMonthly) {
       // Monthly aggregation for 6m and 1y

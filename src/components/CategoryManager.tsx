@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Pencil, CurrencyDollar } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,8 @@ interface CategoryManagerProps {
   onCategoriesChange: (categories: string[]) => void;
 }
 
+const defaultCategories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Tasks', 'Other'];
+
 export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) => {
   const [categories, setCategories] = useState<CustomCategory[]>([]);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -29,13 +31,7 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const defaultCategories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Tasks', 'Other'];
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       if (!user) return;
 
@@ -57,7 +53,11 @@ export const CategoryManager = ({ onCategoriesChange }: CategoryManagerProps) =>
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
-  };
+  }, [user, onCategoriesChange]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;

@@ -47,7 +47,7 @@ export const DevTools = () => {
           ❌ Disable Mock Uploader
         </button>
         <div className="text-xs text-muted-foreground mt-2">
-          Native Available: {(window as any).NativeUploaderAvailable ? '✅' : '❌'}
+          Native Available: {window.NativeUploaderAvailable ? '✅' : '❌'}
         </div>
         <div className="text-xs text-muted-foreground">
           Press Shift+D+V to toggle

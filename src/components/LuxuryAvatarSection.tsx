@@ -82,7 +82,7 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp }: Luxury
     };
 
     fetchAvatar();
-  }, [currentLevel, profile.level, profile.user_id, onLevelUp]);
+  }, [currentLevel, profile.level, profile.user_id, onLevelUp, animationsEnabled]);
 
   // Check if user is a beta tester (registered before 2026)
   useEffect(() => {

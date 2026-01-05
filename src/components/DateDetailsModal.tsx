@@ -38,9 +38,9 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
   
         if (!error && Array.isArray(data)) {
           const withValue = data
-            .filter((c: any) => c.has_numeric_value)
-            .map((c: any) => c.name)
-            .filter((n: any) => typeof n === 'string' && n.length > 0);
+            .filter((c) => c.has_numeric_value)
+            .map((c) => c.name)
+            .filter((n): n is string => typeof n === 'string' && n.length > 0);
   
           // Add built-in category that supports values
           setValueCategories(new Set(['Wealth', ...withValue]));

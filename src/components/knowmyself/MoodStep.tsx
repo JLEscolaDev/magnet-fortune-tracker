@@ -8,7 +8,7 @@ interface MoodStepProps {
   data: {
     mood: number | null;
   };
-  updateData: (updates: any) => void;
+  updateData: (updates: Partial<{ mood: number | null }>) => void;
 }
 const MOOD_OPTIONS = [{
   value: 1,

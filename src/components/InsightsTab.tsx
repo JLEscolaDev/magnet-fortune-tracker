@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CustomCalendar } from '@/components/CustomCalendar';
 import { StatisticsDetailModal } from '@/components/StatisticsDetailModal';
 import { AchievementsDetailModal } from '@/components/AchievementsDetailModal';
@@ -222,7 +222,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
   const [activeTab, setActiveTab] = useState('fortunes');
   const [isBetaTester, setIsBetaTester] = useState(false);
 
-  const fetchFortunes = async () => {
+  const fetchFortunes = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -234,14 +234,14 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
       console.log('[QUERY:fortunes] Fetching all fortunes for insights');
 
       const fortunesData = await getFortunesListPaginated();
-      setFortunes(fortunesData as any);
+      setFortunes(fortunesData);
         
       // Filter fortunes for selected date
       if (selectedDate) {
         const dateFortunes = fortunesData.filter(fortune =>
           isSameDay(new Date(fortune.created_at), selectedDate)
         );
-        setSelectedDateFortunes(dateFortunes as any);
+        setSelectedDateFortunes(dateFortunes);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -250,7 +250,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate, addError]);
 
   // Check if user is a beta tester (registered before 2026)
   const checkBetaTesterStatus = async () => {
@@ -277,7 +277,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
   useEffect(() => {
     fetchFortunes();
     checkBetaTesterStatus();
-  }, [refreshTrigger, selectedDate]);
+  }, [refreshTrigger, selectedDate, fetchFortunes]);
 
   const getFortunesByCategory = () => {
     const categories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Tasks', 'Other'];

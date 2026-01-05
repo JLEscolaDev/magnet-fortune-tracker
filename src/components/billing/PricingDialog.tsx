@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,9 +59,9 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     if (isOpen && !plansLoading) {
       loadPricingData();
     }
-  }, [isOpen, plansLoading, plansByCycle]);
+  }, [isOpen, plansLoading, loadPricingData]);
 
-  const loadPricingData = async () => {
+  const loadPricingData = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -97,7 +97,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     } finally {
       setLoading(false);
     }
-  };
+  }, [plansByCycle]);
 
   const getTierFromName = (name: string): string => {
     const lowerName = name.toLowerCase();
@@ -191,14 +191,21 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
   // Filter and organize plans for display
   const getPlansForTab = (tab: '28d' | 'annual') => {
     // First filter by visibility - exclude hidden plans
-    const candidates = plans.filter(p => 
+    interface PlanWithVisibility {
+      billing_period: string;
+      visibility?: 'visible' | 'hidden' | 'teaser';
+      tier: string;
+      is_early_bird: boolean;
+    }
+
+    const candidates = plans.filter((p): p is PlanWithVisibility => 
       p.billing_period === tab && 
-      (p as any).visibility !== 'hidden'
+      (p as PlanWithVisibility).visibility !== 'hidden'
     );
 
     if (tab === 'annual' && earlyBirdEligible) {
       // For each tier, prefer the EB variant if it exists
-      const byTier = new Map<string, any>();
+      const byTier = new Map<string, PlanWithVisibility>();
       for (const p of candidates) {
         const key = p.tier.toLowerCase();
         const existing = byTier.get(key);
@@ -213,7 +220,12 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     return candidates.filter(p => !p.is_early_bird);
   };
 
-  const lifetimePlan = plans.find(p => p.billing_period === 'lifetime' && (p as any).visibility !== 'hidden');
+  interface PlanWithVisibility {
+    billing_period: string;
+    visibility?: 'visible' | 'hidden' | 'teaser';
+  }
+
+  const lifetimePlan = plans.find((p): p is PlanWithVisibility => p.billing_period === 'lifetime' && (p as PlanWithVisibility).visibility !== 'hidden');
 
   const planFeatures = {
     essential: [

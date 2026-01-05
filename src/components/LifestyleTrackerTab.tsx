@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Calendar, Edit } from 'lucide-react';
@@ -29,7 +29,7 @@ export const LifestyleTrackerTab = () => {
     if (user) {
       loadEntries();
     }
-  }, [user]);
+  }, [user, loadEntries]);
 
   // Listen for lifestyle data updates from other components
   useEffect(() => {
@@ -39,7 +39,7 @@ export const LifestyleTrackerTab = () => {
 
     window.addEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
     return () => window.removeEventListener('lifestyleDataUpdated', handleLifestyleUpdate);
-  }, [user]);
+  }, [user, loadEntries]);
 
   useEffect(() => {
     // Check if today has an entry
@@ -48,7 +48,7 @@ export const LifestyleTrackerTab = () => {
     setTodayEntry(todayData || null);
   }, [entries]);
 
-  const loadEntries = async () => {
+  const loadEntries = useCallback(async () => {
     try {
       if (!user) return;
 
@@ -65,7 +65,7 @@ export const LifestyleTrackerTab = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const navigateDate = (direction: 'prev' | 'next') => {
     setSelectedDate(prev => 

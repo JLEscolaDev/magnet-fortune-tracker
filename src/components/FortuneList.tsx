@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Fortune } from '@/types/fortune';
 import { 
@@ -137,7 +137,7 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
     return () => {
       window.removeEventListener("fortunesUpdated", handleUpdate);
     };
-  }, []);
+  }, [onFortunesUpdated]);
 
   const handleEditFortune = (fortune: Fortune) => {
     setEditingFortune(fortune);
