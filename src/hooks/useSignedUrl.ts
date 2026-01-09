@@ -40,9 +40,9 @@ const createSignedUrlWithRetry = async (bucket: string, path: string, ttlSec: nu
 
   const promise = (async (): Promise<string | null> => {
     let lastError: Error | unknown;
-    const backoffDelays = [300, 600, 1200, 2400]; // ms
+    const backoffDelays = [300, 600, 1200]; // ms
     
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const { data, error } = await supabase.storage
           .from(bucket)
@@ -52,7 +52,7 @@ const createSignedUrlWithRetry = async (bucket: string, path: string, ttlSec: nu
           lastError = error;
           // If it's a "Object not found" error (400), retry with backoff
           if (error.message?.includes('Object not found') || error.message?.includes('not found')) {
-            if (attempt < 3) {
+            if (attempt < 2) {
               await sleep(backoffDelays[attempt]);
               continue;
             }
@@ -74,13 +74,13 @@ const createSignedUrlWithRetry = async (bucket: string, path: string, ttlSec: nu
         return null;
       } catch (error) {
         lastError = error;
-        if (attempt < 3) {
+        if (attempt < 2) {
           await sleep(backoffDelays[attempt]);
         }
       }
     }
     
-    console.error(`Failed to create signed URL for ${key} after 4 attempts:`, lastError);
+    console.error(`Failed to create signed URL for ${key} after 3 attempts:`, lastError);
     return null;
   })();
 

@@ -240,7 +240,7 @@ export const FortuneModal = ({
     }
   };
 
-  const pollForPhotoCompletion = async (path: string, bucket: string, maxAttempts: number = 20) => {
+  const pollForPhotoCompletion = async (path: string, bucket: string, maxAttempts: number = 3) => {
     let attempts = 0;
     const pollInterval = setInterval(async () => {
       attempts++;

@@ -254,8 +254,8 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     }, { replace: true });
 
     // Smart polling: retry until subscription is found or max attempts reached
-    const maxAttempts = 10;
-    const delaysMs = [300, 500, 800, 1200, 1500, 2000, 2500, 3000, 3500, 4000];
+    const maxAttempts = 3;
+    const delaysMs = [300, 500, 800];
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       console.log(`[SUBSCRIPTION] Polling attempt ${attempt + 1}/${maxAttempts}`);
