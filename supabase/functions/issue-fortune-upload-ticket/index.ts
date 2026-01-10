@@ -175,20 +175,23 @@ serve(async (req) => {
       });
     }
 
-    // Generate file path with validated MIME type
+    // Generate bucket-relative path (NO bucket prefix)
+    // Format: <userId>/<fortuneId>-<random>.ext
     const extension = getExtensionFromMime(mime as AllowedMimeType);
     const randomSuffix = crypto.randomUUID().slice(0, 8);
-    const path = `${user.id}/${fortune_id}-${randomSuffix}.${extension}`;
+    const bucketRelativePath = `${user.id}/${fortune_id}-${randomSuffix}.${extension}`;
 
-    console.log('issue-fortune-upload-ticket: Generated path:', path);
+    console.log('issue-fortune-upload-ticket: Generated bucketRelativePath:', bucketRelativePath);
 
     // Create service role client for storage operations
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Create signed upload URL using SDK method
+    // IMPORTANT: createSignedUploadUrl REQUIRES POST multipart/form-data with field name "file"
+    // PUT uploads WILL NOT persist the object - this is why the bucket was empty
+    console.log('issue-fortune-upload-ticket: Using createSignedUploadUrl (REQUIRES POST multipart/form-data)');
     const { data, error } = await serviceClient.storage
       .from('photos')
-      .createSignedUploadUrl(path, 120); // 2 minutes
+      .createSignedUploadUrl(bucketRelativePath, 120); // 2 minutes TTL
 
     if (error) {
       console.error('issue-fortune-upload-ticket: Upload URL creation failed:', error);
@@ -198,16 +201,26 @@ serve(async (req) => {
       });
     }
 
-    console.log('issue-fortune-upload-ticket: Success - URL created');
+    console.log('issue-fortune-upload-ticket: TICKET_OK - bucket:', 'photos', 'bucketRelativePath:', bucketRelativePath);
 
+    // Return explicit upload contract
     return new Response(JSON.stringify({
+      // Bucket name (for Storage API calls)
       bucket: 'photos',
-      path: path,
+      // Bucket-relative path (for Storage API - NO bucket prefix)
+      bucketRelativePath: bucketRelativePath,
+      // Same path stored in DB (bucketRelativePath is canonical)
+      dbPath: bucketRelativePath,
+      // Signed upload URL
       url: data.signedUrl,
-      method: 'POST',
+      // REQUIRED upload method
+      uploadMethod: 'POST_MULTIPART',
+      // REQUIRED headers for multipart/form-data upload
       headers: {
         'x-upsert': 'true'
-      }
+      },
+      // REQUIRED: multipart form field name must be "file"
+      formFieldName: 'file'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

@@ -28,83 +28,83 @@ const createMockUploader = (): NativeUploader => {
         }
 
         try {
-          // Upload to Supabase
-          const fileName = `${options.fortuneId}-${Date.now()}.${file.name.split('.').pop()}`;
-          const filePath = `${options.userId}/${fileName}`;
+          // Follow the same contract as native bridges
+          console.log('[MOCK UPLOADER] TICKET_REQUEST - fortuneId:', options.fortuneId);
 
-          console.log('[MOCK UPLOADER] Uploading file:', { fileName, filePath, fileSize: file.size, fileType: file.type });
+          // Step 1: Call issue-fortune-upload-ticket
+          const { callEdge } = await import('./edge-functions');
+          const ticketResponse = await callEdge<{
+            bucket: string;
+            bucketRelativePath: string;
+            url: string;
+            uploadMethod: string;
+            formFieldName: string;
+            headers: Record<string, string>;
+          }>('issue-fortune-upload-ticket', {
+            fortune_id: options.fortuneId,
+            mime: file.type || 'image/jpeg'
+          });
 
-          // First check if user is authenticated
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) {
-            throw new Error('User not authenticated');
+          if (ticketResponse.error || !ticketResponse.data) {
+            throw new Error(ticketResponse.error || 'Failed to get upload ticket');
           }
 
-          console.log('[MOCK UPLOADER] User authenticated, proceeding with upload');
+          const { bucket, bucketRelativePath, url: uploadUrl, formFieldName, headers } = ticketResponse.data;
+          
+          console.log('[MOCK UPLOADER] TICKET_OK - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
 
-          const { data, error } = await supabase.storage
-            .from('photos')
-            .upload(filePath, file, {
-              cacheControl: '3600',
-              upsert: true
-            });
+          // Step 2: Upload using POST multipart/form-data
+          const formData = new FormData();
+          formData.append(formFieldName, file);
 
-          if (error) {
-            console.error('[MOCK UPLOADER] Upload error:', error);
-            throw error;
+          const uploadResponse = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: headers,
+            body: formData
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Upload failed: ${uploadResponse.statusText}`);
           }
 
-          console.log('[MOCK UPLOADER] Upload successful:', data);
+          console.log('[MOCK UPLOADER] UPLOAD_OK - bucketRelativePath:', bucketRelativePath);
 
-          // Double check the file exists by getting public URL
-          const { data: fileInfo } = supabase.storage
-            .from('photos')
-            .getPublicUrl(data.path);
-
-          console.log('[MOCK UPLOADER] File public URL:', fileInfo.publicUrl);
-
-          // Verify the file was actually uploaded
-          const { data: fileList, error: listError } = await supabase.storage
-            .from('photos')
-            .list(options.userId, {
-              search: fileName
-            });
-
-          if (listError) {
-            console.warn('[MOCK UPLOADER] Could not verify upload:', listError);
-          } else {
-            console.log('[MOCK UPLOADER] File verification:', fileList);
-          }
-
-          // Get signed URL
-          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-            .from('photos')
-            .createSignedUrl(data.path, 300); // 5 minutes
-
-          if (signedUrlError) {
-            console.error('[MOCK UPLOADER] Signed URL error:', signedUrlError);
-            throw signedUrlError;
-          }
-
-          console.log('[MOCK UPLOADER] Signed URL created successfully');
-
+          // Step 3: Call finalize-fortune-photo
           // Get image dimensions
           const img = new Image();
           img.src = URL.createObjectURL(file);
           await new Promise((resolve) => { img.onload = resolve; });
 
-          // Don't save fortune_media record here - it will be saved when fortune is created
-          // Store the upload metadata for later use
+          const finalizeResponse = await callEdge<{
+            signedUrl: string;
+            replaced: boolean;
+          }>('finalize-fortune-photo', {
+            fortune_id: options.fortuneId,
+            bucket: bucket,
+            path: bucketRelativePath, // Use bucketRelativePath (no prefix)
+            width: img.width,
+            height: img.height,
+            size_bytes: file.size,
+            mime: file.type || 'image/jpeg'
+          });
+
+          if (finalizeResponse.error || !finalizeResponse.data) {
+            throw new Error(finalizeResponse.error || 'Failed to finalize photo');
+          }
+
+          console.log('[MOCK UPLOADER] FINALIZE_OK - bucketRelativePath:', bucketRelativePath);
 
           resolve({
-            bucket: 'photos',
-            path: data.path,
-            mime: file.type,
+            bucket: bucket,
+            path: bucketRelativePath,
+            mime: file.type || 'image/jpeg',
             width: img.width,
             height: img.height,
             sizeBytes: file.size,
-            signedUrl: signedUrlData?.signedUrl || '',
-            replaced: false
+            signedUrl: finalizeResponse.data.signedUrl,
+            replaced: finalizeResponse.data.replaced,
+            cancelled: false,
+            pending: false
           });
         } catch (error) {
           console.error('[MOCK UPLOADER] Upload failed:', error);
