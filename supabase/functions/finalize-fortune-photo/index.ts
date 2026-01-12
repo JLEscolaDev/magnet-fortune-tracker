@@ -2,6 +2,10 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
+// BUILD_TAG for deployment drift detection
+// Update this timestamp when deploying to production
+const BUILD_TAG = '2025-01-27T00:00:00Z-finalize-fortune-photo';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -24,7 +28,7 @@ function stripBucketPrefix(bucket: string, path: string): string {
 }
 
 serve(async (req) => {
-  console.log('finalize-fortune-photo: Request received');
+  console.log('finalize-fortune-photo: Request received', { BUILD_TAG });
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -314,7 +318,9 @@ serve(async (req) => {
         bucket: updatedMedia.bucket,
         path: updatedMedia.path,
         updated_at: updatedMedia.updated_at
-      }
+      },
+      // BUILD_TAG for deployment drift detection
+      buildTag: BUILD_TAG
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

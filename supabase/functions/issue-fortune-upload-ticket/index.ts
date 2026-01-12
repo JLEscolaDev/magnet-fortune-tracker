@@ -2,6 +2,10 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
+// BUILD_TAG for deployment drift detection
+// Update this timestamp when deploying to production
+const BUILD_TAG = '2026-01-13-put-contract';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -54,7 +58,7 @@ function getExtensionFromMime(mime: AllowedMimeType): string {
 }
 
 serve(async (req) => {
-  console.log('issue-fortune-upload-ticket: Request received');
+  console.log('issue-fortune-upload-ticket: Request received', { BUILD_TAG });
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -150,9 +154,10 @@ serve(async (req) => {
     }
 
     // Check if user has active subscription: lifetime active OR recurring active/trialing
+    // Query subscriptions to get status and is_lifetime for server-side access computation
     const { data: subscription } = await userClient
       .from('subscriptions')
-      .select('status, is_lifetime, current_period_end')
+      .select('status, is_lifetime')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -161,32 +166,33 @@ serve(async (req) => {
       .from('profiles')
       .select('trial_ends_at')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     const isInTrial = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
     
-    // Check subscription access: lifetime active OR recurring active/trialing
+    // Compute hasAccess server-side based on subscription status and lifetime flag
     let hasActiveSubscription = false;
     if (subscription) {
       // Lifetime: must have is_lifetime=true AND status='active'
       if (subscription.is_lifetime === true && subscription.status === 'active') {
         hasActiveSubscription = true;
       }
-      // Recurring: status must be 'active' or 'trialing' (not 'past_due' or 'canceled')
+      // Recurring: status must be 'active' or 'trialing' (Stripe is source of truth)
       else if (subscription.status === 'active' || subscription.status === 'trialing') {
-        // Also verify period hasn't ended
-        if (subscription.current_period_end) {
-          const periodEnd = new Date(subscription.current_period_end);
-          hasActiveSubscription = periodEnd > new Date();
-        } else {
-          // If no period_end, trust Stripe status
-          hasActiveSubscription = true;
-        }
+        hasActiveSubscription = true;
       }
+      // All other statuses (past_due, canceled, unpaid, incomplete, etc.) do NOT grant access
     }
 
+    // Grant access if user has active subscription OR is in trial period
     if (!hasActiveSubscription && !isInTrial) {
-      console.log('issue-fortune-upload-ticket: User not Pro/Lifetime or in trial');
+      console.log('issue-fortune-upload-ticket: User not Pro/Lifetime or in trial', {
+        hasActiveSubscription,
+        isInTrial,
+        subscriptionStatus: subscription?.status,
+        isLifetime: subscription?.is_lifetime,
+        BUILD_TAG
+      });
       return new Response(JSON.stringify({ error: 'Pro/Lifetime subscription required' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -204,9 +210,8 @@ serve(async (req) => {
     // Create service role client for storage operations
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // IMPORTANT: createSignedUploadUrl REQUIRES POST multipart/form-data with field name "file"
-    // PUT uploads WILL NOT persist the object - this is why the bucket was empty
-    console.log('issue-fortune-upload-ticket: Using createSignedUploadUrl (REQUIRES POST multipart/form-data)');
+    // Create signed upload URL for PUT upload
+    console.log('issue-fortune-upload-ticket: Using createSignedUploadUrl (PUT upload method)');
     const { data, error } = await serviceClient.storage
       .from('photos')
       .createSignedUploadUrl(bucketRelativePath, 120); // 2 minutes TTL
@@ -219,9 +224,9 @@ serve(async (req) => {
       });
     }
 
-    console.log('issue-fortune-upload-ticket: TICKET_OK - bucket:', 'photos', 'bucketRelativePath:', bucketRelativePath);
+    console.log('issue-fortune-upload-ticket: TICKET_OK - bucket:', 'photos', 'bucketRelativePath:', bucketRelativePath, { BUILD_TAG });
 
-    // Return explicit upload contract
+    // Return explicit upload contract for PUT upload
     return new Response(JSON.stringify({
       // Bucket name (for Storage API calls)
       bucket: 'photos',
@@ -229,16 +234,19 @@ serve(async (req) => {
       bucketRelativePath: bucketRelativePath,
       // Same path stored in DB (bucketRelativePath is canonical)
       dbPath: bucketRelativePath,
-      // Signed upload URL
+      // Signed upload URL for PUT request
       url: data.signedUrl,
       // REQUIRED upload method
-      uploadMethod: 'POST_MULTIPART',
-      // REQUIRED headers for multipart/form-data upload
+      uploadMethod: 'PUT',
+      // REQUIRED headers for PUT upload
       headers: {
+        'Content-Type': mime as string,
         'x-upsert': 'true'
       },
-      // REQUIRED: multipart form field name must be "file"
-      formFieldName: 'file'
+      // BUILD_TAG for deployment drift detection
+      buildTag: BUILD_TAG,
+      // Optional: token if available from signed URL (for debugging)
+      ...(data.token && { token: data.token })
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
