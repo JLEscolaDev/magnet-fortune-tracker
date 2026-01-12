@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.get-prices]
 verify_jwt = false
+
+[functions.issue-fortune-upload-ticket]
+verify_jwt = false
+
+[functions.finalize-fortune-photo]
+verify_jwt = false
