@@ -20,7 +20,7 @@ export async function addFortune(
     p_category: category ?? null,
     p_level: level ?? null,
     p_created_at: selectedDate?.toISOString() ?? null,
-    p_impact_level: impactLevel ?? null,
+    p_impact_level: (impactLevel as 'big_win' | 'milestone' | 'small_step' | null) ?? null,
   });
 
   if (error) {

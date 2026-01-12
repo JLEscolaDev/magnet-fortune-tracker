@@ -11,6 +11,7 @@ import { MoodStep } from './MoodStep';
 import { BodyStep } from './BodyStep';
 import { SymptomsStep } from './SymptomsStep';
 import { NotesStep } from './NotesStep';
+import '@/types/gtag.d';
 
 interface WizardData {
   date: string;

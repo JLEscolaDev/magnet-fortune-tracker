@@ -56,12 +56,12 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
     setError(null);
     
     try {
-      const { data, error } = await callEdge('list-pricing', {}, false);
+      const { data, error } = await callEdge<{ pricing: PricingItem[]; flags: { isTrialActive: boolean; earlyBirdEligible: boolean } }>('list-pricing', {}, false);
       
       if (error) throw new Error(error);
       
-      setPricing(data.pricing || []);
-      setFlags(data.flags || { isTrialActive: false, earlyBirdEligible: false });
+      setPricing(data?.pricing || []);
+      setFlags(data?.flags || { isTrialActive: false, earlyBirdEligible: false });
     } catch (error) {
       console.error('Error fetching pricing:', error);
       setError(error instanceof Error ? error.message : 'Failed to load pricing');
@@ -93,7 +93,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
             returnTo
           };
 
-      const { data, error } = await callEdge('create-checkout-session', body);
+      const { data, error } = await callEdge<{ url: string }>('create-checkout-session', body);
 
       if (error) throw new Error(error);
 
@@ -112,7 +112,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
     if (!user) return;
 
     try {
-      const { data, error } = await callEdge('create-portal-session', {
+      const { data, error } = await callEdge<{ url: string }>('create-portal-session', {
         returnUrl: window.location.origin
       });
 

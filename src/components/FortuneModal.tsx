@@ -477,7 +477,7 @@ export const FortuneModal = ({
 
       if (isEditMode && fortune) {
         // Update existing fortune
-        const updateData: { text: string; category: string; fortune_value?: number } = {
+        const updateData: { text: string; category: string; fortune_value?: number | null; impact_level?: string } = {
           text: sanitizedText,
           category: validatedCategory,
         };

@@ -50,11 +50,12 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPr
           avatar_url: avatar.url || null 
         })
         .eq('user_id', profile.user_id)
-        .then(() => {
-          onLevelUp?.();
-        })
-        .catch((error) => {
-          console.error('Error updating profile level:', error);
+        .then((result) => {
+          if (result.error) {
+            console.error('Error updating profile level:', result.error);
+          } else {
+            onLevelUp?.();
+          }
         });
       
       // Reset level up animation after 3 seconds (only if animations are enabled)
