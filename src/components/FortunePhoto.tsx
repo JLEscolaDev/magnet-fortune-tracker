@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getFortuneMedia } from '@/integrations/supabase/fortuneMedia';
 import { useSignedUrl } from '@/hooks/useSignedUrl';
 
@@ -7,84 +7,49 @@ interface FortunePhotoProps {
   className?: string;
 }
 
-type FortuneMediaState = {
-  bucket: string;
-  path: string;
-  // Used to bust browser/CDN cache when the underlying media changes.
-  // Prefer DB-driven versioning (e.g., fortune_media.updated_at) when available.
-  version: string;
-};
-
 export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className = "" }) => {
-  const [media, setMedia] = useState<FortuneMediaState | null>(null);
+  const [media, setMedia] = useState<{ bucket: string; path: string; version: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // NOTE: `useSignedUrl` is expected to re-run when bucket/path/version changes.
-  // Pass version to invalidate signed URL cache when media updates.
+  // Pass version to useSignedUrl for cache-busting
   const signedUrl = useSignedUrl(media?.bucket, media?.path, 300, media?.version);
 
-  // Add a deterministic cache-buster so that when the media changes,
-  // the <img> src changes and the browser is forced to refetch.
-  const signedUrlWithVersion = useMemo(() => {
-    if (!signedUrl || !media?.version) return signedUrl;
-    const separator = signedUrl.includes('?') ? '&' : '?';
-    return `${signedUrl}${separator}v=${encodeURIComponent(media.version)}`;
-  }, [signedUrl, media?.version]);
+  const loadMedia = useCallback(async () => {
+    try {
+      setError(false);
+      const mediaData = await getFortuneMedia(fortuneId);
+      if (mediaData?.path && mediaData?.bucket) {
+        // Use updated_at as version for cache-busting
+        const version = mediaData.updated_at || mediaData.created_at || Date.now().toString();
+        setMedia({ bucket: mediaData.bucket, path: mediaData.path, version });
+      } else {
+        setMedia(null);
+      }
+    } catch (err) {
+      console.error('Error loading fortune media:', err);
+      setError(true);
+      setMedia(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [fortuneId]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadMedia = async () => {
-      setLoading(true);
-      setError(false);
-
-      try {
-        const mediaData: any = await getFortuneMedia(fortuneId);
-
-        if (!mediaData?.path || !mediaData?.bucket) {
-          if (!cancelled) setMedia(null);
-          return;
-        }
-
-        // Prefer a DB-driven version if your query returns it (recommended).
-        // Fallback to the path itself, which still changes on replace uploads.
-        const version = String(mediaData.updated_at ?? mediaData.updatedAt ?? mediaData.path);
-
-        if (!cancelled) {
-          setMedia({
-            bucket: String(mediaData.bucket),
-            path: String(mediaData.path),
-            version,
-          });
-        }
-      } catch (err) {
-        console.error('Error loading fortune media:', err);
-        if (!cancelled) {
-          setError(true);
-          setMedia(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
     loadMedia();
+  }, [loadMedia]);
 
-    // Listen for fortune updates to refetch media when photo changes
+  // Listen for fortune updates to refetch media when photo changes
+  useEffect(() => {
     const handleFortuneUpdate = () => {
-      if (!cancelled) {
-        loadMedia();
-      }
+      loadMedia();
     };
 
     window.addEventListener("fortunesUpdated", handleFortuneUpdate);
-
     return () => {
-      cancelled = true;
       window.removeEventListener("fortunesUpdated", handleFortuneUpdate);
     };
-  }, [fortuneId]);
+  }, [loadMedia]);
 
   if (loading) {
     return (
@@ -97,17 +62,16 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
   }
 
   // If we have media but no signed URL, show loading
-  if (!signedUrlWithVersion) {
+  if (!signedUrl) {
     return (
       <div className={`bg-muted animate-pulse rounded ${className}`} style={{ aspectRatio: '16/9' }} />
     );
   }
 
   return (
-    <img
-      // Cache-busted signed URL so the browser doesn't keep showing the previous image.
-      src={signedUrlWithVersion}
-      alt="Fortune attachment"
+    <img 
+      src={`${signedUrl}${signedUrl.includes('?') ? '&' : '?'}v=${media.version}`}
+      alt="Fortune attachment" 
       className={`object-cover rounded border border-border/50 ${className}`}
       style={{ aspectRatio: '16/9' }}
       onError={() => {
