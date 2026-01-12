@@ -791,7 +791,7 @@ export const FortuneModal = ({
               </label>
               
               {/* Display existing photo (both native and web) */}
-              {fortunePhoto && (
+              {fortunePhoto && fortunePhoto !== 'pending' && (
                 <div className="relative">
                   <img 
                     src={fortunePhoto} 
@@ -813,8 +813,18 @@ export const FortuneModal = ({
                 </div>
               )}
               
-              {/* Native: Show upload button if no photo and user has access */}
-              {isNative && isHighTier && !fortunePhoto && (
+              {/* Show pending state while photo is processing */}
+              {fortunePhoto === 'pending' && (
+                <div className="relative w-full h-48 bg-muted/50 rounded border border-border/50 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+                    <span className="text-sm">Processing photo...</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Native: Show upload button if no photo (or pending) and user has access */}
+              {isNative && isHighTier && !fortunePhoto && !photoAttaching && (
                 <Button
                   type="button"
                   variant="outline"
@@ -824,9 +834,17 @@ export const FortuneModal = ({
                 >
                   <Camera size={24} className="text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
-                    {photoAttaching ? 'Uploading...' : 'Attach Photo'}
+                    Attach Photo
                   </span>
                 </Button>
+              )}
+              
+              {/* Show uploading state */}
+              {isNative && isHighTier && photoAttaching && (
+                <div className="w-full h-32 border-dashed border-2 border-primary/50 rounded flex flex-col items-center justify-center gap-2 bg-muted/30">
+                  <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+                  <span className="text-sm text-muted-foreground">Uploading...</span>
+                </div>
               )}
 
               {/* Native: Show upgrade prompt for non-high tier users */}

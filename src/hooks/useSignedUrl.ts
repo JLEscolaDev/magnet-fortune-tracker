@@ -113,20 +113,23 @@ export function useSignedUrl(bucket?: string, path?: string, ttlSec: number = 30
     // Include version in cache key for cache-busting when photo is updated
     const key = version ? `${bucket}:${path}:${version}` : `${bucket}:${path}`;
     
-    // When version changes, clear old cache entries for this bucket:path
+    // When version changes, clear ALL old cache entries for this bucket:path
+    // This ensures we always get fresh URLs after photo updates
     if (version) {
+      const keysToDelete: string[] = [];
       for (const [cacheKey] of urlCache.entries()) {
-        if (cacheKey.startsWith(`${bucket}:${path}:`) && cacheKey !== key) {
-          urlCache.delete(cacheKey);
-        }
-        // Also clear non-versioned cache entry
-        if (cacheKey === `${bucket}:${path}`) {
-          urlCache.delete(cacheKey);
+        if (cacheKey.startsWith(`${bucket}:${path}`)) {
+          keysToDelete.push(cacheKey);
         }
       }
+      keysToDelete.forEach(k => {
+        if (k !== key) {
+          urlCache.delete(k);
+        }
+      });
     }
     
-    // Check cache first
+    // Check cache first - but only if version matches exactly
     const cached = urlCache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
       setSignedUrl(cached.signedUrl);
@@ -135,6 +138,10 @@ export function useSignedUrl(bucket?: string, path?: string, ttlSec: number = 30
 
     // Need to fetch new signed URL
     setLoading(true);
+    
+    // Clear any existing signed URL while loading to prevent stale display
+    setSignedUrl(null);
+    
     createSignedUrlWithRetry(bucket, path, ttlSec)
       .then(url => {
         if (url) {
@@ -155,4 +162,10 @@ export function useSignedUrl(bucket?: string, path?: string, ttlSec: number = 30
   }, [bucket, path, ttlSec, version]);
 
   return signedUrl;
+}
+
+// Export function to clear all cached URLs (useful after photo updates)
+export function clearSignedUrlCache() {
+  urlCache.clear();
+  inFlightRequests.clear();
 }
