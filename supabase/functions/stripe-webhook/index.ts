@@ -111,8 +111,13 @@ serve(async (req) => {
     clientReferenceId?: string | null,
     customerId?: string | null
   ): Promise<string | null> => {
-    if (clientReferenceId) return clientReferenceId;
+    // Prefer client_reference_id from checkout session (most reliable)
+    if (clientReferenceId) {
+      logStep("Resolved user_id from client_reference_id", { userId: clientReferenceId });
+      return clientReferenceId;
+    }
 
+    // Fallback: resolve from profiles.stripe_customer_id
     if (customerId) {
       const { data, error } = await supabase
         .from("profiles")
@@ -124,16 +129,22 @@ serve(async (req) => {
         logStep("Failed to resolve user_id from customerId", { customerId, error: error.message });
         return null;
       }
-      return data?.user_id ?? null;
+      
+      if (data?.user_id) {
+        logStep("Resolved user_id from stripe_customer_id", { userId: data.user_id, customerId });
+        return data.user_id;
+      }
     }
 
+    logStep("Could not resolve user_id", { clientReferenceId, customerId });
     return null;
   };
 
   const getExistingEntitlement = async (userId: string) => {
+    // With UNIQUE constraint on user_id, there should be exactly one row or none
     const { data, error } = await supabase
       .from("subscriptions")
-      .select("is_lifetime, status, tier, stripe_subscription_id")
+      .select("is_lifetime, status, tier, stripe_subscription_id, stripe_customer_id, stripe_price_id")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -148,8 +159,23 @@ serve(async (req) => {
     sub?.is_lifetime === true && sub?.status === "active";
 
   const upsertSubscriptionByUser = async (payload: Record<string, unknown>) => {
-    // UNIQUE(user_id) exists in DB (you just added it)
-    return supabase.from("subscriptions").upsert(payload as any, { onConflict: "user_id" });
+    // UNIQUE(user_id) constraint ensures single row per user
+    // upsert will update existing row or insert new one
+    const result = await supabase
+      .from("subscriptions")
+      .upsert(payload as any, { 
+        onConflict: "user_id",
+        ignoreDuplicates: false 
+      });
+    
+    if (result.error) {
+      logStep("Error upserting subscription", { 
+        userId: payload.user_id, 
+        error: result.error.message 
+      });
+    }
+    
+    return result;
   };
 
   try {
@@ -176,26 +202,40 @@ serve(async (req) => {
 
         if (session.mode === "payment") {
           // One-off payment => lifetime entitlement
+          // Use far future date but lifetime status is controlled by is_lifetime flag, not date
           const lifetimeEnd = new Date("2099-12-31").toISOString();
+          
+          // Get price_id from line_items if metadata doesn't have it
+          let priceId = session.metadata?.price_id ?? null;
+          if (!priceId && session.line_items) {
+            try {
+              const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
+              if (lineItems.data[0]?.price?.id) {
+                priceId = lineItems.data[0].price.id;
+              }
+            } catch (err) {
+              logStep("Failed to fetch line items for lifetime purchase", { sessionId: session.id });
+            }
+          }
 
           const { error } = await upsertSubscriptionByUser({
             user_id: userId,
             tier: "lifetime",
             status: "active",
-            is_lifetime: true,
+            is_lifetime: true, // Explicit lifetime flag (source of truth for lifetime entitlement)
             stripe_customer_id: customerId,
-            stripe_subscription_id: null,
+            stripe_subscription_id: null, // Lifetime has no subscription
             current_period_start: new Date().toISOString(),
             current_period_end: lifetimeEnd,
             plan_id: "lifetime",
-            stripe_price_id: session.metadata?.price_id ?? null,
+            stripe_price_id: priceId, // Store price_id for lifetime purchases too
             updated_at: new Date().toISOString(),
           });
 
           if (error) {
             logStep("Error upserting lifetime entitlement", { userId, error: error.message });
           } else {
-            logStep("Lifetime entitlement upserted", { userId });
+            logStep("Lifetime entitlement upserted", { userId, priceId });
           }
         } else if (session.mode === "subscription" && session.subscription) {
           // Do not upsert here; subscription.created/updated will arrive with full data
@@ -253,17 +293,22 @@ serve(async (req) => {
           ? new Date(subscription.current_period_end * 1000).toISOString()
           : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // Default to 30 days from now
 
+        // Store Stripe status AS-IS (do NOT remap)
+        // Stripe status values: active, trialing, past_due, canceled, unpaid, incomplete, incomplete_expired
+        // Access control logic in frontend will only grant access for 'active' or 'trialing'
+        const stripeStatus = subscription.status;
+
         const { error } = await upsertSubscriptionByUser({
           user_id: userId,
           tier,
-          status: subscription.status,
-          is_lifetime: false,
+          status: stripeStatus, // Store Stripe status exactly as-is
+          is_lifetime: false, // Recurring subscriptions are never lifetime
           stripe_customer_id: customerId,
           stripe_subscription_id: subscription.id,
           current_period_start: currentPeriodStart,
           current_period_end: currentPeriodEnd,
-          plan_id: priceId ?? "",
-          stripe_price_id: priceId,
+          plan_id: priceId ?? tier, // Use price_id or tier as fallback
+          stripe_price_id: priceId, // Always store price_id when available
           updated_at: new Date().toISOString(),
         });
 
@@ -274,7 +319,13 @@ serve(async (req) => {
             error: error.message,
           });
         } else {
-          logStep("Subscription upserted", { userId, tier, status: subscription.status });
+          logStep("Subscription upserted", { 
+            userId, 
+            tier, 
+            status: stripeStatus, 
+            priceId,
+            currentPeriodEnd 
+          });
         }
 
         break;
@@ -299,13 +350,20 @@ serve(async (req) => {
           break;
         }
 
+        // Get existing subscription data to preserve tier and other fields
+        const existing = await getExistingEntitlement(userId);
+        
+        // Update to canceled status, preserving tier and other Stripe fields
         const { error } = await upsertSubscriptionByUser({
           user_id: userId,
-          status: "canceled",
+          tier: existing?.tier ?? 'essential', // Preserve tier if exists
+          status: "canceled", // Stripe subscription.deleted means canceled
           is_lifetime: false,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscription.id,
+          stripe_price_id: existing?.stripe_price_id ?? null, // Preserve price_id if exists
           current_period_end: new Date().toISOString(),
+          plan_id: existing?.tier ?? 'essential', // Preserve plan_id pattern
           updated_at: new Date().toISOString(),
         });
 
@@ -341,17 +399,28 @@ serve(async (req) => {
           break;
         }
 
-        // Safety net: Stripe also emits subscription.updated, but we ensure status is consistent.
+        // Safety net: Update status to active for this subscription
+        // With UNIQUE(user_id), we can update by user_id directly
         const { error } = await supabase
           .from("subscriptions")
-          .update({ status: "active", updated_at: new Date().toISOString() })
+          .update({ 
+            status: "active", 
+            updated_at: new Date().toISOString() 
+          })
           .eq("user_id", userId)
           .eq("stripe_subscription_id", invoice.subscription as string);
 
         if (error) {
-          logStep("Error updating subscription status to active", { userId, error: error.message });
+          logStep("Error updating subscription status to active", { 
+            userId, 
+            subscriptionId: invoice.subscription,
+            error: error.message 
+          });
         } else {
-          logStep("Subscription status updated to active", { userId });
+          logStep("Subscription status updated to active", { 
+            userId, 
+            subscriptionId: invoice.subscription 
+          });
         }
 
         break;
@@ -380,16 +449,28 @@ serve(async (req) => {
           break;
         }
 
+        // Update status to past_due for this subscription
+        // With UNIQUE(user_id), we can update by user_id directly
         const { error } = await supabase
           .from("subscriptions")
-          .update({ status: "past_due", updated_at: new Date().toISOString() })
+          .update({ 
+            status: "past_due", 
+            updated_at: new Date().toISOString() 
+          })
           .eq("user_id", userId)
           .eq("stripe_subscription_id", invoice.subscription as string);
 
         if (error) {
-          logStep("Error updating subscription status to past_due", { userId, error: error.message });
+          logStep("Error updating subscription status to past_due", { 
+            userId, 
+            subscriptionId: invoice.subscription,
+            error: error.message 
+          });
         } else {
-          logStep("Subscription status updated to past_due", { userId });
+          logStep("Subscription status updated to past_due", { 
+            userId, 
+            subscriptionId: invoice.subscription 
+          });
         }
 
         break;

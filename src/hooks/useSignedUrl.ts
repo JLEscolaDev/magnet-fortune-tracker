@@ -100,7 +100,7 @@ const createSignedUrlWithRetry = async (bucket: string, path: string, ttlSec: nu
   }
 };
 
-export function useSignedUrl(bucket?: string, path?: string, ttlSec: number = 300): string | null {
+export function useSignedUrl(bucket?: string, path?: string, ttlSec: number = 300, version?: string): string | null {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -110,13 +110,24 @@ export function useSignedUrl(bucket?: string, path?: string, ttlSec: number = 30
       return;
     }
 
-    const key = `${bucket}:${path}`;
+    // Include version in cache key to invalidate when media changes
+    const key = version ? `${bucket}:${path}:${version}` : `${bucket}:${path}`;
     
     // Check cache first
     const cached = urlCache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
       setSignedUrl(cached.signedUrl);
       return;
+    }
+
+    // If version changed, invalidate old cache entries for this bucket:path
+    if (version) {
+      // Clear any cache entries for this bucket:path without version or with old version
+      for (const [cacheKey] of urlCache.entries()) {
+        if (cacheKey.startsWith(`${bucket}:${path}:`) || cacheKey === `${bucket}:${path}`) {
+          urlCache.delete(cacheKey);
+        }
+      }
     }
 
     // Need to fetch new signed URL
@@ -133,7 +144,7 @@ export function useSignedUrl(bucket?: string, path?: string, ttlSec: number = 30
         setLoading(false);
       });
 
-  }, [bucket, path, ttlSec]);
+  }, [bucket, path, ttlSec, version]);
 
   return signedUrl;
 }

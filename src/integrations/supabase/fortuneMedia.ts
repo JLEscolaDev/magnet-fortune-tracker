@@ -140,9 +140,31 @@ export const saveFortuneMedia = async (
   mediaData: Omit<FortuneMedia, 'id' | 'created_at' | 'updated_at'>
 ): Promise<FortuneMedia | null> => {
   try {
+    // Read current media first so we can invalidate the right cache entry.
+    // NOTE: Without `onConflict`, upsert would INSERT new rows because `id` isn't provided.
+    const existing = await getFortuneMedia(mediaData.fortune_id);
+
+    const b = mediaData.bucket || 'photos';
+    const nextNormalized = normalizeStoragePath(b, mediaData.path);
+
+    if (!nextNormalized) {
+      console.error('saveFortuneMedia: refusing to write invalid path', {
+        bucket: b,
+        rawPath: mediaData.path,
+      });
+      return null;
+    }
+
+    // Always store bucket-relative path in DB.
+    const toWrite = {
+      ...mediaData,
+      bucket: b,
+      path: nextNormalized,
+    };
+
     const { data, error } = await supabase
       .from('fortune_media')
-      .upsert(mediaData)
+      .upsert(toWrite, { onConflict: 'fortune_id' })
       .select()
       .single();
 
@@ -151,9 +173,61 @@ export const saveFortuneMedia = async (
       return null;
     }
 
+    // Invalidate cache for old + new path to prevent showing the previous image.
+    try {
+      if (existing) {
+        const oldBucket = existing.bucket || 'photos';
+        const oldNormalized = normalizeStoragePath(oldBucket, existing.path);
+        if (oldNormalized) signedUrlCache.delete(`${oldBucket}:${oldNormalized}`);
+      }
+
+      const newBucket = data.bucket || 'photos';
+      const newNormalized = normalizeStoragePath(newBucket, data.path);
+      if (newNormalized) signedUrlCache.delete(`${newBucket}:${newNormalized}`);
+
+      // Also clear any remaining cache entries for safety (small map, cheap).
+      // This prevents stale signed URLs when path contracts change.
+      signedUrlCache.clear();
+    } catch (e) {
+      console.warn('saveFortuneMedia: cache invalidation failed (ignored)', e);
+    }
+
     return data;
   } catch (error) {
     console.error('Error saving fortune media:', error);
     return null;
+  }
+};
+
+export const deleteFortuneMedia = async (fortuneId: string): Promise<boolean> => {
+  try {
+    const existing = await getFortuneMedia(fortuneId);
+
+    const { error } = await supabase
+      .from('fortune_media')
+      .delete()
+      .eq('fortune_id', fortuneId);
+
+    if (error) {
+      console.error('Error deleting fortune media:', error);
+      return false;
+    }
+
+    // Invalidate cache so the UI doesn't keep rendering the previous signed URL.
+    try {
+      if (existing) {
+        const b = existing.bucket || 'photos';
+        const p = normalizeStoragePath(b, existing.path);
+        if (p) signedUrlCache.delete(`${b}:${p}`);
+      }
+      signedUrlCache.clear();
+    } catch (e) {
+      console.warn('deleteFortuneMedia: cache invalidation failed (ignored)', e);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting fortune media:', error);
+    return false;
   }
 };

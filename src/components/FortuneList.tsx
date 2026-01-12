@@ -227,7 +227,11 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex-1">
                     <p className="text-sm leading-relaxed mb-2 text-gray-800 dark:text-white">{fortune.text}</p>
-                    <FortunePhoto fortuneId={fortune.id} className="w-full max-w-xs" />
+                    <FortunePhoto
+                      fortuneId={fortune.id}
+                      refreshKey={fortune.updated_at ?? fortune.created_at}
+                      className="w-full max-w-xs"
+                    />
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Impact Level Indicator */}

@@ -351,20 +351,62 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
           {/* Billing */}
           <div className="luxury-card p-6">
             <h3 className="text-lg font-heading font-medium mb-4">Billing & Subscription</h3>
-            {isActive ? (
+            {subscription ? (
               <div className="space-y-3">
-                <div className="p-3 bg-emerald/10 border border-emerald/20 rounded-lg">
-                  <p className="font-medium text-emerald">
-                    {subscription?.is_lifetime ? 'Lifetime Plan Active' : `${subscription?.tier ? subscription.tier.charAt(0).toUpperCase() + subscription.tier.slice(1) : 'Pro'} Plan Active`}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {subscription?.is_lifetime 
-                      ? 'Forever access' 
-                      : `Valid until ${subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'Unknown'}`
-                    }
-                  </p>
-                </div>
-                {!subscription?.is_lifetime && (
+                {/* Show subscription status based on actual DB status */}
+                {subscription.is_lifetime && subscription.status === 'active' ? (
+                  <div className="p-3 bg-emerald/10 border border-emerald/20 rounded-lg">
+                    <p className="font-medium text-emerald">Lifetime Plan Active</p>
+                    <p className="text-sm text-muted-foreground">Forever access</p>
+                  </div>
+                ) : isActive && (subscription.status === 'active' || subscription.status === 'trialing') ? (
+                  <div className="p-3 bg-emerald/10 border border-emerald/20 rounded-lg">
+                    <p className="font-medium text-emerald">
+                      {subscription.tier ? subscription.tier.charAt(0).toUpperCase() + subscription.tier.slice(1) : 'Pro'} Plan Active
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Valid until {subscription.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'Unknown'}
+                    </p>
+                  </div>
+                ) : subscription.status === 'past_due' ? (
+                  <div className="p-3 bg-amber/10 border border-amber/20 rounded-lg">
+                    <p className="font-medium text-amber">Payment Required</p>
+                    <p className="text-sm text-muted-foreground">
+                      Your subscription is past due. Please update your payment method to continue access.
+                    </p>
+                    <Button
+                      variant="default"
+                      onClick={handleManageBilling}
+                      className="w-full mt-3"
+                      disabled={openingPortal}
+                    >
+                      {openingPortal ? 'Opening…' : 'Update Payment'}
+                    </Button>
+                  </div>
+                ) : subscription.status === 'canceled' ? (
+                  <div className="p-3 bg-muted/50 border border-border rounded-lg">
+                    <p className="font-medium">Subscription Canceled</p>
+                    <p className="text-sm text-muted-foreground">
+                      Your subscription has been canceled. Upgrade to continue accessing premium features.
+                    </p>
+                    <Button
+                      variant="default"
+                      onClick={() => window.location.hash = '#pricing'}
+                      className="w-full mt-3"
+                    >
+                      Upgrade Now
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-muted/50 border border-border rounded-lg">
+                    <p className="font-medium">Subscription Status: {subscription.status}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Please contact support if you need assistance.
+                    </p>
+                  </div>
+                )}
+                {/* Manage billing button for active recurring subscriptions */}
+                {isActive && !subscription.is_lifetime && subscription.status === 'active' && (
                   <Button
                     variant="outline"
                     onClick={handleManageBilling}

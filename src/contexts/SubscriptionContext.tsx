@@ -433,19 +433,36 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const isActive = useMemo(() => {
     const sub = subscription;
     if (!sub) return false;
-    if (sub.is_lifetime) return true;
-    if (!sub.current_period_end) return false;
-
-    const endTs = typeof sub.current_period_end === 'string'
-      ? Date.parse(sub.current_period_end)
-      : new Date(sub.current_period_end).getTime();
-
-    return Number.isFinite(endTs) && endTs > Date.now();
+    
+    // Lifetime subscriptions: active if status is 'active' (is_lifetime flag is source of truth)
+    if (sub.is_lifetime === true) {
+      return sub.status === 'active';
+    }
+    
+    // Recurring subscriptions: only 'active' or 'trialing' status grants access
+    // 'past_due' and 'canceled' do NOT grant access (Stripe is source of truth)
+    if (sub.status !== 'active' && sub.status !== 'trialing') {
+      return false;
+    }
+    
+    // Double-check period hasn't ended (even if status is active)
+    if (sub.current_period_end) {
+      const endTs = typeof sub.current_period_end === 'string'
+        ? Date.parse(sub.current_period_end)
+        : new Date(sub.current_period_end).getTime();
+      
+      return Number.isFinite(endTs) && endTs > Date.now();
+    }
+    
+    // If no period_end, trust Stripe status (shouldn't happen but handle gracefully)
+    return sub.status === 'active' || sub.status === 'trialing';
   }, [subscription]);
 
   const isHighTier = useMemo(() => {
     // Photo attachments require Pro subscription, Lifetime, or active trial
-    return isActive || subscription?.is_lifetime || (userFeatures?.has_full_access ?? false) || (userFeatures?.is_trial_active ?? false);
+    // Lifetime: must have is_lifetime=true AND status='active' (not just is_lifetime flag)
+    const isLifetimeActive = subscription?.is_lifetime === true && subscription?.status === 'active';
+    return isActive || isLifetimeActive || (userFeatures?.has_full_access ?? false) || (userFeatures?.is_trial_active ?? false);
   }, [isActive, subscription, userFeatures]);
 
   const refetchWrapper = useCallback(async () => {

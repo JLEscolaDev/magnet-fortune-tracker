@@ -20,8 +20,9 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // NOTE: `useSignedUrl` is expected to re-run when bucket/path changes.
-  const signedUrl = useSignedUrl(media?.bucket, media?.path, 300);
+  // NOTE: `useSignedUrl` is expected to re-run when bucket/path/version changes.
+  // Pass version to invalidate signed URL cache when media updates.
+  const signedUrl = useSignedUrl(media?.bucket, media?.path, 300, media?.version);
 
   // Add a deterministic cache-buster so that when the media changes,
   // the <img> src changes and the browser is forced to refetch.
@@ -70,8 +71,18 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
 
     loadMedia();
 
+    // Listen for fortune updates to refetch media when photo changes
+    const handleFortuneUpdate = () => {
+      if (!cancelled) {
+        loadMedia();
+      }
+    };
+
+    window.addEventListener("fortunesUpdated", handleFortuneUpdate);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("fortunesUpdated", handleFortuneUpdate);
     };
   }, [fortuneId]);
 

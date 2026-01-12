@@ -256,6 +256,9 @@ export const FortuneModal = ({
           console.log('[PHOTO] Signed URL available:', signedUrl);
           setFortunePhoto(signedUrl);
           clearInterval(pollInterval);
+          // Trigger refresh of fortunes list so Today's Fortunes shows updated image
+          window.dispatchEvent(new Event("fortunesUpdated"));
+          onFortuneUpdated?.();
           return;
         }
       } catch (error) {
@@ -379,6 +382,12 @@ export const FortuneModal = ({
         title: result.replaced ? "Photo updated" : "Photo attached", 
         description: result.pending ? "Photo is processing..." : "Your photo has been successfully uploaded.",
       });
+
+      // Trigger refresh of fortunes list so Today's Fortunes shows updated image
+      if (!result.pending) {
+        window.dispatchEvent(new Event("fortunesUpdated"));
+        onFortuneUpdated?.();
+      }
 
     } catch (error) {
       console.error('[PHOTO] Error attaching photo:', error);

@@ -149,12 +149,11 @@ serve(async (req) => {
       });
     }
 
-    // Check if user is Pro/Lifetime (simplified check - checking for active subscription)
+    // Check if user has active subscription: lifetime active OR recurring active/trialing
     const { data: subscription } = await userClient
       .from('subscriptions')
-      .select('status')
+      .select('status, is_lifetime, current_period_end')
       .eq('user_id', user.id)
-      .eq('status', 'active')
       .maybeSingle();
 
     // Also check if user is in trial period
@@ -165,7 +164,26 @@ serve(async (req) => {
       .single();
 
     const isInTrial = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
-    const hasActiveSubscription = !!subscription;
+    
+    // Check subscription access: lifetime active OR recurring active/trialing
+    let hasActiveSubscription = false;
+    if (subscription) {
+      // Lifetime: must have is_lifetime=true AND status='active'
+      if (subscription.is_lifetime === true && subscription.status === 'active') {
+        hasActiveSubscription = true;
+      }
+      // Recurring: status must be 'active' or 'trialing' (not 'past_due' or 'canceled')
+      else if (subscription.status === 'active' || subscription.status === 'trialing') {
+        // Also verify period hasn't ended
+        if (subscription.current_period_end) {
+          const periodEnd = new Date(subscription.current_period_end);
+          hasActiveSubscription = periodEnd > new Date();
+        } else {
+          // If no period_end, trust Stripe status
+          hasActiveSubscription = true;
+        }
+      }
+    }
 
     if (!hasActiveSubscription && !isInTrial) {
       console.log('issue-fortune-upload-ticket: User not Pro/Lifetime or in trial');
