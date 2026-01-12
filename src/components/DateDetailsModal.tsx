@@ -5,6 +5,7 @@ import { Fortune } from '@/types/fortune';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { FortuneModal } from '@/components/FortuneModal';
+import { FortunePhoto } from '@/components/FortunePhoto';
 import { deleteFortune } from "@/lib/fortunes";
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -222,6 +223,10 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
                   </div>
                 </div>
                 <p className="text-sm leading-relaxed">{fortune.text}</p>
+                
+                {/* Show photo if exists */}
+                <FortunePhoto fortuneId={fortune.id} className="w-full mt-3" />
+                
                 <div className="flex items-center gap-2 mt-2">
                   {valueCategories.has(fortune.category) && Number(fortune.fortune_value) > 0 && (
                     <div className="text-xs text-gold font-medium">

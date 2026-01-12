@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Plus, Sparkle, CurrencyDollar, Crown, Lock, TrendUp, Trophy, Star, Camera, Image } from '@phosphor-icons/react';
+import { X, Plus, Sparkle, CurrencyDollar, Crown, Lock, TrendUp, Trophy, Star, Camera, Image, DeviceMobile } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { getFortuneMedia, type FortuneMedia } from '@/integrations/supabase/fortuneMedia';
 import { useSignedUrl } from '@/hooks/useSignedUrl';
 import type { NativeUploaderOptions, NativeUploaderResult } from '@/types/native';
+import { useIsNativePlatform } from '@/hooks/useIsNativePlatform';
 
 interface FortuneModalProps {
   isOpen: boolean;
@@ -125,6 +126,7 @@ export const FortuneModal = ({
   const { activeSubscription, fortunesCountToday, addError } = useAppState();
   const { isHighTier } = useSubscription();
   const isMobile = useIsMobile();
+  const isNative = useIsNativePlatform();
 
   // Debug logging (only for create mode)
   if (!isEditMode) {
@@ -275,6 +277,17 @@ export const FortuneModal = ({
 
   const handleAttachPhoto = async () => {
     console.log('[PHOTO] Starting photo attach process...');
+    
+    // Block upload entirely on web - only allow on native
+    if (!isNative) {
+      console.log('[PHOTO] Upload blocked - not running in native platform');
+      toast({
+        title: "Mobile app required",
+        description: "Photo attachments can only be added from the mobile app.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     if (!window.NativeUploader || !isHighTier) {
       console.log('[PHOTO] No uploader or not high tier:', { 
@@ -713,32 +726,39 @@ export const FortuneModal = ({
             )}
           </div>
 
-          {/* Photo Attachment Section - Only for existing fortunes (edit mode) */}
-          {typeof window !== 'undefined' && window.NativeUploaderAvailable && isHighTier && isEditMode && (
+          {/* Photo Section - Different behavior for native vs web */}
+          {isEditMode && (
             <div>
               <label className="block text-sm font-medium mb-2 flex items-center gap-2">
                 <Camera size={16} className="text-primary" />
                 Photo
               </label>
               
-              {fortunePhoto ? (
+              {/* Display existing photo (both native and web) */}
+              {fortunePhoto && (
                 <div className="relative">
                   <img 
                     src={fortunePhoto} 
                     alt="Fortune attachment" 
                     className="w-full h-48 object-cover rounded border border-border/50"
                   />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => setFortunePhoto(null)}
-                  >
-                    <X size={14} />
-                  </Button>
+                  {/* Only show delete button on native */}
+                  {isNative && isHighTier && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => setFortunePhoto(null)}
+                    >
+                      <X size={14} />
+                    </Button>
+                  )}
                 </div>
-              ) : (
+              )}
+              
+              {/* Native: Show upload button if no photo and user has access */}
+              {isNative && isHighTier && !fortunePhoto && (
                 <Button
                   type="button"
                   variant="outline"
@@ -752,39 +772,57 @@ export const FortuneModal = ({
                   </span>
                 </Button>
               )}
+
+              {/* Native: Show upgrade prompt for non-high tier users */}
+              {isNative && !isHighTier && !fortunePhoto && (
+                <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Camera size={16} className="text-warning" />
+                    <span className="text-sm text-muted-foreground">
+                      Add photos to remember these moments with Pro or Lifetime plans.
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Web: Show informative callout when no photo exists */}
+              {!isNative && !fortunePhoto && (
+                <div className="bg-muted/30 border border-muted/50 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <DeviceMobile size={18} className="text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <span className="text-sm text-muted-foreground">
+                      {isHighTier 
+                        ? "You can add photo attachments from the mobile app."
+                        : "Photo attachments require Pro (or Trial) and can only be added from the mobile app."
+                      }
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Note for new fortunes about photo upload */}
-          {typeof window !== 'undefined' && window.NativeUploaderAvailable && isHighTier && !isEditMode && (
+          {/* Note for new fortunes about photo upload - only on native */}
+          {isNative && isHighTier && !isEditMode && (
             <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg border border-muted/50">
               💡 <strong>Tip:</strong> Save this fortune first, then edit it to add photos. Photo uploads are only available for existing fortunes.
             </div>
           )}
 
-          {/* Upgrade prompt for non-high tier users on mobile */}
-          {typeof window !== 'undefined' && window.NativeUploaderAvailable && !isHighTier && (
-            <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <Camera size={16} className="text-warning" />
+          {/* Web: Callout for new fortunes explaining mobile-only uploads */}
+          {!isNative && !isEditMode && (
+            <div className="bg-muted/30 border border-muted/50 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <DeviceMobile size={18} className="text-muted-foreground mt-0.5 flex-shrink-0" />
                 <span className="text-sm text-muted-foreground">
-                  Add photos to remember these moments with Pro or Lifetime plans.
+                  {isHighTier 
+                    ? "You can add photo attachments from the mobile app after saving this fortune."
+                    : "Photo attachments require Pro (or Trial) and can only be added from the mobile app."
+                  }
                 </span>
               </div>
             </div>
           )}
-
-              {/* Mobile: Show upgrade message for non-high tier users */}
-              {isMobile && !isHighTier && (
-                <div className="bg-gradient-to-r from-warning/10 to-accent/10 border border-warning/20 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <Camera size={16} className="text-warning" />
-                    <span className="text-sm text-muted-foreground">
-                      Hey! you can add photos to remember these moments if you use the Pro and Lifeplan versions.
-                    </span>
-                  </div>
-                </div>
-              )}
 
 
           {/* Impact Level - Only show in create mode or if editing a fortune with impact_level */}
