@@ -18,6 +18,12 @@ export interface NativeUploaderResult {
   replaced: boolean;
   cancelled?: boolean;
   pending?: boolean;
+  media?: {
+    fortune_id: string;
+    bucket: string;
+    path: string;
+    updated_at: string;
+  };
 }
 
 export interface NativeUploader {

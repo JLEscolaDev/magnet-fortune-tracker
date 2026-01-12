@@ -46,6 +46,19 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
     fetchRecentFortunes();
   }, [refreshTrigger]);
 
+  // Listen for fortune updates to refresh Today's Fortunes list
+  useEffect(() => {
+    const handleFortuneUpdate = () => {
+      console.log('[HOME-TAB] fortunesUpdated event received - refreshing Today\'s Fortunes list');
+      fetchRecentFortunes();
+    };
+
+    window.addEventListener("fortunesUpdated", handleFortuneUpdate);
+    return () => {
+      window.removeEventListener("fortunesUpdated", handleFortuneUpdate);
+    };
+  }, [fetchRecentFortunes]);
+
   // Show home tutorial on first visit
   useEffect(() => {
     if (!loading && !appLoading && !tutorialLoading && !isStepCompleted('home')) {

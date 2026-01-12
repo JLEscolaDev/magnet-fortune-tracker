@@ -112,9 +112,10 @@ serve(async (req) => {
     }
 
     // Check if user has active subscription: lifetime active OR recurring active/trialing
+    // Query subscriptions to get status and is_lifetime for server-side access computation
     const { data: subscription } = await userClient
       .from('subscriptions')
-      .select('status, is_lifetime, current_period_end')
+      .select('status, is_lifetime')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -127,28 +128,28 @@ serve(async (req) => {
 
     const isInTrial = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
     
-    // Check subscription access: lifetime active OR recurring active/trialing
+    // Compute hasAccess server-side based on subscription status and lifetime flag
     let hasActiveSubscription = false;
     if (subscription) {
       // Lifetime: must have is_lifetime=true AND status='active'
       if (subscription.is_lifetime === true && subscription.status === 'active') {
         hasActiveSubscription = true;
       }
-      // Recurring: status must be 'active' or 'trialing' (not 'past_due' or 'canceled')
+      // Recurring: status must be 'active' or 'trialing' (Stripe is source of truth)
       else if (subscription.status === 'active' || subscription.status === 'trialing') {
-        // Also verify period hasn't ended
-        if (subscription.current_period_end) {
-          const periodEnd = new Date(subscription.current_period_end);
-          hasActiveSubscription = periodEnd > new Date();
-        } else {
-          // If no period_end, trust Stripe status
-          hasActiveSubscription = true;
-        }
+        hasActiveSubscription = true;
       }
+      // All other statuses (past_due, canceled, unpaid, incomplete, etc.) do NOT grant access
     }
 
+    // Grant access if user has active subscription OR is in trial period
     if (!hasActiveSubscription && !isInTrial) {
-      console.log('finalize-fortune-photo: User not Pro/Lifetime or in trial');
+      console.log('finalize-fortune-photo: User not Pro/Lifetime or in trial', {
+        hasActiveSubscription,
+        isInTrial,
+        subscriptionStatus: subscription?.status,
+        isLifetime: subscription?.is_lifetime
+      });
       return new Response(JSON.stringify({ error: 'Pro/Lifetime subscription required' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -167,11 +168,12 @@ serve(async (req) => {
 
     // Upsert into fortune_media table - handle unique constraint properly
     // Store bucketRelativePath in DB (canonical format)
-    let mediaUpsertError = null;
-    
+    let updatedMedia: { bucket: string; path: string; updated_at: string } | null = null;
+
     if (replaced) {
       // Update existing record - explicitly set updated_at to ensure cache invalidation
-      const { error: updateError } = await userClient
+      // Use .select() to return the DB values after update
+      const { data: updateData, error: updateError } = await userClient
         .from('fortune_media')
         .update({
           bucket,
@@ -182,12 +184,22 @@ serve(async (req) => {
           mime_type: mime,
           updated_at: new Date().toISOString() // Explicitly update timestamp for cache busting
         })
-        .eq('fortune_id', fortune_id);
+        .eq('fortune_id', fortune_id)
+        .select('bucket, path, updated_at')
+        .single();
       
-      mediaUpsertError = updateError;
+      if (updateError) {
+        console.error('finalize-fortune-photo: Failed to update media record:', updateError);
+        return new Response(JSON.stringify({ error: 'Failed to save media record' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      updatedMedia = updateData;
     } else {
-      // Insert new record
-      const { error: insertError } = await userClient
+      // Insert new record - use .select() to return DB values including updated_at
+      const { data: insertData, error: insertError } = await userClient
         .from('fortune_media')
         .insert({
           fortune_id,
@@ -198,14 +210,33 @@ serve(async (req) => {
           height: height || null,
           size_bytes: size_bytes || null,
           mime_type: mime
-        });
+        })
+        .select('bucket, path, updated_at')
+        .single();
       
-      mediaUpsertError = insertError;
+      if (insertError) {
+        console.error('finalize-fortune-photo: Failed to insert media record:', insertError);
+        return new Response(JSON.stringify({ error: 'Failed to save media record' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      updatedMedia = insertData;
     }
 
-    if (mediaUpsertError) {
-      console.error('finalize-fortune-photo: Failed to save media record:', mediaUpsertError);
-      return new Response(JSON.stringify({ error: 'Failed to save media record' }), {
+    // Log DB update confirmation with the values returned from the database
+    if (updatedMedia) {
+      console.log('[FINALIZE-PHOTO] DB_UPDATE_CONFIRMED', {
+        fortuneId: fortune_id,
+        bucket: updatedMedia.bucket,
+        path: updatedMedia.path,
+        updated_at: updatedMedia.updated_at,
+        replaced
+      });
+    } else {
+      console.error('finalize-fortune-photo: No media data returned from DB operation');
+      return new Response(JSON.stringify({ error: 'Failed to retrieve updated media record' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -273,9 +304,17 @@ serve(async (req) => {
 
     console.log('finalize-fortune-photo: SIGNED_URL_OK - Media finalized successfully - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
 
+    // Return updated media record so frontend can confirm DB update
+    // Include updated_at from DB to ensure cache invalidation
     return new Response(JSON.stringify({
       signedUrl: signedUrlData.signedUrl,
-      replaced
+      replaced,
+      media: {
+        fortune_id: fortune_id,
+        bucket: updatedMedia.bucket,
+        path: updatedMedia.path,
+        updated_at: updatedMedia.updated_at
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

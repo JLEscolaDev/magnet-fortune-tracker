@@ -15,6 +15,18 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
   // Pass version to useSignedUrl for cache-busting
   const signedUrl = useSignedUrl(media?.bucket, media?.path, 300, media?.version);
 
+  // Log when rendering with media data (for debugging refresh issues)
+  useEffect(() => {
+    if (media) {
+      console.log('[FORTUNE-LIST] FortunePhoto rendering in Today\'s Fortunes', {
+        fortuneId,
+        bucket: media.bucket,
+        path: media.path,
+        updated_at: media.version
+      });
+    }
+  }, [fortuneId, media?.bucket, media?.path, media?.version]);
+
   const loadMedia = useCallback(async () => {
     try {
       setError(false);
@@ -42,6 +54,7 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
   // Listen for fortune updates to refetch media when photo changes
   useEffect(() => {
     const handleFortuneUpdate = () => {
+      console.log('[FORTUNE-PHOTO] fortunesUpdated event received - refetching media', { fortuneId });
       loadMedia();
     };
 
@@ -49,7 +62,7 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
     return () => {
       window.removeEventListener("fortunesUpdated", handleFortuneUpdate);
     };
-  }, [loadMedia]);
+  }, [loadMedia, fortuneId]);
 
   if (loading) {
     return (

@@ -78,6 +78,12 @@ const createMockUploader = (): NativeUploader => {
           const finalizeResponse = await callEdge<{
             signedUrl: string;
             replaced: boolean;
+            media?: {
+              fortune_id: string;
+              bucket: string;
+              path: string;
+              updated_at: string;
+            } | null;
           }>('finalize-fortune-photo', {
             fortune_id: options.fortuneId,
             bucket: bucket,
@@ -104,7 +110,8 @@ const createMockUploader = (): NativeUploader => {
             signedUrl: finalizeResponse.data.signedUrl,
             replaced: finalizeResponse.data.replaced,
             cancelled: false,
-            pending: false
+            pending: false,
+            media: finalizeResponse.data.media || undefined
           });
         } catch (error) {
           console.error('[MOCK UPLOADER] Upload failed:', error);

@@ -243,30 +243,56 @@ export const FortuneModal = ({
   };
 
   const pollForPhotoCompletion = async (path: string, bucket: string, maxAttempts: number = 3) => {
+    const targetFortuneId = fortune?.id || '';
     let attempts = 0;
     const pollInterval = setInterval(async () => {
       attempts++;
-      console.log(`[PHOTO] Polling attempt ${attempts}/${maxAttempts} for path: ${path}`);
+      console.log(`[PHOTO-POLL] Polling attempt ${attempts}/${maxAttempts} for path: ${path}`);
       
       try {
-        const { getCachedSignedUrl } = await import('@/integrations/supabase/fortuneMedia');
+        const { getCachedSignedUrl, getFortuneMedia } = await import('@/integrations/supabase/fortuneMedia');
         const signedUrl = await getCachedSignedUrl(path, bucket);
         
         if (signedUrl) {
-          console.log('[PHOTO] Signed URL available:', signedUrl);
+          console.log('[PHOTO-POLL] Signed URL available:', signedUrl);
           setFortunePhoto(signedUrl);
           clearInterval(pollInterval);
-          // Trigger refresh of fortunes list so Today's Fortunes shows updated image
-          window.dispatchEvent(new Event("fortunesUpdated"));
-          onFortuneUpdated?.();
+          
+          // After polling completes, fetch media record to confirm DB update and trigger refresh
+          if (targetFortuneId) {
+            try {
+              const mediaData = await getFortuneMedia(targetFortuneId);
+              if (mediaData) {
+                console.log('[PHOTO-POLL] DB_UPDATE_CONFIRMED - Triggering refresh', {
+                  fortuneId: mediaData.fortune_id,
+                  bucket: mediaData.bucket,
+                  path: mediaData.path,
+                  updated_at: mediaData.updated_at
+                });
+                
+                // Dispatch event with log - this triggers FortunePhoto components to refetch
+                console.log('[PHOTO-POLL] Dispatching fortunesUpdated event after polling');
+                window.dispatchEvent(new Event("fortunesUpdated"));
+                onFortuneUpdated?.();
+              } else {
+                console.warn('[PHOTO-POLL] Media record not found after polling - refresh may not work correctly');
+              }
+            } catch (err) {
+              console.error('[PHOTO-POLL] Error fetching media after polling:', err);
+              // Still dispatch event even if fetch fails, to trigger refresh
+              console.log('[PHOTO-POLL] Dispatching fortunesUpdated event (fallback)');
+              window.dispatchEvent(new Event("fortunesUpdated"));
+              onFortuneUpdated?.();
+            }
+          }
           return;
         }
       } catch (error) {
-        console.error('[PHOTO] Error polling for photo:', error);
+        console.error('[PHOTO-POLL] Error polling for photo:', error);
       }
       
       if (attempts >= maxAttempts) {
-        console.log('[PHOTO] Max polling attempts reached');
+        console.log('[PHOTO-POLL] Max polling attempts reached');
         clearInterval(pollInterval);
         setFortunePhoto(null);
         toast({
@@ -384,9 +410,26 @@ export const FortuneModal = ({
       });
 
       // Trigger refresh of fortunes list so Today's Fortunes shows updated image
-      if (!result.pending) {
+      // Only refresh after DB confirms update (when not pending and we have media info)
+      if (!result.pending && result.media) {
+        console.log('[PHOTO-UPLOAD] DB_UPDATE_CONFIRMED - Triggering refresh', {
+          fortuneId: result.media.fortune_id,
+          bucket: result.media.bucket,
+          path: result.media.path,
+          updated_at: result.media.updated_at,
+          replaced: result.replaced
+        });
+        
+        // Dispatch event with log - this triggers FortunePhoto components to refetch
+        console.log('[PHOTO-UPLOAD] Dispatching fortunesUpdated event');
         window.dispatchEvent(new Event("fortunesUpdated"));
+        
+        // Explicitly trigger parent refresh callback
         onFortuneUpdated?.();
+      } else if (result.pending) {
+        console.log('[PHOTO-UPLOAD] Upload pending - refresh will be triggered after polling completes');
+      } else {
+        console.warn('[PHOTO-UPLOAD] No media info in response - refresh may not work correctly');
       }
 
     } catch (error) {
