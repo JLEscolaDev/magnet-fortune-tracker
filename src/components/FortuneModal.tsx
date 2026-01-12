@@ -510,6 +510,8 @@ export const FortuneModal = ({
           description: "Your fortune has been successfully updated",
         });
 
+        // Dispatch event to trigger refresh of FortunePhoto components
+        window.dispatchEvent(new Event("fortunesUpdated"));
         onFortuneUpdated?.();
       } else {
         // Create new fortune 
@@ -603,6 +605,8 @@ export const FortuneModal = ({
           loadBigWinsCount();
         }
 
+        // Dispatch event to trigger refresh of FortunePhoto components
+        window.dispatchEvent(new Event("fortunesUpdated"));
         onFortuneAdded?.();
       }
 

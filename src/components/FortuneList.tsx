@@ -229,7 +229,6 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                     <p className="text-sm leading-relaxed mb-2 text-gray-800 dark:text-white">{fortune.text}</p>
                     <FortunePhoto
                       fortuneId={fortune.id}
-                      refreshKey={fortune.updated_at ?? fortune.created_at}
                       className="w-full max-w-xs"
                     />
                   </div>

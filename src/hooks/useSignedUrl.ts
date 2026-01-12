@@ -110,8 +110,21 @@ export function useSignedUrl(bucket?: string, path?: string, ttlSec: number = 30
       return;
     }
 
-    // Include version in cache key to invalidate when media changes
+    // Include version in cache key for cache-busting when photo is updated
     const key = version ? `${bucket}:${path}:${version}` : `${bucket}:${path}`;
+    
+    // When version changes, clear old cache entries for this bucket:path
+    if (version) {
+      for (const [cacheKey] of urlCache.entries()) {
+        if (cacheKey.startsWith(`${bucket}:${path}:`) && cacheKey !== key) {
+          urlCache.delete(cacheKey);
+        }
+        // Also clear non-versioned cache entry
+        if (cacheKey === `${bucket}:${path}`) {
+          urlCache.delete(cacheKey);
+        }
+      }
+    }
     
     // Check cache first
     const cached = urlCache.get(key);
@@ -120,20 +133,15 @@ export function useSignedUrl(bucket?: string, path?: string, ttlSec: number = 30
       return;
     }
 
-    // If version changed, invalidate old cache entries for this bucket:path
-    if (version) {
-      // Clear any cache entries for this bucket:path without version or with old version
-      for (const [cacheKey] of urlCache.entries()) {
-        if (cacheKey.startsWith(`${bucket}:${path}:`) || cacheKey === `${bucket}:${path}`) {
-          urlCache.delete(cacheKey);
-        }
-      }
-    }
-
     // Need to fetch new signed URL
     setLoading(true);
     createSignedUrlWithRetry(bucket, path, ttlSec)
       .then(url => {
+        if (url) {
+          // Store with versioned key
+          const expiresAt = Date.now() + (ttlSec * 1000) - 5000;
+          urlCache.set(key, { signedUrl: url, expiresAt });
+        }
         setSignedUrl(url);
       })
       .catch(error => {
