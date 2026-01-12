@@ -12,21 +12,24 @@ interface Friend {
   id: string;
   user_id: string;
   friend_user_id: string;
-  status: 'pending' | 'accepted' | 'blocked';
+  status: string;
   friend_profile: {
     display_name: string;
     avatar_url: string | null;
   };
   created_at: string;
+  is_incoming?: boolean;
 }
 
 interface CompetitionGroup {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   created_by: string;
-  member_count: number;
-  is_creator: boolean;
+  created_at?: string;
+  updated_at?: string;
+  member_count?: number;
+  is_creator?: boolean;
   is_member?: boolean;
 }
 
@@ -46,6 +49,8 @@ interface GroupInvitation {
   status: string;
   created_at: string;
   updated_at: string;
+  competition_groups?: { name: string };
+  inviter_profile?: { display_name: string };
 }
 
 interface SearchResult {

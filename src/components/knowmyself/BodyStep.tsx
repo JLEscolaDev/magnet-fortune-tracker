@@ -1,12 +1,14 @@
 import { Moon, Zap, Heart, Thermometer } from 'lucide-react';
 
+interface BodyStepData {
+  dream_quality: number;
+  energy_level: number;
+  sexual_appetite: number;
+  room_temperature: number;
+}
+
 interface BodyStepProps {
-  data: { 
-    dream_quality: number;
-    energy_level: number;
-    sexual_appetite: number;
-    room_temperature: number;
-  };
+  data: BodyStepData;
   updateData: (updates: Partial<BodyStepData>) => void;
 }
 

@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/auth/AuthProvider';
 import confetti from 'canvas-confetti';
 import { format } from 'date-fns';
+import '@/types/gtag.d';
 
 interface QuickMoodTrackerProps {
   className?: string;

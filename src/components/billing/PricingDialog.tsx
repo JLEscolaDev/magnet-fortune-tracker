@@ -68,13 +68,13 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
       const priceIds = [...new Set(allPlans.map(p => p.price_id))];
 
       // Fetch price data from Stripe
-      const { data: priceData, error } = await callEdge('get-prices', { price_ids: priceIds }, false);
+      const { data: priceData, error } = await callEdge<PriceData[]>('get-prices', { price_ids: priceIds }, false);
       
       if (error) throw new Error(error);
 
       // Map price data to plans
       const plansWithPrices = allPlans.map(plan => {
-        const priceInfo = priceData?.find((p: PriceData) => p.price_id === plan.price_id);
+        const priceInfo = priceData?.find((p) => p.price_id === plan.price_id);
         return {
           ...plan,
           priceData: priceInfo
@@ -130,7 +130,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
             returnTo
           };
 
-      const { data, error } = await callEdge('create-checkout-session', body);
+      const { data, error } = await callEdge<{ url: string }>('create-checkout-session', body);
 
       if (error) throw new Error(error);
 
@@ -149,7 +149,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     if (!user) return;
 
     try {
-      const { data, error } = await callEdge('create-portal-session', {
+      const { data, error } = await callEdge<{ url: string }>('create-portal-session', {
         returnUrl: window.location.origin
       });
 
@@ -190,22 +190,14 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
 
   // Filter and organize plans for display
   const getPlansForTab = (tab: '28d' | 'annual') => {
-    // First filter by visibility - exclude hidden plans
-    interface PlanWithVisibility {
-      billing_period: string;
-      visibility?: 'visible' | 'hidden' | 'teaser';
-      tier: string;
-      is_early_bird: boolean;
-    }
-
-    const candidates = plans.filter((p): p is PlanWithVisibility => 
+    const candidates = plans.filter(p => 
       p.billing_period === tab && 
-      (p as PlanWithVisibility).visibility !== 'hidden'
+      p.visibility !== 'hidden'
     );
 
     if (tab === 'annual' && earlyBirdEligible) {
       // For each tier, prefer the EB variant if it exists
-      const byTier = new Map<string, PlanWithVisibility>();
+      const byTier = new Map<string, PlanWithPrice>();
       for (const p of candidates) {
         const key = p.tier.toLowerCase();
         const existing = byTier.get(key);
@@ -220,12 +212,7 @@ export const PricingDialog: React.FC<PricingDialogProps> = ({ isOpen, onClose })
     return candidates.filter(p => !p.is_early_bird);
   };
 
-  interface PlanWithVisibility {
-    billing_period: string;
-    visibility?: 'visible' | 'hidden' | 'teaser';
-  }
-
-  const lifetimePlan = plans.find((p): p is PlanWithVisibility => p.billing_period === 'lifetime' && (p as PlanWithVisibility).visibility !== 'hidden');
+  const lifetimePlan = plans.find(p => p.billing_period === 'lifetime' && p.visibility !== 'hidden');
 
   const planFeatures = {
     essential: [
