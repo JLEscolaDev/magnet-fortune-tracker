@@ -54,6 +54,21 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
     })();
   }, [isOpen]);
 
+  // Cleanup all timeouts on unmount - MUST be before any early returns!
+  useEffect(() => {
+    return () => {
+      deleteTimeoutsRef.current.forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
+      deleteTimeoutsRef.current.clear();
+      if (fabClickTimeoutRef.current) {
+        clearTimeout(fabClickTimeoutRef.current);
+        fabClickTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // Early return AFTER all hooks
   if (!isOpen || !date) return null;
 
   const handleEditFortune = (fortune: Fortune) => {
@@ -116,20 +131,6 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
       });
     }
   };
-  
-  // Cleanup all timeouts on unmount
-  useEffect(() => {
-    return () => {
-      deleteTimeoutsRef.current.forEach((timeoutId) => {
-        clearTimeout(timeoutId);
-      });
-      deleteTimeoutsRef.current.clear();
-      if (fabClickTimeoutRef.current) {
-        clearTimeout(fabClickTimeoutRef.current);
-        fabClickTimeoutRef.current = null;
-      }
-    };
-  }, []);
 
   const handleFortuneUpdated = () => {
     onFortunesUpdated?.();
