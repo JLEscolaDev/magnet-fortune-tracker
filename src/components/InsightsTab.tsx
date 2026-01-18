@@ -229,14 +229,6 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
 
       const fortunesData = await getFortunesListPaginated(undefined, undefined, force);
       setFortunes(fortunesData);
-        
-      // Filter fortunes for selected date
-      if (selectedDate) {
-        const dateFortunes = fortunesData.filter(fortune =>
-          isSameDay(new Date(fortune.created_at), selectedDate)
-        );
-        setSelectedDateFortunes(dateFortunes);
-      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('[QUERY:fortunes] Error in fetchFortunes:', error);
@@ -244,7 +236,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, addError]);
+  }, [addError]);
 
   // Check if user is a beta tester (registered before 2026)
   const checkBetaTesterStatus = async () => {
@@ -269,13 +261,12 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
   };
 
   // Only fetch on initial mount or explicit refresh trigger (user action)
-  // selectedDate changes should NOT trigger fetch (it's just filtering)
   useEffect(() => {
-    // On initial mount or refreshTrigger change, force fetch (user explicitly requested)
     const force = refreshTrigger > 0;
     fetchFortunes(force);
     checkBetaTesterStatus();
-  }, [refreshTrigger, fetchFortunes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
   
   // Filter existing fortunes when selectedDate changes (no new fetch needed)
   useEffect(() => {
