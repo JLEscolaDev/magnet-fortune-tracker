@@ -130,17 +130,8 @@ export const FortuneModal = ({
   const isMobile = useIsMobile();
   const isNative = useIsNativePlatform();
 
-  // Debug logging (only for create mode)
-  if (!isEditMode) {
-    console.log('[FORTUNE_MODAL] Debug info:', {
-      freePlanStatus,
-      activeSubscription,
-      fortunesCountToday,
-      isLoading,
-      isHighTier,
-      subscription: activeSubscription
-    });
-  }
+  // Debug logging disabled to prevent render loop logs
+  // Use React DevTools or breakpoints for debugging instead
 
   // Define loadBigWinsCount before it's used in useEffect
   const loadBigWinsCount = useCallback(async () => {

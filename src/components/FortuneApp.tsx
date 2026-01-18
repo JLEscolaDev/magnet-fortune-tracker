@@ -1,4 +1,4 @@
-import React, { useState, Component, ReactNode } from 'react';
+import React, { useState, useEffect, Component, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { TopBar } from '@/components/TopBar';
@@ -54,12 +54,19 @@ const FortuneApp = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedFortuneDate, setSelectedFortuneDate] = useState<Date | null>(null);
 
-  console.log('[AUTH] Bootstrap check user:', user);
-  console.log('[BOOTSTRAP] Passing user to useAppBootstrap:', user);
   const bootstrapState = useAppBootstrap(user);
   
   // Handle group invitations from URL parameters
   useGroupInviteHandler(user);
+
+  // Handle bootstrap failure - sign out user
+  useEffect(() => {
+    if (bootstrapState?.bootstrapFailed || 
+        (bootstrapState && !bootstrapState.loading && !bootstrapState.bootstrapFailed && !bootstrapState.profile)) {
+      console.log('[BOOTSTRAP] Bootstrap failed or no profile, signing out user');
+      supabase.auth.signOut();
+    }
+  }, [bootstrapState?.bootstrapFailed, bootstrapState?.loading, bootstrapState?.profile]);
 
   const handleFortuneAdded = () => {
     // Refetch app state when fortune is added
@@ -115,50 +122,30 @@ const FortuneApp = () => {
             <AuthPage />
           ) : (
             <>
-              {/* Debugging bootstrap state before loading/profile check */}
-              {(() => {
-                console.log('[BOOTSTRAP DEBUG]', {
-                  user,
-                  bootstrapLoading: bootstrapState?.loading,
-                  profile: bootstrapState?.profile,
-                  errors: bootstrapState?.errors
-                });
-                
-                // Wait for bootstrap to complete or fail
-                if (!bootstrapState || bootstrapState.loading) {
-                  return (
-                    <div className="min-h-screen bg-background flex items-center justify-center">
-                      <div className="luxury-card p-8 text-center max-w-md">
-                        <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                        <p className="text-muted-foreground mb-2">
-                          {bootstrapState?.errors?.length ? "Error loading your profile" : "Loading your profile..."}
-                        </p>
-                        {bootstrapState?.retryCount > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Retry attempt {bootstrapState.retryCount + 1}/3
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-                
-                // If bootstrap failed completely after all retries, logout and show auth page
-                if (bootstrapState.bootstrapFailed) {
-                  console.log('[BOOTSTRAP] Bootstrap failed completely, signing out user');
-                  supabase.auth.signOut();
-                  return <AuthPage />;
-                }
-                
-                // If no profile after successful bootstrap, something is wrong - logout
-                if (!bootstrapState.profile) {
-                  console.log('[BOOTSTRAP] No profile found after bootstrap, signing out user');
-                  supabase.auth.signOut();
-                  return <AuthPage />;
-                }
-                
-                return null;
-              })()}
+              {/* Wait for bootstrap to complete or fail */}
+              {(!bootstrapState || bootstrapState.loading) && (
+                <div className="min-h-screen bg-background flex items-center justify-center">
+                  <div className="luxury-card p-8 text-center max-w-md">
+                    <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-muted-foreground mb-2">
+                      {bootstrapState?.errors?.length ? "Error loading your profile" : "Loading your profile..."}
+                    </p>
+                    {bootstrapState?.retryCount && bootstrapState.retryCount > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Retry attempt {bootstrapState.retryCount + 1}/3
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Show auth page if bootstrap failed - signOut is handled by useEffect */}
+              {bootstrapState?.bootstrapFailed && <AuthPage />}
+              
+              {/* Show auth page if no profile - signOut is handled by useEffect */}
+              {bootstrapState && !bootstrapState.loading && !bootstrapState.bootstrapFailed && !bootstrapState.profile && (
+                <AuthPage />
+              )}
               
               {bootstrapState && !bootstrapState.loading && !bootstrapState.bootstrapFailed && bootstrapState.profile && (
                 <AppStateProvider value={bootstrapState}>
