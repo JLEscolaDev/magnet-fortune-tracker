@@ -21,17 +21,11 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
   const [recentFortunes, setRecentFortunes] = useState<FortuneRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchRecentFortunes = useCallback(async () => {
+  const fetchRecentFortunes = useCallback(async (force = false) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      console.log("[QUERY:fortunes] Fetching today's fortunes");
-      const fortunes = await getTodayFortunes();
+      setLoading(true);
+      console.log("[QUERY:fortunes] Fetching today's fortunes", { force });
+      const fortunes = await getTodayFortunes(force);
       setRecentFortunes(fortunes);
       console.log(`[QUERY:fortunes] Fetched ${fortunes?.length ?? 0} recent fortunes`);
     } catch (error) {
@@ -42,15 +36,20 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
     }
   }, []);
 
+  // Only fetch on initial mount or explicit refresh trigger (user action)
   useEffect(() => {
-    fetchRecentFortunes();
-  }, [refreshTrigger]);
+    // On initial mount, fetch without force (will respect debounce)
+    // On refreshTrigger change, force fetch (user explicitly requested refresh)
+    const force = refreshTrigger > 0;
+    fetchRecentFortunes(force);
+  }, [refreshTrigger, fetchRecentFortunes]);
 
   // Listen for fortune updates to refresh Today's Fortunes list
+  // Use force=true for explicit user actions (fortune added/updated/deleted)
   useEffect(() => {
     const handleFortuneUpdate = () => {
       console.log('[HOME-TAB] fortunesUpdated event received - refreshing Today\'s Fortunes list');
-      fetchRecentFortunes();
+      fetchRecentFortunes(true); // Force refresh on user action
     };
 
     window.addEventListener("fortunesUpdated", handleFortuneUpdate);
@@ -108,8 +107,8 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
   }
 
   const handleLevelUp = () => {
-    // Refetch recent fortunes
-    fetchRecentFortunes();
+    // Refetch recent fortunes (user action - level up)
+    fetchRecentFortunes(true);
   };
 
   return (
@@ -129,7 +128,7 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
       <FortuneList 
         fortunes={recentFortunes} 
         title="Today's Fortunes"
-        onFortunesUpdated={fetchRecentFortunes}
+        onFortunesUpdated={() => fetchRecentFortunes(true)}
       />
       <TaskBoard />
     </div>

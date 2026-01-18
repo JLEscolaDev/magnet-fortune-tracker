@@ -134,6 +134,7 @@ export const FortuneModal = ({
   // Use React DevTools or breakpoints for debugging instead
 
   // Define loadBigWinsCount before it's used in useEffect
+  // Only called when modal opens in create mode - use force=true since it's user action
   const loadBigWinsCount = useCallback(async () => {
     try {
       if (!user) return;
@@ -142,11 +143,18 @@ export const FortuneModal = ({
       const startOfYear = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
       const endOfYear = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 1));
 
-      // Use the fortune_list RPC and filter on client side
-      const { data } = await supabase.rpc('fortune_list', {
+      // Use centralized fetcher with force=true (user opened modal)
+      const { fetchFortuneList } = await import('@/lib/fortuneListFetcher');
+      const data = await fetchFortuneList({
         p_from: startOfYear.toISOString(),
-        p_to: endOfYear.toISOString()
+        p_to: endOfYear.toISOString(),
+        force: true // User action - opening modal
       });
+      
+      if (!data) {
+        // Fetch was skipped due to guards - return early
+        return;
+      }
 
       if (data) {
         const bigWins = data.filter((fortune) => fortune.impact_level === 'big_win');

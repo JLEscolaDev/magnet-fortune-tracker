@@ -222,18 +222,12 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
   const [activeTab, setActiveTab] = useState('fortunes');
   const [isBetaTester, setIsBetaTester] = useState(false);
 
-  const fetchFortunes = useCallback(async () => {
+  const fetchFortunes = useCallback(async (force = false) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+      setLoading(true);
+      console.log('[QUERY:fortunes] Fetching all fortunes for insights', { force });
 
-      console.log('[QUERY:fortunes] Fetching all fortunes for insights');
-
-      const fortunesData = await getFortunesListPaginated();
+      const fortunesData = await getFortunesListPaginated(undefined, undefined, force);
       setFortunes(fortunesData);
         
       // Filter fortunes for selected date
@@ -274,10 +268,26 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
     }
   };
 
+  // Only fetch on initial mount or explicit refresh trigger (user action)
+  // selectedDate changes should NOT trigger fetch (it's just filtering)
   useEffect(() => {
-    fetchFortunes();
+    // On initial mount or refreshTrigger change, force fetch (user explicitly requested)
+    const force = refreshTrigger > 0;
+    fetchFortunes(force);
     checkBetaTesterStatus();
-  }, [refreshTrigger, selectedDate, fetchFortunes]);
+  }, [refreshTrigger, fetchFortunes]);
+  
+  // Filter existing fortunes when selectedDate changes (no new fetch needed)
+  useEffect(() => {
+    if (selectedDate && fortunes.length > 0) {
+      const dateFortunes = fortunes.filter(fortune =>
+        isSameDay(new Date(fortune.created_at), selectedDate)
+      );
+      setSelectedDateFortunes(dateFortunes);
+    } else {
+      setSelectedDateFortunes([]);
+    }
+  }, [selectedDate, fortunes]);
 
   const getFortunesByCategory = () => {
     const categories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Tasks', 'Other'];

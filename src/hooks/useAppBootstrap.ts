@@ -34,6 +34,7 @@ export const useAppBootstrap = (user: User | null) => {
     bootstrapFailed: false,
   });
   const bootstrapInitialized = useRef(false);
+  const userIdRef = useRef<string | null>(null);
 
   const addError = useCallback((source: string, message: string) => {
     logWithPrefix(`ERROR from ${source}`, { message });
@@ -262,25 +263,39 @@ export const useAppBootstrap = (user: User | null) => {
     }
   }, [addError, user]);
 
-  // Run bootstrap when user changes - direct dependency on user
+  // Run bootstrap when user changes - use ref to access latest bootstrap function
+  // Use user.id as stable reference instead of bootstrap function to avoid loops
+  const userIdRef = useRef<string | null>(null);
+  const bootstrapRef = useRef(bootstrap);
+  
+  // Keep bootstrap ref in sync
+  useEffect(() => {
+    bootstrapRef.current = bootstrap;
+  }, [bootstrap]);
+  
   useEffect(() => {
     const isValidUser = Boolean(user?.id);
     if (!isValidUser) {
       logWithPrefix('User not yet available or invalid, delaying bootstrap until user is set');
       bootstrapInitialized.current = false;
+      userIdRef.current = null;
       return;
     }
 
     // Guard against multiple bootstrap calls for the same user
-    if (bootstrapInitialized.current) {
+    // Check both the flag and the user ID to handle user changes
+    if (bootstrapInitialized.current && userIdRef.current === user.id) {
       logWithPrefix('Bootstrap already initialized for this user, skipping');
       return;
     }
+    
+    // New user or first time - reset and bootstrap
     bootstrapInitialized.current = true;
+    userIdRef.current = user.id;
 
     logWithPrefix('User available, triggering bootstrap', { hasUser: !!user, userId: user?.id });
-    bootstrap();
-  }, [user, bootstrap]);
+    bootstrapRef.current();
+  }, [user?.id]); // Only depend on user.id to prevent loops
 
   return {
     ...state,

@@ -33,11 +33,16 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPr
   const { avatar, loading } = useAvatar(currentLevel);
 
   // Check if user leveled up and update profile
+  // Use useRef to track if update is in progress to prevent loops
+  const levelUpdateInProgressRef = useRef(false);
+  
   useEffect(() => {
     if (!avatar || !profile?.user_id) return;
     
     const currentProfileLevel = profile.level || 1;
-    if (currentProfileLevel < currentLevel) {
+    if (currentProfileLevel < currentLevel && !levelUpdateInProgressRef.current) {
+      levelUpdateInProgressRef.current = true;
+      
       if (animationsEnabled) {
         setIsLevelingUp(true);
       }
@@ -53,9 +58,20 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPr
         .then((result) => {
           if (result.error) {
             console.error('Error updating profile level:', result.error);
+            levelUpdateInProgressRef.current = false;
           } else {
+            // Profile update successful - this will trigger a re-render
+            // but levelUpdateInProgressRef prevents loop
             onLevelUp?.();
+            // Reset flag after a delay to allow state to settle
+            setTimeout(() => {
+              levelUpdateInProgressRef.current = false;
+            }, 1000);
           }
+        })
+        .catch((error) => {
+          console.error('Error updating profile level:', error);
+          levelUpdateInProgressRef.current = false;
         });
       
       // Reset level up animation after 3 seconds (only if animations are enabled)

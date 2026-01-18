@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Fortune, Achievement } from '@/types/fortune';
+import { fetchFortuneList } from './fortuneListFetcher';
 
 // Helper to detect legacy-looking data (optional UI badge)
 export const looksLegacy = (text?: string | null): boolean => 
@@ -52,37 +53,37 @@ export async function addFortune(
 }
 
 // Get initial list of fortunes
-export async function getFortunesList(): Promise<Fortune[]> {
-  const { data, error } = await (supabase.rpc as any)('fortune_list');
-
-  if (error) {
-    console.error('[RPC] fortune_list error:', error);
-    throw error;
+// Uses centralized fetcher with guards to prevent infinite loops
+export async function getFortunesList(force = false): Promise<Fortune[]> {
+  const result = await fetchFortuneList({ force });
+  if (result === null) {
+    // Return empty array if fetch was skipped due to guards
+    return [];
   }
-
-  return (data || []) as Fortune[];
+  return result;
 }
 
 // Get fortunes with time window pagination (for loading older items)
+// Uses centralized fetcher with guards to prevent infinite loops
 export async function getFortunesListPaginated(
   pFrom?: string | null,
-  pTo?: string | null
+  pTo?: string | null,
+  force = false
 ): Promise<Fortune[]> {
-  const { data, error } = await (supabase.rpc as any)('fortune_list', {
-    p_from: pFrom,
-    p_to: pTo,
+  const result = await fetchFortuneList({ 
+    p_from: pFrom, 
+    p_to: pTo, 
+    force 
   });
-
-  if (error) {
-    console.error('[RPC] fortune_list paginated error:', error);
-    throw error;
+  if (result === null) {
+    // Return empty array if fetch was skipped due to guards
+    return [];
   }
-
-  return (data || []) as Fortune[];
+  return result;
 }
 
 // Get fortunes for today (utility function)
-export async function getTodayFortunes(): Promise<Fortune[]> {
+export async function getTodayFortunes(force = false): Promise<Fortune[]> {
   const now = new Date();
   const startOfDay = new Date(Date.UTC(
     now.getUTCFullYear(),
@@ -93,7 +94,8 @@ export async function getTodayFortunes(): Promise<Fortune[]> {
 
   return getFortunesListPaginated(
     startOfDay.toISOString(),
-    endOfDay.toISOString()
+    endOfDay.toISOString(),
+    force
   );
 }
 
@@ -122,17 +124,18 @@ export async function createFortune(
 
 export async function getFortunesForDateRange(
   startISO?: string | null,
-  endISO?: string | null
+  endISO?: string | null,
+  force = false
 ): Promise<Fortune[]> {
-  return getFortunesListPaginated(startISO, endISO);
+  return getFortunesListPaginated(startISO, endISO, force);
 }
 
-export async function getTodayFortunesUTC(): Promise<Fortune[]> {
-  return getTodayFortunes();
+export async function getTodayFortunesUTC(force = false): Promise<Fortune[]> {
+  return getTodayFortunes(force);
 }
 
-export async function getFortunesByUser(userId: string): Promise<Fortune[]> {
-  return getFortunesList();
+export async function getFortunesByUser(userId: string, force = false): Promise<Fortune[]> {
+  return getFortunesList(force);
 }
 
 // Update fortune using RPC to handle encryption properly
