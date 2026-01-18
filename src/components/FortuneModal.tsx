@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Plus, Sparkle, CurrencyDollar, Crown, Lock, TrendUp, Trophy, Star, Camera, Image, DeviceMobile } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -120,6 +120,8 @@ export const FortuneModal = ({
     path: string;
     bucket: string;
   } | null>(null);
+  const pollCleanupRef = useRef<(() => void) | null>(null);
+  const ticketRequested = useRef(false);
   const { toast } = useToast();
   const { user, accessToken } = useAuth();
   const freePlanStatus = useFreePlanLimits();
@@ -197,6 +199,16 @@ export const FortuneModal = ({
     }
   }, [isOpen, isEditMode, loadCategories, loadBigWinsCount]);
 
+  // Cleanup polling when component unmounts or modal closes
+  useEffect(() => {
+    return () => {
+      if (pollCleanupRef.current) {
+        pollCleanupRef.current();
+        pollCleanupRef.current = null;
+      }
+    };
+  }, []);
+
   // Populate form when editing - wait for categories to load
   useEffect(() => {
     if (isEditMode && fortune && isOpen && categories.length > 0) {
@@ -242,10 +254,17 @@ export const FortuneModal = ({
     }
   };
 
-  const pollForPhotoCompletion = async (path: string, bucket: string, maxAttempts: number = 3) => {
+  const pollForPhotoCompletion = useCallback(async (path: string, bucket: string, maxAttempts: number = 3) => {
     const targetFortuneId = fortune?.id || '';
     let attempts = 0;
+    let isCancelled = false;
     const pollInterval = setInterval(async () => {
+      // Check if component unmounted or polling was cancelled
+      if (isCancelled) {
+        clearInterval(pollInterval);
+        return;
+      }
+
       attempts++;
       console.log(`[PHOTO-POLL] Polling attempt ${attempts}/${maxAttempts} for path: ${path}`);
       
@@ -255,11 +274,13 @@ export const FortuneModal = ({
         
         if (signedUrl) {
           console.log('[PHOTO-POLL] Signed URL available:', signedUrl);
-          setFortunePhoto(signedUrl);
+          if (!isCancelled) {
+            setFortunePhoto(signedUrl);
+          }
           clearInterval(pollInterval);
           
           // After polling completes, fetch media record to confirm DB update and trigger refresh
-          if (targetFortuneId) {
+          if (targetFortuneId && !isCancelled) {
             try {
               const mediaData = await getFortuneMedia(targetFortuneId);
               if (mediaData) {
@@ -280,9 +301,11 @@ export const FortuneModal = ({
             } catch (err) {
               console.error('[PHOTO-POLL] Error fetching media after polling:', err);
               // Still dispatch event even if fetch fails, to trigger refresh
-              console.log('[PHOTO-POLL] Dispatching fortunesUpdated event (fallback)');
-              window.dispatchEvent(new Event("fortunesUpdated"));
-              onFortuneUpdated?.();
+              if (!isCancelled) {
+                console.log('[PHOTO-POLL] Dispatching fortunesUpdated event (fallback)');
+                window.dispatchEvent(new Event("fortunesUpdated"));
+                onFortuneUpdated?.();
+              }
             }
           }
           return;
@@ -294,17 +317,31 @@ export const FortuneModal = ({
       if (attempts >= maxAttempts) {
         console.log('[PHOTO-POLL] Max polling attempts reached');
         clearInterval(pollInterval);
-        setFortunePhoto(null);
-        toast({
-          title: "Photo processing failed",
-          description: "The photo upload took too long to process. Please try again.",
-          variant: "destructive",
-        });
+        if (!isCancelled) {
+          setFortunePhoto(null);
+          toast({
+            title: "Photo processing failed",
+            description: "The photo upload took too long to process. Please try again.",
+            variant: "destructive",
+          });
+        }
       }
     }, 2000); // Poll every 2 seconds
-  };
+
+    // Return cleanup function
+    return () => {
+      isCancelled = true;
+      clearInterval(pollInterval);
+    };
+  }, [fortune?.id, onFortuneUpdated, toast]);
 
   const handleAttachPhoto = async () => {
+    // Prevent multiple simultaneous requests
+    if (ticketRequested.current) {
+      console.log('[PHOTO] Upload already in progress, ignoring duplicate request');
+      return;
+    }
+
     console.log('[PHOTO] Starting photo attach process...');
     
     // Block upload entirely on web - only allow on native
@@ -315,6 +352,7 @@ export const FortuneModal = ({
         description: "Photo attachments can only be added from the mobile app.",
         variant: "destructive",
       });
+      ticketRequested.current = false;
       return;
     }
     
@@ -328,9 +366,11 @@ export const FortuneModal = ({
         description: "Photo attachments require a Pro or Lifetime subscription.",
         variant: "destructive",
       });
+      ticketRequested.current = false;
       return;
     }
 
+    ticketRequested.current = true;
     setPhotoAttaching(true);
     console.log('[PHOTO] Set photoAttaching to true');
     
@@ -348,6 +388,7 @@ export const FortuneModal = ({
         if (!text.trim() || !category) {
           console.log('[PHOTO] Missing required form data:', { hasText: !!text.trim(), hasCategory: !!category });
           setPhotoAttaching(false);
+          ticketRequested.current = false;
           toast({
             title: "Complete fortune details first",
             description: "Please add text and select a category before attaching a photo.",
@@ -378,6 +419,7 @@ export const FortuneModal = ({
 
       if (result.cancelled) {
         console.log('[PHOTO] User cancelled upload');
+        ticketRequested.current = false;
         return; // User cancelled, no action needed
       }
 
@@ -392,8 +434,15 @@ export const FortuneModal = ({
           bucket: result.bucket || 'photos'
         });
         
-        // Start polling for signed URL
-        pollForPhotoCompletion(result.path || '', result.bucket || 'photos');
+        // Start polling for signed URL and store cleanup function
+        const cleanup = pollForPhotoCompletion(result.path || '', result.bucket || 'photos');
+        if (cleanup) {
+          // Clean up any existing polling
+          if (pollCleanupRef.current) {
+            pollCleanupRef.current();
+          }
+          pollCleanupRef.current = cleanup;
+        }
       } else {
         // Immediate result with signed URL - store the upload info for later
         setFortunePhoto(result.signedUrl);
@@ -441,8 +490,9 @@ export const FortuneModal = ({
         variant: "destructive",
       });
     } finally {
-      console.log('[PHOTO] Resetting photoAttaching to false');
+      console.log('[PHOTO] Resetting photoAttaching to false and ticketRequested flag');
       setPhotoAttaching(false);
+      ticketRequested.current = false;
     }
   };
 

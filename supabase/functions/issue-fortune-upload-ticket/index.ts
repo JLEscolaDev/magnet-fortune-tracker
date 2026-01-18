@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
 // BUILD_TAG for deployment drift detection
 // Update this timestamp when deploying to production
-const BUILD_TAG = '2026-01-13-put-contract';
+const BUILD_TAG = '2026-01-13-multipart-contract';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -210,8 +210,8 @@ serve(async (req) => {
     // Create service role client for storage operations
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Create signed upload URL for PUT upload
-    console.log('issue-fortune-upload-ticket: Using createSignedUploadUrl (PUT upload method)');
+    // Create signed upload URL for multipart POST upload
+    console.log('issue-fortune-upload-ticket: Using createSignedUploadUrl (POST_MULTIPART upload method)');
     const { data, error } = await serviceClient.storage
       .from('photos')
       .createSignedUploadUrl(bucketRelativePath, 120); // 2 minutes TTL
@@ -226,7 +226,7 @@ serve(async (req) => {
 
     console.log('issue-fortune-upload-ticket: TICKET_OK - bucket:', 'photos', 'bucketRelativePath:', bucketRelativePath, { BUILD_TAG });
 
-    // Return explicit upload contract for PUT upload
+    // Return explicit upload contract for POST_MULTIPART upload
     return new Response(JSON.stringify({
       // Bucket name (for Storage API calls)
       bucket: 'photos',
@@ -234,15 +234,16 @@ serve(async (req) => {
       bucketRelativePath: bucketRelativePath,
       // Same path stored in DB (bucketRelativePath is canonical)
       dbPath: bucketRelativePath,
-      // Signed upload URL for PUT request
+      // Signed upload URL for POST multipart/form-data request
       url: data.signedUrl,
       // REQUIRED upload method
-      uploadMethod: 'PUT',
-      // REQUIRED headers for PUT upload
+      uploadMethod: 'POST_MULTIPART',
+      // REQUIRED headers for POST multipart upload
       headers: {
-        'Content-Type': mime as string,
         'x-upsert': 'true'
       },
+      // REQUIRED form field name for multipart upload
+      formFieldName: 'file',
       // BUILD_TAG for deployment drift detection
       buildTag: BUILD_TAG,
       // Optional: token if available from signed URL (for debugging)
