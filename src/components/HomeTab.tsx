@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { LuxuryAvatarSection } from './LuxuryAvatarSection';
 import { FortuneList } from './FortuneList';
 import { DailyQuote } from './DailyQuote';
@@ -21,7 +21,7 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
   const [recentFortunes, setRecentFortunes] = useState<FortuneRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchRecentFortunes = async () => {
+  const fetchRecentFortunes = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -40,7 +40,7 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchRecentFortunes();

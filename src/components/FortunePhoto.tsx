@@ -58,22 +58,33 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
 
   // Listen for fortune updates to refetch media when photo changes
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    
     const handleFortuneUpdate = () => {
       console.log('[FORTUNE-PHOTO] fortunesUpdated event received - clearing cache and refetching', { fortuneId });
+      // Clear any pending timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       // Clear ALL signed URL cache to ensure fresh URLs
       clearSignedUrlCache();
       // Clear current media first to force re-render
       setMedia(null);
       setLoading(true);
       // Small delay to ensure DB has propagated the update
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         loadMedia();
+        timeoutId = null;
       }, 500);
     };
 
     window.addEventListener("fortunesUpdated", handleFortuneUpdate);
     return () => {
       window.removeEventListener("fortunesUpdated", handleFortuneUpdate);
+      // Cleanup timeout on unmount
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, [loadMedia, fortuneId]);
 
