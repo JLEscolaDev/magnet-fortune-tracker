@@ -290,7 +290,25 @@ export const FortuneModal = ({
                   updated_at: mediaData.updated_at
                 });
                 
-                // Dispatch event with log - this triggers FortunePhoto components to refetch
+                // Get signed URL for immediate use
+                const { getCachedSignedUrl } = await import('@/integrations/supabase/fortuneMedia');
+                const signedUrl = await getCachedSignedUrl(mediaData.path, mediaData.bucket);
+                
+                // Dispatch specific photo update event with media info
+                const photoUpdateEvent = new CustomEvent("fortunePhotoUpdated", {
+                  detail: {
+                    fortuneId: mediaData.fortune_id,
+                    updated_at: mediaData.updated_at,
+                    signedUrl: signedUrl || undefined
+                  }
+                });
+                console.log('[PHOTO-POLL] Dispatching fortunePhotoUpdated event after polling', {
+                  fortuneId: mediaData.fortune_id,
+                  updated_at: mediaData.updated_at
+                });
+                window.dispatchEvent(photoUpdateEvent);
+                
+                // Also dispatch general event for backward compatibility
                 console.log('[PHOTO-POLL] Dispatching fortunesUpdated event after polling');
                 window.dispatchEvent(new Event("fortunesUpdated"));
                 onFortuneUpdated?.();
@@ -468,7 +486,21 @@ export const FortuneModal = ({
           replaced: result.replaced
         });
         
-        // Dispatch event with log - this triggers FortunePhoto components to refetch
+        // Dispatch specific photo update event with media info - this triggers immediate refresh
+        const photoUpdateEvent = new CustomEvent("fortunePhotoUpdated", {
+          detail: {
+            fortuneId: result.media.fortune_id,
+            updated_at: result.media.updated_at,
+            signedUrl: result.signedUrl // Pass signed URL for immediate use
+          }
+        });
+        console.log('[PHOTO-UPLOAD] Dispatching fortunePhotoUpdated event', {
+          fortuneId: result.media.fortune_id,
+          updated_at: result.media.updated_at
+        });
+        window.dispatchEvent(photoUpdateEvent);
+        
+        // Also dispatch general event for backward compatibility
         console.log('[PHOTO-UPLOAD] Dispatching fortunesUpdated event');
         window.dispatchEvent(new Event("fortunesUpdated"));
         

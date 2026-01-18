@@ -128,6 +128,8 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deletingFortunes, setDeletingFortunes] = useState<Set<string>>(new Set());
   const deleteTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  // Track photo updated_at timestamps by fortuneId to force FortunePhoto refresh
+  const [photoUpdatedAts, setPhotoUpdatedAts] = useState<Map<string, string>>(new Map());
   const { toast } = useToast();
 
   // NOTE: We do NOT add a window listener for fortunesUpdated here
@@ -244,6 +246,7 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                     <FortunePhoto
                       fortuneId={fortune.id}
                       className="w-full max-w-xs"
+                      photoUpdatedAt={photoUpdatedAts.get(fortune.id)}
                     />
                   </div>
                   <div className="flex items-center gap-2">
