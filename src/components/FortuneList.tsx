@@ -130,15 +130,9 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
   const deleteTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const { toast } = useToast();
 
-  useEffect(() => {
-    const handleUpdate = () => {
-      onFortunesUpdated?.();
-    };
-    window.addEventListener("fortunesUpdated", handleUpdate);
-    return () => {
-      window.removeEventListener("fortunesUpdated", handleUpdate);
-    };
-  }, [onFortunesUpdated]);
+  // NOTE: We do NOT add a window listener for fortunesUpdated here
+  // because HomeTab already listens for it and passes updated fortunes via props.
+  // Adding another listener here would cause duplicate fetches.
 
   const handleEditFortune = (fortune: Fortune) => {
     setEditingFortune(fortune);

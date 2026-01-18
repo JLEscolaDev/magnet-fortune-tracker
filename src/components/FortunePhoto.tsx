@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getFortuneMedia } from '@/integrations/supabase/fortuneMedia';
 import { useSignedUrl, clearSignedUrlCache } from '@/hooks/useSignedUrl';
 
@@ -11,36 +11,41 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
   const [media, setMedia] = useState<{ bucket: string; path: string; version: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  
+  // Track the last loaded version to prevent unnecessary reloads
+  const lastLoadedVersion = useRef<string | null>(null);
+  // Track if a reload is pending to debounce multiple events
+  const pendingReload = useRef<NodeJS.Timeout | null>(null);
 
   // Pass version to useSignedUrl for cache-busting
   const signedUrl = useSignedUrl(media?.bucket, media?.path, 300, media?.version);
 
-  // Log when rendering with media data (for debugging refresh issues)
-  useEffect(() => {
-    if (media) {
-      console.log('[FORTUNE-LIST] FortunePhoto rendering in Today\'s Fortunes', {
-        fortuneId,
-        bucket: media.bucket,
-        path: media.path,
-        updated_at: media.version
-      });
-    }
-  }, [fortuneId, media?.bucket, media?.path, media?.version]);
-
-  const loadMedia = useCallback(async () => {
+  const loadMedia = useCallback(async (forceRefresh = false) => {
     try {
       setError(false);
-      setLoading(true);
+      if (!media) {
+        setLoading(true);
+      }
       
       const mediaData = await getFortuneMedia(fortuneId);
-      console.log('[FORTUNE-PHOTO] loadMedia result:', { fortuneId, mediaData: mediaData ? { path: mediaData.path, updated_at: mediaData.updated_at } : null });
       
       if (mediaData?.path && mediaData?.bucket) {
-        // Use only updated_at for cache-busting - NO Date.now() to avoid infinite loops
         const version = mediaData.updated_at || mediaData.created_at || '';
-        setMedia({ bucket: mediaData.bucket, path: mediaData.path, version });
+        
+        // Only update state if version changed or force refresh
+        if (forceRefresh || version !== lastLoadedVersion.current) {
+          console.log('[FORTUNE-PHOTO] loadMedia - updating state:', { 
+            fortuneId, 
+            path: mediaData.path, 
+            version,
+            previousVersion: lastLoadedVersion.current 
+          });
+          lastLoadedVersion.current = version;
+          setMedia({ bucket: mediaData.bucket, path: mediaData.path, version });
+        }
       } else {
         setMedia(null);
+        lastLoadedVersion.current = null;
       }
     } catch (err) {
       console.error('Error loading fortune media:', err);
@@ -49,51 +54,40 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
     } finally {
       setLoading(false);
     }
-  }, [fortuneId]);
+  }, [fortuneId, media]);
 
+  // Initial load
   useEffect(() => {
     loadMedia();
-  }, [loadMedia]);
+  }, [fortuneId]); // Only reload on fortuneId change, not on loadMedia
 
-  // Listen for fortune updates to refetch media when photo changes
-  // Use a ref to track if we've already handled an update to prevent cascading refreshes
+  // Listen for fortune updates - debounced to prevent cascading refreshes
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
-    let isHandling = false;
-    
     const handleFortuneUpdate = () => {
-      // Prevent handling if already in progress
-      if (isHandling) return;
-      isHandling = true;
-      
-      console.log('[FORTUNE-PHOTO] fortunesUpdated event received', { fortuneId });
-      
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      // Clear any pending reload
+      if (pendingReload.current) {
+        clearTimeout(pendingReload.current);
       }
       
-      clearSignedUrlCache();
-      setMedia(null);
-      setLoading(true);
-      
-      // Debounce to prevent multiple rapid refreshes
-      timeoutId = setTimeout(() => {
-        loadMedia();
-        timeoutId = null;
-        isHandling = false;
-      }, 500);
+      // Debounce: wait 300ms before reloading to batch multiple events
+      pendingReload.current = setTimeout(() => {
+        console.log('[FORTUNE-PHOTO] fortunesUpdated - checking for updates', { fortuneId });
+        clearSignedUrlCache();
+        loadMedia(true); // Force refresh to check for new version
+        pendingReload.current = null;
+      }, 300);
     };
 
     window.addEventListener("fortunesUpdated", handleFortuneUpdate);
     return () => {
       window.removeEventListener("fortunesUpdated", handleFortuneUpdate);
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      if (pendingReload.current) {
+        clearTimeout(pendingReload.current);
       }
     };
-  }, [loadMedia, fortuneId]);
+  }, [fortuneId, loadMedia]);
 
-  if (loading) {
+  if (loading && !media) {
     return (
       <div className={`bg-muted animate-pulse rounded ${className}`} style={{ aspectRatio: '16/9' }} />
     );
