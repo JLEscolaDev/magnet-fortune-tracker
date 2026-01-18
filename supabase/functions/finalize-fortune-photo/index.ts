@@ -53,21 +53,54 @@ serve(async (req) => {
       });
     }
 
-    // Parse request body
-    // path can be with or without bucket prefix (will be normalized)
-    const { fortune_id, bucket, path, width, height, size_bytes, mime } = await req.json();
-    const rawPath = path;
-    console.log('finalize-fortune-photo: Processing for fortune_id:', fortune_id, 'bucket:', bucket, 'rawPath:', rawPath);
+    // Parse request body once
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    if (!fortune_id || !bucket || !path || !mime) {
-      return new Response(JSON.stringify({ error: 'fortune_id, bucket, path, and mime are required' }), {
+    const requestBody = body as Record<string, unknown>;
+
+    // Normalize fields with fallbacks and validation
+    const fortune_id = requestBody.fortune_id as string | undefined;
+    const normalizedBucket = (requestBody.bucket ?? requestBody.bucket_name ?? 'photos') as string;
+    const rawPath = (requestBody.path ?? requestBody.bucketRelativePath ?? requestBody.dbPath ?? requestBody.db_path) as string | undefined;
+    const normalizedMime = (requestBody.mime ?? requestBody.mime_type) as string | undefined;
+    const width = requestBody.width as number | undefined;
+    const height = requestBody.height as number | undefined;
+    const size_bytes = requestBody.size_bytes as number | undefined;
+
+    console.log('finalize-fortune-photo: Processing for fortune_id:', fortune_id, 'bucket:', normalizedBucket, 'rawPath:', rawPath);
+
+    // Validate required fields and return 400 with clear error listing missing fields
+    const missingFields: string[] = [];
+    if (!fortune_id || typeof fortune_id !== 'string') {
+      missingFields.push('fortune_id');
+    }
+    if (!rawPath || typeof rawPath !== 'string') {
+      missingFields.push('path (or bucketRelativePath/dbPath/db_path)');
+    }
+    if (!normalizedMime || typeof normalizedMime !== 'string') {
+      missingFields.push('mime (or mime_type)');
+    }
+
+    if (missingFields.length > 0) {
+      return new Response(JSON.stringify({ 
+        error: 'Missing required fields',
+        missingFields: missingFields
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Normalize path: strip bucket prefix if present
-    const bucketRelativePath = stripBucketPrefix(bucket, path);
+    const bucketRelativePath = stripBucketPrefix(normalizedBucket, rawPath);
     console.log('finalize-fortune-photo: Path normalization - rawPath:', rawPath, 'bucketRelativePath:', bucketRelativePath);
 
     // Create client with user token for validation
@@ -96,7 +129,7 @@ serve(async (req) => {
     const { data: fortune, error: fortuneError } = await userClient
       .from('fortunes')
       .select('id, user_id')
-      .eq('id', fortune_id)
+      .eq('id', fortune_id as string)
       .single();
 
     if (fortuneError || !fortune) {
@@ -180,15 +213,15 @@ serve(async (req) => {
       const { data: updateData, error: updateError } = await userClient
         .from('fortune_media')
         .update({
-          bucket,
+          bucket: normalizedBucket,
           path: bucketRelativePath, // Store bucket-relative path
           width: width || null,
           height: height || null,
           size_bytes: size_bytes || null,
-          mime_type: mime,
+          mime_type: normalizedMime,
           updated_at: new Date().toISOString() // Explicitly update timestamp for cache busting
         })
-        .eq('fortune_id', fortune_id)
+        .eq('fortune_id', fortune_id as string)
         .select('bucket, path, updated_at')
         .single();
       
@@ -206,14 +239,14 @@ serve(async (req) => {
       const { data: insertData, error: insertError } = await userClient
         .from('fortune_media')
         .insert({
-          fortune_id,
+          fortune_id: fortune_id as string,
           user_id: user.id,
-          bucket,
+          bucket: normalizedBucket,
           path: bucketRelativePath, // Store bucket-relative path
           width: width || null,
           height: height || null,
           size_bytes: size_bytes || null,
-          mime_type: mime
+          mime_type: normalizedMime
         })
         .select('bucket, path, updated_at')
         .single();
@@ -252,9 +285,9 @@ serve(async (req) => {
     const folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : ''; // Get folder path (empty if root)
     const fileName = pathParts[pathParts.length - 1]; // Get file name
     
-    console.log('finalize-fortune-photo: Verifying upload exists - bucket:', bucket, 'folderPath:', folderPath || '(root)', 'fileName:', fileName);
+    console.log('finalize-fortune-photo: Verifying upload exists - bucket:', normalizedBucket, 'folderPath:', folderPath || '(root)', 'fileName:', fileName);
     const { data: files, error: listError } = await serviceClient.storage
-      .from(bucket)
+      .from(normalizedBucket)
       .list(folderPath || undefined, {
         limit: 100,
         search: fileName
@@ -267,7 +300,7 @@ serve(async (req) => {
     } else {
       const fileExists = files?.some(file => file.name === fileName);
       if (!fileExists) {
-        console.error('finalize-fortune-photo: UPLOAD_NOT_PERSISTED - File not found after upload - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
+        console.error('finalize-fortune-photo: UPLOAD_NOT_PERSISTED - File not found after upload - bucket:', normalizedBucket, 'bucketRelativePath:', bucketRelativePath);
         return new Response(JSON.stringify({ 
           error: 'UPLOAD_NOT_PERSISTED',
           message: 'The uploaded file was not found in storage. Upload may have failed or used incorrect method.'
@@ -276,20 +309,20 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      console.log('finalize-fortune-photo: UPLOAD_VERIFIED - File exists in storage - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
+      console.log('finalize-fortune-photo: UPLOAD_VERIFIED - File exists in storage - bucket:', normalizedBucket, 'bucketRelativePath:', bucketRelativePath);
     }
 
     // Create signed GET URL for immediate use
     // Use bucketRelativePath (NO bucket prefix) for Storage API
-    console.log('finalize-fortune-photo: Creating signed URL - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
+    console.log('finalize-fortune-photo: Creating signed URL - bucket:', normalizedBucket, 'bucketRelativePath:', bucketRelativePath);
     const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
-      .from(bucket)
+      .from(normalizedBucket)
       .createSignedUrl(bucketRelativePath, 300); // 5 minutes
 
     if (signedUrlError) {
       // Only retry on "Object not found" errors (might be timing issue)
       if (signedUrlError.message?.includes('Object not found') || signedUrlError.message?.includes('not found')) {
-        console.error('finalize-fortune-photo: Failed to create signed URL - Object not found (retriable) - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath, 'error:', signedUrlError);
+        console.error('finalize-fortune-photo: Failed to create signed URL - Object not found (retriable) - bucket:', normalizedBucket, 'bucketRelativePath:', bucketRelativePath, 'error:', signedUrlError);
         return new Response(JSON.stringify({ 
           error: 'Failed to create signed URL: Object not found',
           retriable: true 
@@ -299,14 +332,14 @@ serve(async (req) => {
         });
       }
       
-      console.error('finalize-fortune-photo: Failed to create signed URL - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath, 'error:', signedUrlError);
+      console.error('finalize-fortune-photo: Failed to create signed URL - bucket:', normalizedBucket, 'bucketRelativePath:', bucketRelativePath, 'error:', signedUrlError);
       return new Response(JSON.stringify({ error: 'Failed to create signed URL' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('finalize-fortune-photo: SIGNED_URL_OK - Media finalized successfully - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
+    console.log('finalize-fortune-photo: SIGNED_URL_OK - Media finalized successfully - bucket:', normalizedBucket, 'bucketRelativePath:', bucketRelativePath);
 
     // Return updated media record so frontend can confirm DB update
     // Include updated_at from DB to ensure cache invalidation
@@ -314,7 +347,7 @@ serve(async (req) => {
       signedUrl: signedUrlData.signedUrl,
       replaced,
       media: {
-        fortune_id: fortune_id,
+        fortune_id: fortune_id as string,
         bucket: updatedMedia.bucket,
         path: updatedMedia.path,
         updated_at: updatedMedia.updated_at

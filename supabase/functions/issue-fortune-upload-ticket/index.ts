@@ -226,29 +226,44 @@ serve(async (req) => {
 
     console.log('issue-fortune-upload-ticket: TICKET_OK - bucket:', 'photos', 'bucketRelativePath:', bucketRelativePath, { BUILD_TAG });
 
-    // Return explicit upload contract for POST_MULTIPART upload
-    return new Response(JSON.stringify({
-      // Bucket name (for Storage API calls)
+    // Build headers object with x-upsert flag (required for POST_MULTIPART upload)
+    const uploadHeaders = {
+      'x-upsert': 'true'
+    };
+
+    // Build response object with both original and alias fields for backward compatibility
+    const responseObject = {
+      // Original fields (keep unchanged)
       bucket: 'photos',
-      // Bucket-relative path (for Storage API - NO bucket prefix)
       bucketRelativePath: bucketRelativePath,
-      // Same path stored in DB (bucketRelativePath is canonical)
       dbPath: bucketRelativePath,
-      // Signed upload URL for POST multipart/form-data request
       url: data.signedUrl,
-      // REQUIRED upload method
       uploadMethod: 'POST_MULTIPART',
-      // REQUIRED headers for POST multipart upload
-      headers: {
-        'x-upsert': 'true'
-      },
-      // REQUIRED form field name for multipart upload
+      headers: uploadHeaders,
       formFieldName: 'file',
-      // BUILD_TAG for deployment drift detection
       buildTag: BUILD_TAG,
       // Optional: token if available from signed URL (for debugging)
-      ...(data.token && { token: data.token })
-    }), {
+      ...(data.token && { token: data.token }),
+      
+      // Alias fields for backward compatibility
+      uploadUrl: data.signedUrl,        // Alias for 'url'
+      upload_url: data.signedUrl,       // Alias for 'url' (snake_case)
+      signedUrl: data.signedUrl,        // Alias for 'url' (common variant)
+      requiredHeaders: uploadHeaders,   // Alias for 'headers' (same object reference)
+      path: bucketRelativePath,         // Alias for 'bucketRelativePath'
+      db_path: bucketRelativePath,      // Alias for 'bucketRelativePath' (snake_case variant)
+      bucket_relative_path: bucketRelativePath, // Alias for 'bucketRelativePath' (snake_case)
+      bucket_name: 'photos',            // Alias for 'bucket'
+      
+      // Diagnostic field (safe to keep, no secrets)
+      ticketSchemaVersion: 'v2-backcompat'
+    };
+
+    // Log response shape before returning (for debugging)
+    console.log('issue-fortune-upload-ticket: RESPONSE_SHAPE', { buildTag: BUILD_TAG, keys: Object.keys(responseObject) });
+
+    // Return explicit upload contract for POST_MULTIPART upload
+    return new Response(JSON.stringify(responseObject), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
@@ -260,3 +275,36 @@ serve(async (req) => {
     });
   }
 });
+
+/*
+ * Response JSON Shape Example (v2-backcompat):
+ * {
+ *   // Original fields (unchanged)
+ *   "bucket": "photos",
+ *   "bucketRelativePath": "user-id/fortune-id-random.jpg",
+ *   "dbPath": "user-id/fortune-id-random.jpg",
+ *   "url": "https://...signed-upload-url...",
+ *   "uploadMethod": "POST_MULTIPART",
+ *   "headers": { "x-upsert": "true" },
+ *   "formFieldName": "file",
+ *   "buildTag": "2026-01-13-multipart-contract",
+ *   "token": "optional-token-if-available",
+ * 
+ *   // Backward compatibility aliases
+ *   "uploadUrl": "https://...signed-upload-url...",        // Same as 'url'
+ *   "upload_url": "https://...signed-upload-url...",       // Same as 'url' (snake_case)
+ *   "signedUrl": "https://...signed-upload-url...",        // Same as 'url' (common variant)
+ *   "requiredHeaders": { "x-upsert": "true" },            // Same as 'headers' (same object)
+ *   "path": "user-id/fortune-id-random.jpg",              // Same as 'bucketRelativePath'
+ *   "db_path": "user-id/fortune-id-random.jpg",           // Same as 'bucketRelativePath' (snake_case variant)
+ *   "bucket_relative_path": "user-id/fortune-id-random.jpg", // Same as 'bucketRelativePath' (snake_case)
+ *   "bucket_name": "photos",                              // Same as 'bucket'
+ * 
+ *   // Diagnostic field (safe, no secrets)
+ *   "ticketSchemaVersion": "v2-backcompat"
+ * }
+ * 
+ * All aliases point to the same values as their original counterparts.
+ * The response supports both camelCase and snake_case naming conventions
+ * to ensure compatibility with different client implementations.
+ */
