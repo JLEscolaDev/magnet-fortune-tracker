@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Trophy, Crown } from '@phosphor-icons/react';
 import { Profile } from '@/types/fortune';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,14 +48,16 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPr
       }
       
       // Update user's level and avatar_url in profile
-      supabase
-        .from('profiles')
-        .update({ 
-          level: currentLevel, 
-          avatar_url: avatar.url || null 
-        })
-        .eq('user_id', profile.user_id)
-        .then((result) => {
+      const updateProfile = async () => {
+        try {
+          const result = await supabase
+            .from('profiles')
+            .update({ 
+              level: currentLevel, 
+              avatar_url: avatar.url || null 
+            })
+            .eq('user_id', profile.user_id);
+          
           if (result.error) {
             console.error('Error updating profile level:', result.error);
             levelUpdateInProgressRef.current = false;
@@ -68,11 +70,12 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPr
               levelUpdateInProgressRef.current = false;
             }, 1000);
           }
-        })
-        .catch((error) => {
+        } catch (error) {
           console.error('Error updating profile level:', error);
           levelUpdateInProgressRef.current = false;
-        });
+        }
+      };
+      updateProfile();
       
       // Reset level up animation after 3 seconds (only if animations are enabled)
       if (animationsEnabled) {
