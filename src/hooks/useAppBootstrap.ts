@@ -265,7 +265,6 @@ export const useAppBootstrap = (user: User | null) => {
 
   // Run bootstrap when user changes - use ref to access latest bootstrap function
   // Use user.id as stable reference instead of bootstrap function to avoid loops
-  const userIdRef = useRef<string | null>(null);
   const bootstrapRef = useRef(bootstrap);
   
   // Keep bootstrap ref in sync
