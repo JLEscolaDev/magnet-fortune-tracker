@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
 // BUILD_TAG for deployment drift detection
-const BUILD_TAG = '2026-01-18-standard-upload';
+const BUILD_TAG = '2026-01-18-signed-upsert';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -102,9 +102,9 @@ serve(async (req) => {
       });
     }
 
-    console.log('issue-fortune-upload-ticket: Processing for fortune_id:', fortune_id, 'mime:', mime);
+    console.log('issue-fortune-upload-ticket: Processing', { fortune_id, mime });
 
-    // Create client with user token for validation
+    // Create clients
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -174,75 +174,49 @@ serve(async (req) => {
     }
 
     if (!hasActiveSubscription && !isInTrial) {
-      console.log('issue-fortune-upload-ticket: User not Pro/Lifetime or in trial', { BUILD_TAG });
+      console.log('issue-fortune-upload-ticket: No access', { BUILD_TAG });
       return new Response(JSON.stringify({ error: 'Pro/Lifetime subscription required' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Generate bucket-relative path
+    // Generate path
     const extension = getExtensionFromMime(mime as AllowedMimeType);
     const randomSuffix = crypto.randomUUID().slice(0, 8);
     const bucketRelativePath = `${user.id}/${fortune_id}-${randomSuffix}.${extension}`;
 
-    console.log('issue-fortune-upload-ticket: Generated path:', bucketRelativePath);
+    console.log('issue-fortune-upload-ticket: Path:', bucketRelativePath);
 
-    // Create service role client for storage operations
+    // Create service role client for storage
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Use standard upload endpoint instead of createSignedUploadUrl
-    // This allows the iOS client to use PUT with x-upsert header properly
-    // The URL format is: /storage/v1/object/{bucket}/{path}
-    const uploadUrl = `${supabaseUrl}/storage/v1/object/photos/${bucketRelativePath}`;
-    
-    console.log('issue-fortune-upload-ticket: TICKET_OK (STANDARD_UPLOAD)', { bucket: 'photos', path: bucketRelativePath, BUILD_TAG });
+    // Use createSignedUploadUrl with upsert option
+    const { data, error } = await serviceClient.storage
+      .from('photos')
+      .createSignedUploadUrl(bucketRelativePath, {
+        upsert: true // Enable upsert in the signed URL token
+      });
 
-    // Build response with service role key for upload authorization
-    // The iOS client will use this to upload directly with PUT method
+    if (error) {
+      console.error('issue-fortune-upload-ticket: URL creation failed:', error);
+      return new Response(JSON.stringify({ error: 'Failed to create upload URL' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('issue-fortune-upload-ticket: TICKET_OK', { path: bucketRelativePath, BUILD_TAG });
+
+    // Minimal response (avoid large payloads that iOS can't parse)
     const responseObject = {
-      // Primary fields
       bucket: 'photos',
-      bucketRelativePath: bucketRelativePath,
       path: bucketRelativePath,
-      dbPath: bucketRelativePath,
-      
-      // Upload URL (standard object endpoint, not signed URL)
-      url: uploadUrl,
-      uploadUrl: uploadUrl,
-      
-      // Upload method: PUT with upsert header (not POST multipart)
-      uploadMethod: 'PUT_STANDARD',
-      
-      // Required headers for upload - includes service role key for authorization
-      headers: {
-        'Content-Type': mime as string,
-        'x-upsert': 'true',
-        'Authorization': `Bearer ${supabaseServiceKey}`
-      },
-      
-      // Metadata
-      buildTag: BUILD_TAG,
-      ticketSchemaVersion: 'v3-standard-upload',
-      
-      // Backward compatibility aliases
-      db_path: bucketRelativePath,
-      bucket_relative_path: bucketRelativePath,
-      bucket_name: 'photos',
-      upload_url: uploadUrl,
-      signedUrl: uploadUrl,
-      requiredHeaders: {
-        'Content-Type': mime as string,
-        'x-upsert': 'true',
-        'Authorization': `Bearer ${supabaseServiceKey}`
-      }
+      url: data.signedUrl,
+      uploadMethod: 'POST_MULTIPART',
+      formFieldName: 'file',
+      buildTag: BUILD_TAG
     };
-
-    console.log('issue-fortune-upload-ticket: Response ready', { 
-      method: 'PUT_STANDARD',
-      hasServiceKey: !!supabaseServiceKey,
-      BUILD_TAG 
-    });
 
     return new Response(JSON.stringify(responseObject), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
