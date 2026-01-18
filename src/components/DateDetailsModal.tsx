@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, CurrencyDollar, Heart, HeartStraight, Sparkle, PencilSimple, Trash } from '@phosphor-icons/react';
 import { supabase } from '@/integrations/supabase/client';
 import { Fortune } from '@/types/fortune';
@@ -22,6 +22,8 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
   const [editingFortune, setEditingFortune] = useState<Fortune | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deletingFortunes, setDeletingFortunes] = useState<Set<string>>(new Set());
+  const deleteTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const fabClickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   // Categories that allow a numeric value (user custom + built-in defaults)
@@ -60,6 +62,12 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
   };
 
   const handleDeleteFortune = async (fortuneId: string) => {
+    // Clear any existing timeout for this fortune
+    const existingTimeout = deleteTimeoutsRef.current.get(fortuneId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+    
     try {
       // Immediately start deleting animation
       setDeletingFortunes(prev => new Set(prev).add(fortuneId));
@@ -75,7 +83,8 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
       window.dispatchEvent(new Event("fortunesUpdated"));
       
       // Wait for animation to complete then cleanup
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
+        deleteTimeoutsRef.current.delete(fortuneId);
         setDeletingFortunes(prev => {
           const newSet = new Set(prev);
           newSet.delete(fortuneId);
@@ -88,6 +97,8 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
           onClose();
         }
       }, 300);
+      
+      deleteTimeoutsRef.current.set(fortuneId, timeoutId);
       
     } catch (error) {
       console.error('Error deleting fortune:', error);
@@ -105,6 +116,20 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
       });
     }
   };
+  
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      deleteTimeoutsRef.current.forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
+      deleteTimeoutsRef.current.clear();
+      if (fabClickTimeoutRef.current) {
+        clearTimeout(fabClickTimeoutRef.current);
+        fabClickTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const handleFortuneUpdated = () => {
     onFortunesUpdated?.();
@@ -157,9 +182,13 @@ export const DateDetailsModal = ({ isOpen, onClose, date, fortunes, onFortunesUp
                 onClick={() => {
                   onClose();
                   // Trigger the floating action button click
-                  setTimeout(() => {
+                  if (fabClickTimeoutRef.current) {
+                    clearTimeout(fabClickTimeoutRef.current);
+                  }
+                  fabClickTimeoutRef.current = setTimeout(() => {
                     const fabButton = document.querySelector('[aria-label*="Add fortune"]') as HTMLButtonElement;
                     if (fabButton) fabButton.click();
+                    fabClickTimeoutRef.current = null;
                   }, 100);
                 }}
                 className="luxury-button"

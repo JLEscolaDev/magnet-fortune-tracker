@@ -402,9 +402,12 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
   // Manual refresh check every 5 minutes for subscription updates (backup mechanism)
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    let intervalId: NodeJS.Timeout | null = null;
     
     const startPeriodicRefresh = () => {
+      if (intervalId) {
+        clearInterval(intervalId); // Clear any existing interval
+      }
       intervalId = setInterval(async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
@@ -415,17 +418,14 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     };
 
     // Start periodic refresh only if we have a session
-    const checkAndStartRefresh = async () => {
-      if (user) {
-        startPeriodicRefresh();
-      }
-    };
-
-    checkAndStartRefresh();
+    if (user) {
+      startPeriodicRefresh();
+    }
 
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
+        intervalId = null;
       }
     };
   }, [user, fetchSubscriptionDebounced]);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { Fortune } from '@/types/fortune';
 import { 
@@ -127,6 +127,7 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
   const [editingFortune, setEditingFortune] = useState<Fortune | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deletingFortunes, setDeletingFortunes] = useState<Set<string>>(new Set());
+  const deleteTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -145,11 +146,18 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
   };
 
   const handleDeleteFortune = async (fortuneId: string) => {
+    // Clear any existing timeout for this fortune
+    const existingTimeout = deleteTimeoutsRef.current.get(fortuneId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+    
     // Start fade out animation
     setDeletingFortunes(prev => new Set(prev).add(fortuneId));
     
     // Wait for animation to complete
-    setTimeout(async () => {
+    const timeoutId = setTimeout(async () => {
+      deleteTimeoutsRef.current.delete(fortuneId);
       try {
         await deleteFortune(fortuneId);
 
@@ -183,7 +191,19 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
         });
       }
     }, 300); // Match the fade-out animation duration
+    
+    deleteTimeoutsRef.current.set(fortuneId, timeoutId);
   };
+  
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      deleteTimeoutsRef.current.forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
+      deleteTimeoutsRef.current.clear();
+    };
+  }, []);
 
   const handleFortuneUpdated = () => {
     onFortunesUpdated?.();
