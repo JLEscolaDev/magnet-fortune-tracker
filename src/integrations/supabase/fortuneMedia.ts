@@ -78,8 +78,31 @@ export const getFortuneMedia = async (fortuneId: string): Promise<FortuneMedia |
   }
 };
 
-export const createSignedUrl = async (path: string, bucket: string = 'photos'): Promise<string | null> => {
+export const createSignedUrl = async (
+  path: string,
+  bucket: string = 'photos',
+  fortuneId?: string
+): Promise<string | null> => {
   try {
+    // Prefer edge function signing when we know the fortune id.
+    // This avoids calling Storage signing endpoints from the client, which can return 400/"Object not found" in some setups.
+    if (fortuneId) {
+      const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
+        body: {
+          action: 'SIGN_ONLY',
+          fortune_id: fortuneId,
+          ttlSec: SIGNED_URL_EXPIRY,
+        },
+      });
+
+      if (error) {
+        console.error('Error creating signed URL via edge function:', { fortuneId, error });
+        return null;
+      }
+
+      return (data as { signedUrl?: string | null } | null)?.signedUrl ?? null;
+    }
+
     const normalizedPath = normalizeStoragePath(bucket, path);
     if (!normalizedPath) {
       console.error('Error creating signed URL: invalid/empty path', { bucket, path, normalizedPath });
@@ -105,7 +128,11 @@ export const createSignedUrl = async (path: string, bucket: string = 'photos'): 
 // Simple cache for signed URLs with TTL
 const signedUrlCache = new Map<string, { url: string; expiry: number }>();
 
-export const getCachedSignedUrl = async (path: string, bucket?: string): Promise<string | null> => {
+export const getCachedSignedUrl = async (
+  path: string,
+  bucket?: string,
+  fortuneId?: string
+): Promise<string | null> => {
   const now = Date.now();
   const b = bucket || 'photos';
   const normalizedPath = normalizeStoragePath(b, path);
@@ -124,7 +151,7 @@ export const getCachedSignedUrl = async (path: string, bucket?: string): Promise
   }
 
   // Create new signed URL (pass raw path; createSignedUrl will normalize again defensively)
-  const signedUrl = await createSignedUrl(path, b);
+  const signedUrl = await createSignedUrl(path, b, fortuneId);
   if (signedUrl) {
     signedUrlCache.set(cacheKey, {
       url: signedUrl,

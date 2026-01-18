@@ -3,7 +3,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
 // BUILD_TAG for deployment drift detection
-const BUILD_TAG = '2026-01-18-retry-signed-url';
+// Update this timestamp when deploying to production
+const BUILD_TAG = '2026-01-18-sign-only-fix';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,63 +13,23 @@ const corsHeaders = {
 
 /**
  * Normalize path by stripping bucket prefix if present
+ * Returns bucket-relative path (NO bucket prefix like "photos/")
  */
 function stripBucketPrefix(bucket: string, path: string): string {
+  // Handle various prefix formats
   if (path.startsWith(`${bucket}/`)) {
     return path.slice(bucket.length + 1);
   }
   if (path.startsWith(`/${bucket}/`)) {
     return path.slice(bucket.length + 2);
   }
+  // Already bucket-relative
   return path;
-}
-
-/**
- * Sleep for specified milliseconds
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/**
- * Try to create signed URL with retries
- */
-async function createSignedUrlWithRetry(
-  serviceClient: ReturnType<typeof createClient>,
-  bucket: string,
-  path: string,
-  maxRetries: number = 3,
-  initialDelayMs: number = 500
-): Promise<{ signedUrl: string } | null> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const { data, error } = await serviceClient.storage
-      .from(bucket)
-      .createSignedUrl(path, 300); // 5 minutes
-    
-    if (data?.signedUrl) {
-      console.log(`finalize-fortune-photo: Signed URL created on attempt ${attempt}`);
-      return { signedUrl: data.signedUrl };
-    }
-    
-    lastError = error as Error;
-    console.log(`finalize-fortune-photo: Signed URL attempt ${attempt}/${maxRetries} failed:`, error?.message);
-    
-    if (attempt < maxRetries) {
-      const delay = initialDelayMs * Math.pow(2, attempt - 1); // Exponential backoff
-      console.log(`finalize-fortune-photo: Waiting ${delay}ms before retry...`);
-      await sleep(delay);
-    }
-  }
-  
-  console.error('finalize-fortune-photo: All signed URL attempts failed:', lastError?.message);
-  return null;
 }
 
 serve(async (req) => {
   console.log('finalize-fortune-photo: Request received', { BUILD_TAG });
-  
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -92,67 +53,69 @@ serve(async (req) => {
       });
     }
 
-    // Parse request body once
-    let body: unknown;
-    try {
-      body = await req.json();
-    } catch {
-      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+    // Parse request body
+    // - Default behavior (finalize) expects bucket + path + mime
+    // - SIGN_ONLY only needs fortune_id (we will look up fortune_media)
+    const body = await req.json();
+    const {
+      action,
+      fortune_id,
+      bucket,
+      path,
+      width,
+      height,
+      size_bytes,
+      mime,
+      ttlSec,
+    } = body ?? {};
+
+    const rawPath = path;
+    console.log('finalize-fortune-photo: Request body', {
+      BUILD_TAG,
+      action: action ?? 'FINALIZE',
+      fortune_id,
+      bucket,
+      rawPath,
+      ttlSec,
+    });
+
+    if (!fortune_id) {
+      return new Response(JSON.stringify({ error: 'fortune_id is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const requestBody = body as Record<string, unknown>;
+    const isSignOnly = action === 'SIGN_ONLY';
 
-    // Log the full request body for debugging
-    console.log('finalize-fortune-photo: Request body keys:', Object.keys(requestBody));
-
-    // Normalize fields with fallbacks and validation
-    const fortune_id = requestBody.fortune_id as string | undefined;
-    const normalizedBucket = (requestBody.bucket ?? requestBody.bucket_name ?? 'photos') as string;
-    const rawPath = (requestBody.path ?? requestBody.bucketRelativePath ?? requestBody.dbPath ?? requestBody.db_path) as string | undefined;
-    const normalizedMime = (requestBody.mime ?? requestBody.mime_type ?? 'image/jpeg') as string;
-    const width = requestBody.width as number | undefined;
-    const height = requestBody.height as number | undefined;
-    const size_bytes = requestBody.size_bytes as number | undefined;
-
-    console.log('finalize-fortune-photo: Processing', { fortune_id, bucket: normalizedBucket, rawPath, mime: normalizedMime });
-
-    // Validate required fields
-    const missingFields: string[] = [];
-    if (!fortune_id || typeof fortune_id !== 'string') {
-      missingFields.push('fortune_id');
-    }
-    if (!rawPath || typeof rawPath !== 'string') {
-      missingFields.push('path');
+    // For FINALIZE flow we still require bucket/path/mime
+    if (!isSignOnly) {
+      if (!bucket || !path || !mime) {
+        return new Response(JSON.stringify({ error: 'fortune_id, bucket, path, and mime are required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
-    if (missingFields.length > 0) {
-      return new Response(JSON.stringify({ 
-        error: 'Missing required fields',
-        missingFields
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Normalize path: strip bucket prefix if present (only when path is provided)
+    const bucketRelativePath = (!isSignOnly && bucket && path)
+      ? stripBucketPrefix(bucket, path)
+      : '';
+
+    if (!isSignOnly) {
+      console.log('finalize-fortune-photo: Path normalization - rawPath:', rawPath, 'bucketRelativePath:', bucketRelativePath);
     }
 
-    // Normalize path: strip bucket prefix if present
-    const bucketRelativePath = stripBucketPrefix(normalizedBucket, rawPath);
-    console.log('finalize-fortune-photo: Path normalized:', { rawPath, bucketRelativePath });
-
-    // Create clients
+    // Create client with user token for validation
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: { autoRefreshToken: false, persistSession: false },
       global: { headers: { Authorization: authHeader } }
     });
-
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get user from token
     const { data: { user }, error: userError } = await userClient.auth.getUser();
@@ -170,7 +133,7 @@ serve(async (req) => {
     const { data: fortune, error: fortuneError } = await userClient
       .from('fortunes')
       .select('id, user_id')
-      .eq('id', fortune_id as string)
+      .eq('id', fortune_id)
       .single();
 
     if (fortuneError || !fortune) {
@@ -189,13 +152,15 @@ serve(async (req) => {
       });
     }
 
-    // Check subscription/trial access
+    // Check if user has active subscription: lifetime active OR recurring active/trialing
+    // Query subscriptions to get status and is_lifetime for server-side access computation
     const { data: subscription } = await userClient
       .from('subscriptions')
       .select('status, is_lifetime')
       .eq('user_id', user.id)
       .maybeSingle();
 
+    // Also check if user is in trial period
     const { data: profile } = await userClient
       .from('profiles')
       .select('trial_ends_at')
@@ -203,53 +168,140 @@ serve(async (req) => {
       .maybeSingle();
 
     const isInTrial = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
-    
+
+    // Compute hasAccess server-side based on subscription status and lifetime flag
     let hasActiveSubscription = false;
     if (subscription) {
+      // Lifetime: must have is_lifetime=true AND status='active'
       if (subscription.is_lifetime === true && subscription.status === 'active') {
         hasActiveSubscription = true;
-      } else if (subscription.status === 'active' || subscription.status === 'trialing') {
+      }
+      // Recurring: status must be 'active' or 'trialing' (Stripe is source of truth)
+      else if (subscription.status === 'active' || subscription.status === 'trialing') {
         hasActiveSubscription = true;
       }
+      // All other statuses (past_due, canceled, unpaid, incomplete, etc.) do NOT grant access
     }
 
+    // Grant access if user has active subscription OR is in trial period
     if (!hasActiveSubscription && !isInTrial) {
-      console.log('finalize-fortune-photo: User not Pro/Lifetime or in trial');
+      console.log('finalize-fortune-photo: User not Pro/Lifetime or in trial', {
+        hasActiveSubscription,
+        isInTrial,
+        subscriptionStatus: subscription?.status,
+        isLifetime: subscription?.is_lifetime
+      });
       return new Response(JSON.stringify({ error: 'Pro/Lifetime subscription required' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Check if media already exists
+    // -----------------------------
+    // SIGN_ONLY: create a signed GET URL for the current fortune photo
+    // This path is used by the web client to avoid Storage RLS "Object not found" errors.
+    // It does NOT modify DB and does NOT verify uploads; it only signs what is already stored.
+    // -----------------------------
+    if (isSignOnly) {
+      const ttl = typeof ttlSec === 'number' && ttlSec > 0 ? Math.min(ttlSec, 60 * 10) : 300; // cap at 10 minutes
+
+      // Look up media for this fortune
+      const { data: mediaRow, error: mediaErr } = await userClient
+        .from('fortune_media')
+        .select('bucket, path, updated_at')
+        .eq('fortune_id', fortune_id)
+        .maybeSingle();
+
+      if (mediaErr) {
+        console.error('finalize-fortune-photo: SIGN_ONLY media lookup failed', { fortune_id, error: mediaErr });
+        return new Response(JSON.stringify({ error: 'Failed to load media' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!mediaRow?.bucket || !mediaRow?.path) {
+        return new Response(JSON.stringify({
+          signedUrl: null,
+          media: null,
+          buildTag: BUILD_TAG,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+      // mediaRow.path is already bucket-relative (canonical)
+      const { data: sData, error: sErr } = await serviceClient.storage
+        .from(mediaRow.bucket)
+        .createSignedUrl(mediaRow.path, ttl);
+
+      if (sErr || !sData?.signedUrl) {
+        console.error('finalize-fortune-photo: SIGN_ONLY failed to sign', {
+          fortune_id,
+          bucket: mediaRow.bucket,
+          path: mediaRow.path,
+          ttl,
+          error: sErr,
+        });
+        return new Response(JSON.stringify({ error: 'Failed to create signed URL' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        signedUrl: sData.signedUrl,
+        replaced: true,
+        media: {
+          fortune_id,
+          bucket: mediaRow.bucket,
+          path: mediaRow.path,
+          updated_at: mediaRow.updated_at,
+        },
+        buildTag: BUILD_TAG,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check if media already exists for this fortune
     const { data: existingMedia } = await userClient
       .from('fortune_media')
-      .select('id, path')
+      .select('*')
       .eq('fortune_id', fortune_id)
       .maybeSingle();
 
     const replaced = !!existingMedia;
-    console.log('finalize-fortune-photo: Media replacement:', { replaced, existingPath: existingMedia?.path });
+    console.log('finalize-fortune-photo: Media replacement status:', replaced);
 
-    // Upsert into fortune_media table
+    // Upsert into fortune_media table - handle unique constraint properly
+    // Store bucketRelativePath in DB (canonical format)
     let updatedMedia: { bucket: string; path: string; updated_at: string } | null = null;
 
     if (replaced) {
+      // Update existing record - explicitly set updated_at to ensure cache invalidation
+      // Use .select() to return the DB values after update
       const { data: updateData, error: updateError } = await userClient
         .from('fortune_media')
         .update({
-          bucket: normalizedBucket,
-          path: bucketRelativePath,
+          bucket,
+          path: bucketRelativePath, // Store bucket-relative path
           width: width || null,
           height: height || null,
           size_bytes: size_bytes || null,
-          mime_type: normalizedMime,
-          updated_at: new Date().toISOString()
+          mime_type: mime,
+          updated_at: new Date().toISOString() // Explicitly update timestamp for cache busting
         })
-        .eq('fortune_id', fortune_id as string)
+        .eq('fortune_id', fortune_id)
         .select('bucket, path, updated_at')
         .single();
-      
+
       if (updateError) {
         console.error('finalize-fortune-photo: Failed to update media record:', updateError);
         return new Response(JSON.stringify({ error: 'Failed to save media record' }), {
@@ -257,23 +309,25 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
       updatedMedia = updateData;
     } else {
+      // Insert new record - use .select() to return DB values including updated_at
       const { data: insertData, error: insertError } = await userClient
         .from('fortune_media')
         .insert({
-          fortune_id: fortune_id as string,
+          fortune_id,
           user_id: user.id,
-          bucket: normalizedBucket,
-          path: bucketRelativePath,
+          bucket,
+          path: bucketRelativePath, // Store bucket-relative path
           width: width || null,
           height: height || null,
           size_bytes: size_bytes || null,
-          mime_type: normalizedMime
+          mime_type: mime
         })
         .select('bucket, path, updated_at')
         .single();
-      
+
       if (insertError) {
         console.error('finalize-fortune-photo: Failed to insert media record:', insertError);
         return new Response(JSON.stringify({ error: 'Failed to save media record' }), {
@@ -281,59 +335,134 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
       updatedMedia = insertData;
     }
 
-    console.log('[FINALIZE-PHOTO] DB_UPDATE_CONFIRMED', {
-      fortuneId: fortune_id,
-      bucket: updatedMedia!.bucket,
-      path: updatedMedia!.path,
-      updated_at: updatedMedia!.updated_at,
-      replaced
-    });
-
-    // Try to create signed URL with retries (file might not be immediately visible)
-    const signedUrlResult = await createSignedUrlWithRetry(
-      serviceClient,
-      normalizedBucket,
-      bucketRelativePath,
-      3,  // maxRetries
-      1000 // 1 second initial delay
-    );
-
-    if (signedUrlResult) {
-      console.log('finalize-fortune-photo: SUCCESS with signed URL');
-      return new Response(JSON.stringify({
-        signedUrl: signedUrlResult.signedUrl,
-        replaced,
-        media: {
-          fortune_id: fortune_id as string,
-          bucket: updatedMedia!.bucket,
-          path: updatedMedia!.path,
-          updated_at: updatedMedia!.updated_at
-        },
-        buildTag: BUILD_TAG
-      }), {
+    // Log DB update confirmation with the values returned from the database
+    if (updatedMedia) {
+      console.log('[FINALIZE-PHOTO] DB_UPDATE_CONFIRMED', {
+        fortuneId: fortune_id,
+        bucket: updatedMedia.bucket,
+        path: updatedMedia.path,
+        updated_at: updatedMedia.updated_at,
+        replaced
+      });
+    } else {
+      console.error('finalize-fortune-photo: No media data returned from DB operation');
+      return new Response(JSON.stringify({ error: 'Failed to retrieve updated media record' }), {
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // If signed URL creation failed but DB was updated, return partial success
-    // This allows the client to still work - it can try to fetch the image later
-    console.log('finalize-fortune-photo: PARTIAL_SUCCESS - DB updated but signed URL failed');
+    // Verify upload actually exists by listing the folder
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+    const pathParts = bucketRelativePath.split('/');
+    const folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : ''; // Get folder path (empty if root)
+    const fileName = pathParts[pathParts.length - 1]; // Get file name
+
+    console.log('finalize-fortune-photo: Verifying upload exists - bucket:', bucket, 'folderPath:', folderPath || '(root)', 'fileName:', fileName);
+    const { data: files, error: listError } = await serviceClient.storage
+      .from(bucket)
+      .list(folderPath || undefined, {
+        limit: 100,
+        search: fileName
+      });
+
+    if (listError) {
+      console.error('finalize-fortune-photo: Failed to list folder:', listError);
+      // Continue anyway - might be a permission issue, but log warning
+      console.warn('finalize-fortune-photo: Continuing without upload verification due to list error');
+    } else {
+      const fileExists = files?.some(file => file.name === fileName);
+      if (!fileExists) {
+        console.error('finalize-fortune-photo: UPLOAD_NOT_PERSISTED - File not found after upload - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
+        return new Response(JSON.stringify({
+          error: 'UPLOAD_NOT_PERSISTED',
+          message: 'The uploaded file was not found in storage. Upload may have failed or used incorrect method.'
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      console.log('finalize-fortune-photo: UPLOAD_VERIFIED - File exists in storage - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
+    }
+
+    // Create signed GET URL for immediate use
+    // Use bucketRelativePath (NO bucket prefix) for Storage API
+    // Retry because storage can be eventually consistent right after upload
+    console.log('finalize-fortune-photo: Creating signed URL - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
+
+    const maxSignedUrlAttempts = 3;
+    let signedUrlData: { signedUrl: string } | null = null;
+    let lastSignedUrlError: unknown = null;
+
+    for (let attempt = 1; attempt <= maxSignedUrlAttempts; attempt++) {
+      const { data: sData, error: sErr } = await serviceClient.storage
+        .from(bucket)
+        .createSignedUrl(bucketRelativePath, 300); // 5 minutes
+
+      if (!sErr && sData?.signedUrl) {
+        signedUrlData = sData;
+        console.log('finalize-fortune-photo: SIGNED_URL_OK', { attempt, maxSignedUrlAttempts });
+        break;
+      }
+
+      lastSignedUrlError = sErr;
+      const msg = (sErr as { message?: string } | null)?.message || '';
+      const isNotFound = msg.includes('Object not found') || msg.includes('not found');
+
+      console.warn('finalize-fortune-photo: SIGNED_URL_RETRY', {
+        attempt,
+        maxSignedUrlAttempts,
+        isNotFound,
+        message: msg,
+      });
+
+      if (attempt < maxSignedUrlAttempts && isNotFound) {
+        // 300ms, 700ms
+        const delay = attempt === 1 ? 300 : 700;
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+
+      // Non-retriable error or last attempt
+      break;
+    }
+
+    if (!signedUrlData) {
+      const msg = (lastSignedUrlError as { message?: string } | null)?.message || 'Failed to create signed URL';
+      console.error('finalize-fortune-photo: Failed to create signed URL', {
+        bucket,
+        bucketRelativePath,
+        error: lastSignedUrlError
+      });
+      return new Response(JSON.stringify({
+        error: msg,
+        retriable: msg.includes('Object not found') || msg.includes('not found'),
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('finalize-fortune-photo: SIGNED_URL_OK - Media finalized successfully - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
+
+    // Return updated media record so frontend can confirm DB update
+    // Include updated_at from DB to ensure cache invalidation
     return new Response(JSON.stringify({
-      signedUrl: null,
+      signedUrl: signedUrlData.signedUrl,
       replaced,
       media: {
-        fortune_id: fortune_id as string,
-        bucket: updatedMedia!.bucket,
-        path: updatedMedia!.path,
-        updated_at: updatedMedia!.updated_at
+        fortune_id: fortune_id,
+        bucket: updatedMedia.bucket,
+        path: updatedMedia.path,
+        updated_at: updatedMedia.updated_at
       },
-      warning: 'File may still be processing - image will appear shortly',
+      // BUILD_TAG for deployment drift detection
       buildTag: BUILD_TAG
     }), {
-      // Return 200 instead of 500 - the operation was partially successful
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

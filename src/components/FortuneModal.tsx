@@ -240,16 +240,31 @@ export const FortuneModal = ({
   const loadFortunePhoto = async (fortuneId: string) => {
     try {
       const media = await getFortuneMedia(fortuneId);
-      if (media) {
-        // Import the hook functions to get signed URL
-        const { getCachedSignedUrl } = await import('@/integrations/supabase/fortuneMedia');
-        const signedUrl = await getCachedSignedUrl(media.path, media.bucket);
-        if (signedUrl) {
-          setFortunePhoto(signedUrl);
-        }
+      if (!media) {
+        setFortunePhoto(null);
+        return;
       }
+
+      // IMPORTANT: Always sign via Edge (SIGN_ONLY) to avoid Storage 400/Object not found issues.
+      const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
+        body: {
+          action: 'SIGN_ONLY',
+          fortune_id: fortuneId,
+          ttlSec: 300,
+        },
+      });
+
+      if (error) {
+        console.error('[FORTUNE_MODAL] Error signing fortune photo via edge:', error);
+        setFortunePhoto(null);
+        return;
+      }
+
+      const signedUrl = (data as { signedUrl?: string | null } | null)?.signedUrl ?? null;
+      setFortunePhoto(signedUrl);
     } catch (error) {
       console.error('Error loading fortune photo:', error);
+      setFortunePhoto(null);
     }
   };
 
@@ -268,9 +283,21 @@ export const FortuneModal = ({
       console.log(`[PHOTO-POLL] Polling attempt ${attempts}/${maxAttempts} for path: ${path}`);
       
       try {
-        const { getCachedSignedUrl, getFortuneMedia } = await import('@/integrations/supabase/fortuneMedia');
-        const signedUrl = await getCachedSignedUrl(path, bucket);
-        
+        // IMPORTANT: Always sign via Edge (SIGN_ONLY). We do not sign directly via Storage from the browser.
+        const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
+          body: {
+            action: 'SIGN_ONLY',
+            fortune_id: targetFortuneId,
+            ttlSec: 300,
+          },
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        const signedUrl = (data as { signedUrl?: string | null } | null)?.signedUrl ?? null;
+
         if (signedUrl) {
           console.log('[PHOTO-POLL] Signed URL available:', signedUrl);
           if (!isCancelled) {
@@ -290,9 +317,18 @@ export const FortuneModal = ({
                   updated_at: mediaData.updated_at
                 });
                 
-                // Get signed URL for immediate use
-                const { getCachedSignedUrl } = await import('@/integrations/supabase/fortuneMedia');
-                const signedUrl = await getCachedSignedUrl(mediaData.path, mediaData.bucket);
+                // Get signed URL for immediate use (always via Edge)
+                const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
+                  body: {
+                    action: 'SIGN_ONLY',
+                    fortune_id: mediaData.fortune_id,
+                    ttlSec: 300,
+                  },
+                });
+
+                const signedUrl = error
+                  ? null
+                  : (data as { signedUrl?: string | null } | null)?.signedUrl ?? null;
                 
                 // Dispatch specific photo update event with media info
                 const photoUpdateEvent = new CustomEvent("fortunePhotoUpdated", {
@@ -359,8 +395,11 @@ export const FortuneModal = ({
       return;
     }
 
+    // Lock immediately to avoid double taps / repeated UI events creating parallel requests
+    ticketRequested.current = true;
+
     console.log('[PHOTO] Starting photo attach process...');
-    
+
     // Block upload entirely on web - only allow on native
     if (!isNative) {
       console.log('[PHOTO] Upload blocked - not running in native platform');
@@ -372,11 +411,11 @@ export const FortuneModal = ({
       ticketRequested.current = false;
       return;
     }
-    
+
     if (!window.NativeUploader || !isHighTier) {
-      console.log('[PHOTO] No uploader or not high tier:', { 
-        hasUploader: !!window.NativeUploader, 
-        isHighTier 
+      console.log('[PHOTO] No uploader or not high tier:', {
+        hasUploader: !!window.NativeUploader,
+        isHighTier,
       });
       toast({
         title: "Pro subscription required",
@@ -387,7 +426,6 @@ export const FortuneModal = ({
       return;
     }
 
-    ticketRequested.current = true;
     setPhotoAttaching(true);
     console.log('[PHOTO] Set photoAttaching to true');
     

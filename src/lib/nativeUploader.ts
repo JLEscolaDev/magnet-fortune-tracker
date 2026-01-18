@@ -10,6 +10,9 @@ interface NormalizedTicket {
   requiredHeaders: Record<string, string>;
   bucket: string;
   uploadMethod: 'POST_MULTIPART' | 'PUT';
+  // Signed-upload support (Supabase createSignedUploadUrl + uploadToSignedUrl)
+  signedUploadToken?: string;
+  isSignedUploadUrl: boolean;
   debug: {
     receivedKeys: string[];
     chosen: {
@@ -19,6 +22,8 @@ interface NormalizedTicket {
       requiredHeaders: Record<string, string>;
       bucket: string;
       uploadMethod: 'POST_MULTIPART' | 'PUT';
+      signedUploadToken?: string;
+      isSignedUploadUrl: boolean;
     };
   };
 }
@@ -56,6 +61,8 @@ function normalizeUploadTicket(rawTicket: unknown): NormalizedTicket | { error: 
   
   // Extract bucketRelativePath from bucketRelativePath or path
   const bucketRelativePath = (ticket.bucketRelativePath || ticket.path) as string | undefined;
+  // Extract signed upload token when using createSignedUploadUrl()
+  const signedUploadToken = (ticket.token || ticket.uploadToken || ticket.signedUploadToken || ticket.signed_upload_token) as string | undefined;
 
   // Validate required fields with detailed error including ticket keys
   if (!uploadUrl || typeof uploadUrl !== 'string') {
@@ -84,14 +91,43 @@ function normalizeUploadTicket(rawTicket: unknown): NormalizedTicket | { error: 
     };
   }
 
-  // Extract optional fields with defaults
-  const requiredHeaders = (ticket.requiredHeaders || ticket.headers || { 'x-upsert': 'true' }) as Record<string, string>;
-  const formFieldName = (ticket.formFieldName || 'file') as string;
-  const bucket = (ticket.bucket || 'photos') as string;
-  
-  // Determine upload method
+  // Extract optional fields with safe defaults
+  // NOTE: For signed upload URLs we should NOT force custom headers like x-upsert.
+  // Some storage signed URLs are strict about headers and CORS.
+  const requiredHeaders = (ticket.requiredHeaders || ticket.headers || {}) as Record<string, string>;
+
+  // Detect signed endpoints more precisely.
+  // - `/storage/v1/object/upload/sign/` is a *signed upload* endpoint (multipart POST unless you have a token for uploadToSignedUrl)
+  // - `/storage/v1/object/sign/` is typically used for *signed download URL creation* (not an upload target)
+  const uploadUrlLower = String(uploadUrl).toLowerCase();
+  const looksLikeSignedUploadEndpoint = uploadUrlLower.includes('/storage/v1/object/upload/sign/');
+  const looksLikeSignedSignEndpoint = uploadUrlLower.includes('/storage/v1/object/sign/');
+  const hasTokenInUrl = uploadUrlLower.includes('token=');
+
+  // We consider it a signed-upload flow if:
+  // - it's the signed upload endpoint, OR
+  // - we got a token from createSignedUploadUrl(), OR
+  // - the URL itself has a token query param.
+  const looksLikeSignedUploadUrl =
+    looksLikeSignedUploadEndpoint ||
+    hasTokenInUrl ||
+    typeof signedUploadToken === 'string';
+
+  // Decide upload method.
+  // IMPORTANT:
+  // - Signed upload endpoints (`.../object/upload/sign/...`) are expected to be `POST` multipart/form-data
+  //   when you don't use the `uploadToSignedUrl(path, token, file)` helper.
+  // - Using `PUT` against that endpoint can return 200 in some environments but still not persist the object.
   let uploadMethod: 'POST_MULTIPART' | 'PUT' = 'PUT';
-  if (ticket.uploadMethod) {
+  if (looksLikeSignedUploadUrl) {
+    if (looksLikeSignedUploadEndpoint && !signedUploadToken) {
+      // No token available: fall back to multipart POST to the signed upload endpoint.
+      uploadMethod = 'POST_MULTIPART';
+    } else {
+      // Token-present signed uploads (or direct signed PUT URLs) can use PUT.
+      uploadMethod = 'PUT';
+    }
+  } else if (ticket.uploadMethod) {
     const method = String(ticket.uploadMethod).toUpperCase();
     if (method === 'POST_MULTIPART' || method === 'POST') {
       uploadMethod = 'POST_MULTIPART';
@@ -103,10 +139,25 @@ function normalizeUploadTicket(rawTicket: unknown): NormalizedTicket | { error: 
     uploadMethod = 'POST_MULTIPART';
   }
 
-  // Ensure x-upsert is in headers if not present
-  if (!requiredHeaders['x-upsert']) {
-    requiredHeaders['x-upsert'] = 'true';
+  // Default form field name (only relevant for multipart)
+  const formFieldName = (ticket.formFieldName || 'file') as string;
+
+  // For non-signed direct PUT uploads, allow overwrites via x-upsert.
+  // For signed URLs, do NOT attach x-upsert.
+  const allowUpsertHeader = !looksLikeSignedUploadUrl;
+  if (allowUpsertHeader) {
+    if (!requiredHeaders['x-upsert']) {
+      requiredHeaders['x-upsert'] = 'true';
+    }
+  } else {
+    // Ensure we don't accidentally send it
+    if (requiredHeaders['x-upsert']) {
+      delete requiredHeaders['x-upsert'];
+    }
   }
+
+  // Extract bucket last so we can keep the function structure similar
+  const bucket = (ticket.bucket || 'photos') as string;
 
   return {
     uploadUrl,
@@ -115,6 +166,8 @@ function normalizeUploadTicket(rawTicket: unknown): NormalizedTicket | { error: 
     requiredHeaders,
     bucket,
     uploadMethod,
+    signedUploadToken,
+    isSignedUploadUrl: looksLikeSignedUploadUrl,
     debug: {
       receivedKeys,
       chosen: {
@@ -123,7 +176,9 @@ function normalizeUploadTicket(rawTicket: unknown): NormalizedTicket | { error: 
         formFieldName,
         requiredHeaders,
         bucket,
-        uploadMethod
+        uploadMethod,
+        signedUploadToken,
+        isSignedUploadUrl: looksLikeSignedUploadUrl
       }
     }
   };
@@ -143,7 +198,12 @@ async function processAndUpload(
   
   // Guard against duplicate runs per fortuneId
   if (inFlightOperations.get(fortuneId)) {
-    console.log('[NATIVE-UPLOADER] STAGE=guard', { fortuneId, attempt, error: 'Upload already in progress for this fortune' });
+    console.log('[NATIVE-UPLOADER] STAGE=guard', {
+      fortuneId,
+      attempt,
+      info: 'Upload already in progress for this fortune (returning cancelled=true to avoid retries)'
+    });
+
     resolveJS({
       bucket: 'photos',
       path: '',
@@ -153,11 +213,8 @@ async function processAndUpload(
       sizeBytes: 0,
       signedUrl: '',
       replaced: false,
-      cancelled: false,
-      error: true,
-      stage: 'guard',
-      reason: 'Upload already in progress'
-    } as NativeUploaderResult & { error?: boolean; stage?: string; reason?: string });
+      cancelled: true
+    });
     return;
   }
 
@@ -235,22 +292,74 @@ async function processAndUpload(
     });
 
     // Step 2: Upload file
-    console.log('[NATIVE-UPLOADER] STAGE=upload', { fortuneId, attempt, method: normalized.uploadMethod });
+    console.log('[NATIVE-UPLOADER] STAGE=upload', {
+      fortuneId,
+      attempt,
+      method: normalized.uploadMethod,
+      isSignedUploadUrl: normalized.isSignedUploadUrl,
+      hasSignedUploadToken: !!normalized.signedUploadToken
+    });
 
     let uploadResponse: Response;
-    
-    if (normalized.uploadMethod === 'POST_MULTIPART') {
+
+    // Prefer Supabase JS helper for signed uploads when token is available.
+    // This matches Supabase docs: createSignedUploadUrl() + uploadToSignedUrl(path, token, fileBody, options)
+    // and avoids subtle method/header mismatches in WebViews.
+    if (normalized.isSignedUploadUrl && normalized.signedUploadToken) {
+      const { data, error } = await supabase.storage
+        .from(normalized.bucket)
+        .uploadToSignedUrl(
+          normalized.bucketRelativePath,
+          normalized.signedUploadToken,
+          file,
+          {
+            contentType: file.type || 'image/jpeg'
+          }
+        );
+
+      if (error) {
+        const errorMsg = `Signed upload failed: ${error.message}`;
+        console.log('[NATIVE-UPLOADER] STAGE=upload', { fortuneId, attempt, error: errorMsg });
+        const errorResult = {
+          bucket: normalized.bucket,
+          path: normalized.bucketRelativePath,
+          mime: file.type || 'image/jpeg',
+          width: 0,
+          height: 0,
+          sizeBytes: file.size,
+          signedUrl: '',
+          replaced: false,
+          cancelled: false,
+          error: true,
+          stage: 'upload',
+          reason: errorMsg
+        } as NativeUploaderResult & { error?: boolean; stage?: string; reason?: string };
+        console.log('[NATIVE-UPLOADER] resolveJS →', JSON.stringify(errorResult));
+        resolveJS(errorResult);
+        return;
+      }
+
+      // uploadToSignedUrl returns metadata; treat as OK.
+      uploadResponse = new Response(JSON.stringify(data ?? {}), { status: 200 });
+
+    } else if (normalized.uploadMethod === 'POST_MULTIPART') {
       // POST multipart/form-data upload
+      // IMPORTANT: Do NOT attach custom headers for multipart uploads.
+      // The browser/webview must set Content-Type + boundary automatically.
       const formData = new FormData();
-      formData.append(normalized.formFieldName, file);
-      
+
+      // Provide a filename when possible (helps some runtimes)
+      const filename = file instanceof File && file.name ? file.name : `fortune-${fortuneId}.jpg`;
+      formData.append(normalized.formFieldName, file, filename);
+
       uploadResponse = await fetch(normalized.uploadUrl, {
         method: 'POST',
-        headers: normalized.requiredHeaders,
         body: formData
       });
+
     } else {
-      // PUT upload
+      // PUT upload fallback (when we only have a signed URL but not the token)
+      // Keep headers minimal.
       uploadResponse = await fetch(normalized.uploadUrl, {
         method: 'PUT',
         headers: {
@@ -283,6 +392,16 @@ async function processAndUpload(
       resolveJS(errorResult);
       return;
     }
+
+    // Extra sanity check log to help diagnose "upload says OK but object not found" issues:
+    console.log('[NATIVE-UPLOADER] STAGE=upload_ok', {
+      fortuneId,
+      attempt,
+      bucket: normalized.bucket,
+      path: normalized.bucketRelativePath,
+      isSignedUploadUrl: normalized.isSignedUploadUrl,
+      usedSignedUploadToken: !!normalized.signedUploadToken
+    });
 
     // Step 3: Get image dimensions
     const img = new Image();

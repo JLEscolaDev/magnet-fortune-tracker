@@ -1,191 +1,123 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getFortuneMedia } from '@/integrations/supabase/fortuneMedia';
-import { useSignedUrl, clearSignedUrlCache } from '@/hooks/useSignedUrl';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
-interface FortunePhotoProps {
+/**
+ * FortunePhoto (WEB React component)
+ *
+ * Fetches a signed GET URL through the `finalize-fortune-photo` Edge Function
+ * using action: `SIGN_ONLY`.
+ */
+
+type FortunePhotoProps = {
   fortuneId: string;
+  bucket?: string | null;
+  path?: string | null;
+  version?: string | null; // fortune_media.updated_at (or similar) for cache busting
   className?: string;
-  photoUpdatedAt?: string; // Optional: updated_at from fortunePhotoUpdated event
-}
+  alt?: string;
+  ttlSec?: number; // default 300
+};
 
-export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className = "", photoUpdatedAt }) => {
-  const [media, setMedia] = useState<{ bucket: string; path: string; version: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [cacheBuster, setCacheBuster] = useState<string>(Date.now().toString());
-  
-  // Track the last loaded version to prevent unnecessary reloads
-  const lastLoadedVersion = useRef<string | null>(null);
-  // Track if a reload is pending to debounce multiple events
-  const pendingReload = useRef<NodeJS.Timeout | null>(null);
-  // Track signed URL from finalize response (valid for 5 minutes)
-  const immediateSignedUrlRef = useRef<{ url: string; expiresAt: number } | null>(null);
+type SignOnlyResponse = {
+  signedUrl: string | null;
+  media: {
+    fortune_id: string;
+    bucket: string;
+    path: string;
+    updated_at: string;
+  } | null;
+  buildTag?: string;
+};
 
-  // Use immediate signed URL if available and not expired, otherwise use hook
-  const hookSignedUrl = useSignedUrl(media?.bucket, media?.path, 300, media?.version);
-  const signedUrl = (() => {
-    const immediate = immediateSignedUrlRef.current;
-    if (immediate && immediate.expiresAt > Date.now()) {
-      return immediate.url;
-    }
-    return hookSignedUrl;
-  })();
+export default function FortunePhoto({
+  fortuneId,
+  bucket,
+  path,
+  version,
+  className,
+  alt,
+  ttlSec,
+}: FortunePhotoProps) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const loadMedia = useCallback(async (forceRefresh = false) => {
-    try {
-      setError(false);
-      if (!media) {
-        setLoading(true);
-      }
-      
-      const mediaData = await getFortuneMedia(fortuneId);
-      
-      if (mediaData?.path && mediaData?.bucket) {
-        const version = mediaData.updated_at || mediaData.created_at || '';
-        
-        // Only update state if version changed or force refresh
-        if (forceRefresh || version !== lastLoadedVersion.current) {
-          console.log('[FORTUNE-PHOTO] loadMedia - updating state:', { 
-            fortuneId, 
-            path: mediaData.path, 
-            version,
-            previousVersion: lastLoadedVersion.current 
-          });
-          lastLoadedVersion.current = version;
-          setMedia({ bucket: mediaData.bucket, path: mediaData.path, version });
-          // Update cache buster with timestamp
-          setCacheBuster(Date.now().toString());
-        }
-      } else {
-        setMedia(null);
-        lastLoadedVersion.current = null;
-      }
-    } catch (err) {
-      console.error('Error loading fortune media:', err);
-      setError(true);
-      setMedia(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [fortuneId, media]);
+  // Prevent overlapping requests + infinite loops
+  const inFlightRef = useRef(false);
+  const cancelledRef = useRef(false);
 
-  // Initial load
   useEffect(() => {
-    loadMedia();
-  }, [fortuneId]); // Only reload on fortuneId change, not on loadMedia
-
-  // Listen for specific photo updates (with updated_at) - immediate refresh
-  useEffect(() => {
-    interface FortunePhotoUpdatedEvent extends CustomEvent {
-      detail: { fortuneId: string; updated_at: string; signedUrl?: string };
-    }
-
-    const handlePhotoUpdate = ((e: FortunePhotoUpdatedEvent) => {
-      const { fortuneId: eventFortuneId, updated_at, signedUrl: eventSignedUrl } = e.detail;
-      
-      // Only handle if this is for our fortune
-      if (eventFortuneId !== fortuneId) return;
-      
-      console.log('[FORTUNE-PHOTO] fortunePhotoUpdated received', { fortuneId, updated_at });
-      
-      // Store immediate signed URL if provided (valid for 5 minutes)
-      if (eventSignedUrl) {
-        immediateSignedUrlRef.current = {
-          url: eventSignedUrl,
-          expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
-        };
-      }
-      
-      // Force immediate refresh
-      clearSignedUrlCache();
-      setCacheBuster(updated_at || Date.now().toString());
-      loadMedia(true);
-    }) as EventListener;
-
-    // Listen for general fortune updates - debounced
-    const handleFortuneUpdate = () => {
-      // Clear any pending reload
-      if (pendingReload.current) {
-        clearTimeout(pendingReload.current);
-      }
-      
-      // Debounce: wait 300ms before reloading to batch multiple events
-      pendingReload.current = setTimeout(() => {
-        console.log('[FORTUNE-PHOTO] fortunesUpdated - checking for updates', { fortuneId });
-        clearSignedUrlCache();
-        loadMedia(true); // Force refresh to check for new version
-        pendingReload.current = null;
-      }, 300);
-    };
-
-    window.addEventListener("fortunePhotoUpdated", handlePhotoUpdate);
-    window.addEventListener("fortunesUpdated", handleFortuneUpdate);
-    
+    cancelledRef.current = false;
     return () => {
-      window.removeEventListener("fortunePhotoUpdated", handlePhotoUpdate);
-      window.removeEventListener("fortunesUpdated", handleFortuneUpdate);
-      if (pendingReload.current) {
-        clearTimeout(pendingReload.current);
+      cancelledRef.current = true;
+    };
+  }, []);
+
+  const mediaKey = useMemo(() => {
+    return `${fortuneId}::${bucket ?? ''}::${path ?? ''}::${version ?? ''}`;
+  }, [fortuneId, bucket, path, version]);
+
+  useEffect(() => {
+    // No media -> clear and exit
+    if (!bucket || !path) {
+      setSignedUrl(null);
+      setLoading(false);
+      return;
+    }
+
+    // Avoid request storms
+    if (inFlightRef.current) return;
+
+    const run = async () => {
+      inFlightRef.current = true;
+      setLoading(true);
+
+      try {
+        const requestedTtl = typeof ttlSec === 'number' && ttlSec > 0 ? ttlSec : 300;
+
+        const { data, error } = await supabase.functions.invoke<SignOnlyResponse>(
+          'finalize-fortune-photo',
+          {
+            body: {
+              action: 'SIGN_ONLY',
+              fortune_id: fortuneId,
+              ttlSec: requestedTtl,
+            },
+          }
+        );
+
+        if (error) throw new Error(error.message || 'Failed to sign photo');
+
+        if (cancelledRef.current) return;
+
+        setSignedUrl(data?.signedUrl ?? null);
+        setLoading(false);
+      } catch {
+        if (cancelledRef.current) return;
+        setSignedUrl(null);
+        setLoading(false);
+      } finally {
+        inFlightRef.current = false;
       }
     };
-  }, [fortuneId, loadMedia]);
 
-  // Update cache buster when photoUpdatedAt prop changes (from parent)
-  useEffect(() => {
-    if (photoUpdatedAt) {
-      console.log('[FORTUNE-PHOTO] photoUpdatedAt prop changed', { fortuneId, photoUpdatedAt });
-      setCacheBuster(photoUpdatedAt);
-      // Force reload if version changed
-      if (photoUpdatedAt !== lastLoadedVersion.current) {
-        clearSignedUrlCache();
-        loadMedia(true);
-      }
-    }
-  }, [photoUpdatedAt, fortuneId, loadMedia]);
+    run();
+  }, [mediaKey, fortuneId, bucket, path, ttlSec]);
 
-  if (loading && !media) {
-    return (
-      <div className={`bg-muted animate-pulse rounded ${className}`} style={{ aspectRatio: '16/9' }} />
-    );
+  if (!bucket || !path) return null;
+
+  if (loading && !signedUrl) {
+    return <div className={className} aria-busy="true" />;
   }
 
-  if (error || !media) {
-    return null; // Don't render anything if no photo or error
-  }
-
-  // If we have media but no signed URL, show loading
-  if (!signedUrl) {
-    return (
-      <div className={`bg-muted animate-pulse rounded ${className}`} style={{ aspectRatio: '16/9' }} />
-    );
-  }
-
-  // Create cache-busted URL with updated_at or cache buster timestamp
-  const imageUrl = (() => {
-    const baseUrl = signedUrl || '';
-    if (!baseUrl) return '';
-    const separator = baseUrl.includes('?') ? '&' : '?';
-    // Use version (updated_at) if available, otherwise use cache buster
-    // Convert timestamp to numeric if it's a date string for consistent cache busting
-    const versionValue = media.version || cacheBuster;
-    const versionParam = versionValue.includes('T') ? new Date(versionValue).getTime() : versionValue;
-    return `${baseUrl}${separator}v=${versionParam}`;
-  })();
-
-  // Use key with updated_at for React to force re-mount when photo updates
-  // This ensures the img element is completely recreated, forcing browser to reload image
-  const componentKey = media ? `${fortuneId}:${media.version || cacheBuster}` : fortuneId;
+  if (!signedUrl) return null;
 
   return (
-    <img 
-      key={componentKey}
-      src={imageUrl}
-      alt="Fortune attachment" 
-      className={`object-cover rounded border border-border/50 ${className}`}
-      style={{ aspectRatio: '16/9' }}
-      onError={() => {
-        setError(true);
-      }}
+    <img
+      className={className}
+      src={signedUrl}
+      alt={alt ?? 'Fortune photo'}
+      loading="lazy"
+      decoding="async"
     />
   );
-};
+}
