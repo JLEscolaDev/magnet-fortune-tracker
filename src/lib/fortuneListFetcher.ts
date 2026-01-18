@@ -22,7 +22,7 @@ const fetchState = {
   // For full list fetches (no date params)
   fullInFlight: false,
   fullLastFetchAt: 0,
-  DEBOUNCE_MS: 30000, // 30 seconds minimum debounce
+  DEBOUNCE_MS: 5000, // 5 seconds - reduced from 30s to allow faster tab switches
 };
 
 /**
