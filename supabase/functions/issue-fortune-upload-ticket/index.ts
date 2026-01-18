@@ -3,8 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
 // BUILD_TAG for deployment drift detection
-// Update this timestamp when deploying to production
-const BUILD_TAG = '2026-01-13-multipart-contract';
+const BUILD_TAG = '2026-01-18-standard-upload';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,18 +22,15 @@ type AllowedMimeType = typeof ALLOWED_MIME_TYPES[number];
 
 // Validate input parameters
 function validateInput(fortune_id: unknown, mime: unknown): { valid: boolean; error?: string } {
-  // Validate fortune_id
   if (!fortune_id || typeof fortune_id !== 'string') {
     return { valid: false, error: 'fortune_id is required and must be a string' };
   }
   
-  // Validate UUID format for fortune_id
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(fortune_id)) {
     return { valid: false, error: 'fortune_id must be a valid UUID' };
   }
 
-  // Validate mime type
   if (!mime || typeof mime !== 'string') {
     return { valid: false, error: 'mime is required and must be a string' };
   }
@@ -153,15 +149,13 @@ serve(async (req) => {
       });
     }
 
-    // Check if user has active subscription: lifetime active OR recurring active/trialing
-    // Query subscriptions to get status and is_lifetime for server-side access computation
+    // Check subscription/trial access
     const { data: subscription } = await userClient
       .from('subscriptions')
       .select('status, is_lifetime')
       .eq('user_id', user.id)
       .maybeSingle();
 
-    // Also check if user is in trial period
     const { data: profile } = await userClient
       .from('profiles')
       .select('trial_ends_at')
@@ -170,99 +164,86 @@ serve(async (req) => {
 
     const isInTrial = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
     
-    // Compute hasAccess server-side based on subscription status and lifetime flag
     let hasActiveSubscription = false;
     if (subscription) {
-      // Lifetime: must have is_lifetime=true AND status='active'
       if (subscription.is_lifetime === true && subscription.status === 'active') {
         hasActiveSubscription = true;
-      }
-      // Recurring: status must be 'active' or 'trialing' (Stripe is source of truth)
-      else if (subscription.status === 'active' || subscription.status === 'trialing') {
+      } else if (subscription.status === 'active' || subscription.status === 'trialing') {
         hasActiveSubscription = true;
       }
-      // All other statuses (past_due, canceled, unpaid, incomplete, etc.) do NOT grant access
     }
 
-    // Grant access if user has active subscription OR is in trial period
     if (!hasActiveSubscription && !isInTrial) {
-      console.log('issue-fortune-upload-ticket: User not Pro/Lifetime or in trial', {
-        hasActiveSubscription,
-        isInTrial,
-        subscriptionStatus: subscription?.status,
-        isLifetime: subscription?.is_lifetime,
-        BUILD_TAG
-      });
+      console.log('issue-fortune-upload-ticket: User not Pro/Lifetime or in trial', { BUILD_TAG });
       return new Response(JSON.stringify({ error: 'Pro/Lifetime subscription required' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Generate bucket-relative path (NO bucket prefix)
-    // Format: <userId>/<fortuneId>-<random>.ext
+    // Generate bucket-relative path
     const extension = getExtensionFromMime(mime as AllowedMimeType);
     const randomSuffix = crypto.randomUUID().slice(0, 8);
     const bucketRelativePath = `${user.id}/${fortune_id}-${randomSuffix}.${extension}`;
 
-    console.log('issue-fortune-upload-ticket: Generated bucketRelativePath:', bucketRelativePath);
+    console.log('issue-fortune-upload-ticket: Generated path:', bucketRelativePath);
 
     // Create service role client for storage operations
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Create signed upload URL for multipart POST upload
-    console.log('issue-fortune-upload-ticket: Using createSignedUploadUrl (POST_MULTIPART upload method)');
-    const { data, error } = await serviceClient.storage
-      .from('photos')
-      .createSignedUploadUrl(bucketRelativePath, 120); // 2 minutes TTL
+    // Use standard upload endpoint instead of createSignedUploadUrl
+    // This allows the iOS client to use PUT with x-upsert header properly
+    // The URL format is: /storage/v1/object/{bucket}/{path}
+    const uploadUrl = `${supabaseUrl}/storage/v1/object/photos/${bucketRelativePath}`;
+    
+    console.log('issue-fortune-upload-ticket: TICKET_OK (STANDARD_UPLOAD)', { bucket: 'photos', path: bucketRelativePath, BUILD_TAG });
 
-    if (error) {
-      console.error('issue-fortune-upload-ticket: Upload URL creation failed:', error);
-      return new Response(JSON.stringify({ error: 'Failed to create upload URL' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log('issue-fortune-upload-ticket: TICKET_OK - bucket:', 'photos', 'bucketRelativePath:', bucketRelativePath, { BUILD_TAG });
-
-    // Build headers object with x-upsert flag (required for POST_MULTIPART upload)
-    const uploadHeaders = {
-      'x-upsert': 'true'
-    };
-
-    // Build response object with both original and alias fields for backward compatibility
+    // Build response with service role key for upload authorization
+    // The iOS client will use this to upload directly with PUT method
     const responseObject = {
-      // Original fields (keep unchanged)
+      // Primary fields
       bucket: 'photos',
       bucketRelativePath: bucketRelativePath,
+      path: bucketRelativePath,
       dbPath: bucketRelativePath,
-      url: data.signedUrl,
-      uploadMethod: 'POST_MULTIPART',
-      headers: uploadHeaders,
-      formFieldName: 'file',
+      
+      // Upload URL (standard object endpoint, not signed URL)
+      url: uploadUrl,
+      uploadUrl: uploadUrl,
+      
+      // Upload method: PUT with upsert header (not POST multipart)
+      uploadMethod: 'PUT_STANDARD',
+      
+      // Required headers for upload - includes service role key for authorization
+      headers: {
+        'Content-Type': mime as string,
+        'x-upsert': 'true',
+        'Authorization': `Bearer ${supabaseServiceKey}`
+      },
+      
+      // Metadata
       buildTag: BUILD_TAG,
-      // Optional: token if available from signed URL (for debugging)
-      ...(data.token && { token: data.token }),
+      ticketSchemaVersion: 'v3-standard-upload',
       
-      // Alias fields for backward compatibility
-      uploadUrl: data.signedUrl,        // Alias for 'url'
-      upload_url: data.signedUrl,       // Alias for 'url' (snake_case)
-      signedUrl: data.signedUrl,        // Alias for 'url' (common variant)
-      requiredHeaders: uploadHeaders,   // Alias for 'headers' (same object reference)
-      path: bucketRelativePath,         // Alias for 'bucketRelativePath'
-      db_path: bucketRelativePath,      // Alias for 'bucketRelativePath' (snake_case variant)
-      bucket_relative_path: bucketRelativePath, // Alias for 'bucketRelativePath' (snake_case)
-      bucket_name: 'photos',            // Alias for 'bucket'
-      
-      // Diagnostic field (safe to keep, no secrets)
-      ticketSchemaVersion: 'v2-backcompat'
+      // Backward compatibility aliases
+      db_path: bucketRelativePath,
+      bucket_relative_path: bucketRelativePath,
+      bucket_name: 'photos',
+      upload_url: uploadUrl,
+      signedUrl: uploadUrl,
+      requiredHeaders: {
+        'Content-Type': mime as string,
+        'x-upsert': 'true',
+        'Authorization': `Bearer ${supabaseServiceKey}`
+      }
     };
 
-    // Log response shape before returning (for debugging)
-    console.log('issue-fortune-upload-ticket: RESPONSE_SHAPE', { buildTag: BUILD_TAG, keys: Object.keys(responseObject) });
+    console.log('issue-fortune-upload-ticket: Response ready', { 
+      method: 'PUT_STANDARD',
+      hasServiceKey: !!supabaseServiceKey,
+      BUILD_TAG 
+    });
 
-    // Return explicit upload contract for POST_MULTIPART upload
     return new Response(JSON.stringify(responseObject), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -275,36 +256,3 @@ serve(async (req) => {
     });
   }
 });
-
-/*
- * Response JSON Shape Example (v2-backcompat):
- * {
- *   // Original fields (unchanged)
- *   "bucket": "photos",
- *   "bucketRelativePath": "user-id/fortune-id-random.jpg",
- *   "dbPath": "user-id/fortune-id-random.jpg",
- *   "url": "https://...signed-upload-url...",
- *   "uploadMethod": "POST_MULTIPART",
- *   "headers": { "x-upsert": "true" },
- *   "formFieldName": "file",
- *   "buildTag": "2026-01-13-multipart-contract",
- *   "token": "optional-token-if-available",
- * 
- *   // Backward compatibility aliases
- *   "uploadUrl": "https://...signed-upload-url...",        // Same as 'url'
- *   "upload_url": "https://...signed-upload-url...",       // Same as 'url' (snake_case)
- *   "signedUrl": "https://...signed-upload-url...",        // Same as 'url' (common variant)
- *   "requiredHeaders": { "x-upsert": "true" },            // Same as 'headers' (same object)
- *   "path": "user-id/fortune-id-random.jpg",              // Same as 'bucketRelativePath'
- *   "db_path": "user-id/fortune-id-random.jpg",           // Same as 'bucketRelativePath' (snake_case variant)
- *   "bucket_relative_path": "user-id/fortune-id-random.jpg", // Same as 'bucketRelativePath' (snake_case)
- *   "bucket_name": "photos",                              // Same as 'bucket'
- * 
- *   // Diagnostic field (safe, no secrets)
- *   "ticketSchemaVersion": "v2-backcompat"
- * }
- * 
- * All aliases point to the same values as their original counterparts.
- * The response supports both camelCase and snake_case naming conventions
- * to ensure compatibility with different client implementations.
- */
