@@ -13,10 +13,15 @@ interface FetchOptions {
   force?: boolean; // Bypass debounce for explicit user actions
 }
 
-// Global state for guards
+// Global state for guards - separate states for different query types
+// This prevents "today" fetches from blocking "all" fetches
 const fetchState = {
-  inFlight: false,
-  lastFetchAt: 0,
+  // For today/ranged fetches
+  rangedInFlight: false,
+  rangedLastFetchAt: 0,
+  // For full list fetches (no date params)
+  fullInFlight: false,
+  fullLastFetchAt: 0,
   DEBOUNCE_MS: 30000, // 30 seconds minimum debounce
 };
 
@@ -28,17 +33,23 @@ const fetchState = {
 export async function fetchFortuneList(options: FetchOptions = {}): Promise<Fortune[] | null> {
   const { p_from, p_to, force = false } = options;
   
-  // Guard 1: Check if already in flight
-  if (fetchState.inFlight) {
-    console.log('[FORTUNE_LIST] skip: inflight');
+  // Determine if this is a full fetch or ranged fetch
+  const isFullFetch = p_from === undefined && p_to === undefined;
+  const stateKey = isFullFetch ? 'full' : 'ranged';
+  const inFlightKey = isFullFetch ? 'fullInFlight' : 'rangedInFlight';
+  const lastFetchKey = isFullFetch ? 'fullLastFetchAt' : 'rangedLastFetchAt';
+  
+  // Guard 1: Check if already in flight for this type
+  if (fetchState[inFlightKey]) {
+    console.log(`[FORTUNE_LIST] skip: inflight (${stateKey})`);
     return null;
   }
   
   // Guard 2: Debounce check (unless forced by user action)
   const now = Date.now();
-  const timeSinceLastFetch = now - fetchState.lastFetchAt;
+  const timeSinceLastFetch = now - fetchState[lastFetchKey];
   if (!force && timeSinceLastFetch < fetchState.DEBOUNCE_MS) {
-    console.log(`[FORTUNE_LIST] skip: debounce (${Math.round(timeSinceLastFetch / 1000)}s ago, need ${fetchState.DEBOUNCE_MS / 1000}s)`);
+    console.log(`[FORTUNE_LIST] skip: debounce ${stateKey} (${Math.round(timeSinceLastFetch / 1000)}s ago, need ${fetchState.DEBOUNCE_MS / 1000}s)`);
     return null;
   }
   
@@ -55,9 +66,9 @@ export async function fetchFortuneList(options: FetchOptions = {}): Promise<Fort
   }
   
   // All guards passed - proceed with fetch
-  console.log('[FORTUNE_LIST] fetch start', { p_from, p_to, force });
-  fetchState.inFlight = true;
-  fetchState.lastFetchAt = now;
+  console.log('[FORTUNE_LIST] fetch start', { p_from, p_to, force, type: stateKey });
+  fetchState[inFlightKey] = true;
+  fetchState[lastFetchKey] = now;
   
   try {
     const params: any = {};
@@ -71,13 +82,13 @@ export async function fetchFortuneList(options: FetchOptions = {}): Promise<Fort
       throw error;
     }
     
-    console.log('[FORTUNE_LIST] done', { count: data?.length || 0 });
+    console.log('[FORTUNE_LIST] done', { count: data?.length || 0, type: stateKey });
     return (data || []) as Fortune[];
   } catch (error) {
     console.error('[FORTUNE_LIST] fetch failed:', error);
     throw error;
   } finally {
-    fetchState.inFlight = false;
+    fetchState[inFlightKey] = false;
   }
 }
 
@@ -85,8 +96,10 @@ export async function fetchFortuneList(options: FetchOptions = {}): Promise<Fort
  * Reset fetch state (useful for testing or explicit refresh)
  */
 export function resetFortuneListFetchState() {
-  fetchState.inFlight = false;
-  fetchState.lastFetchAt = 0;
+  fetchState.rangedInFlight = false;
+  fetchState.rangedLastFetchAt = 0;
+  fetchState.fullInFlight = false;
+  fetchState.fullLastFetchAt = 0;
 }
 
 /**
@@ -94,8 +107,11 @@ export function resetFortuneListFetchState() {
  */
 export function getFortuneListFetchState() {
   return {
-    inFlight: fetchState.inFlight,
-    lastFetchAt: fetchState.lastFetchAt,
-    timeSinceLastFetch: Date.now() - fetchState.lastFetchAt,
+    rangedInFlight: fetchState.rangedInFlight,
+    rangedLastFetchAt: fetchState.rangedLastFetchAt,
+    fullInFlight: fetchState.fullInFlight,
+    fullLastFetchAt: fetchState.fullLastFetchAt,
+    timeSinceRangedFetch: Date.now() - fetchState.rangedLastFetchAt,
+    timeSinceFullFetch: Date.now() - fetchState.fullLastFetchAt,
   };
 }
