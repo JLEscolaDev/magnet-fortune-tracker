@@ -359,8 +359,11 @@ export const FortuneModal = ({
       return;
     }
 
+    // Lock immediately to avoid double taps / repeated UI events creating parallel requests
+    ticketRequested.current = true;
+
     console.log('[PHOTO] Starting photo attach process...');
-    
+
     // Block upload entirely on web - only allow on native
     if (!isNative) {
       console.log('[PHOTO] Upload blocked - not running in native platform');
@@ -372,11 +375,11 @@ export const FortuneModal = ({
       ticketRequested.current = false;
       return;
     }
-    
+
     if (!window.NativeUploader || !isHighTier) {
-      console.log('[PHOTO] No uploader or not high tier:', { 
-        hasUploader: !!window.NativeUploader, 
-        isHighTier 
+      console.log('[PHOTO] No uploader or not high tier:', {
+        hasUploader: !!window.NativeUploader,
+        isHighTier,
       });
       toast({
         title: "Pro subscription required",
@@ -387,7 +390,6 @@ export const FortuneModal = ({
       return;
     }
 
-    ticketRequested.current = true;
     setPhotoAttaching(true);
     console.log('[PHOTO] Set photoAttaching to true');
     

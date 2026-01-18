@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getFortuneMedia } from '@/integrations/supabase/fortuneMedia';
-import { useSignedUrl, clearSignedUrlCache } from '@/hooks/useSignedUrl';
+import { useSignedUrl, clearSignedUrlCacheFor } from '@/hooks/useSignedUrl';
 
 interface FortunePhotoProps {
   fortuneId: string;
@@ -21,6 +21,11 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
   // Track signed URL from finalize response (valid for 5 minutes)
   const immediateSignedUrlRef = useRef<{ url: string; expiresAt: number } | null>(null);
 
+  // Retry signed URL creation a few times to handle eventual consistency (without spamming)
+  const signedUrlRetryTimer = useRef<NodeJS.Timeout | null>(null);
+  const signedUrlRetryCount = useRef<number>(0);
+  const signedUrlRetryKey = useRef<string | null>(null);
+
   // Use immediate signed URL if available and not expired, otherwise use hook
   const hookSignedUrl = useSignedUrl(media?.bucket, media?.path, 300, media?.version);
   const signedUrl = (() => {
@@ -34,25 +39,30 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
   const loadMedia = useCallback(async (forceRefresh = false) => {
     try {
       setError(false);
-      if (!media) {
-        setLoading(true);
-      }
-      
+      setLoading(true);
+
       const mediaData = await getFortuneMedia(fortuneId);
-      
+
       if (mediaData?.path && mediaData?.bucket) {
         const version = mediaData.updated_at || mediaData.created_at || '';
-        
+
         // Only update state if version changed or force refresh
         if (forceRefresh || version !== lastLoadedVersion.current) {
-          console.log('[FORTUNE-PHOTO] loadMedia - updating state:', { 
-            fortuneId, 
-            path: mediaData.path, 
+          console.log('[FORTUNE-PHOTO] loadMedia - updating state:', {
+            fortuneId,
+            path: mediaData.path,
             version,
-            previousVersion: lastLoadedVersion.current 
+            previousVersion: lastLoadedVersion.current,
           });
           lastLoadedVersion.current = version;
-          setMedia({ bucket: mediaData.bucket, path: mediaData.path, version });
+          const rawPath = mediaData.path;
+          const normalizedPath = (() => {
+            const p = rawPath.startsWith('/') ? rawPath.slice(1) : rawPath;
+            const prefix = `${mediaData.bucket}/`;
+            return p.startsWith(prefix) ? p.slice(prefix.length) : p;
+          })();
+
+          setMedia({ bucket: mediaData.bucket, path: normalizedPath, version });
           // Update cache buster with timestamp
           setCacheBuster(Date.now().toString());
         }
@@ -67,7 +77,7 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
     } finally {
       setLoading(false);
     }
-  }, [fortuneId, media]);
+  }, [fortuneId]);
 
   // Initial load
   useEffect(() => {
@@ -88,6 +98,14 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
       
       console.log('[FORTUNE-PHOTO] fortunePhotoUpdated received', { fortuneId, updated_at });
       
+      // Reset signed URL retry state on explicit photo update
+      signedUrlRetryCount.current = 0;
+      signedUrlRetryKey.current = null;
+      if (signedUrlRetryTimer.current) {
+        clearTimeout(signedUrlRetryTimer.current);
+        signedUrlRetryTimer.current = null;
+      }
+      
       // Store immediate signed URL if provided (valid for 5 minutes)
       if (eventSignedUrl) {
         immediateSignedUrlRef.current = {
@@ -97,7 +115,9 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
       }
       
       // Force immediate refresh
-      clearSignedUrlCache();
+      if (media?.bucket && media?.path) {
+        clearSignedUrlCacheFor(media.bucket, media.path);
+      }
       setCacheBuster(updated_at || Date.now().toString());
       loadMedia(true);
     }) as EventListener;
@@ -112,7 +132,9 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
       // Debounce: wait 300ms before reloading to batch multiple events
       pendingReload.current = setTimeout(() => {
         console.log('[FORTUNE-PHOTO] fortunesUpdated - checking for updates', { fortuneId });
-        clearSignedUrlCache();
+        if (media?.bucket && media?.path) {
+          clearSignedUrlCacheFor(media.bucket, media.path);
+        }
         loadMedia(true); // Force refresh to check for new version
         pendingReload.current = null;
       }, 300);
@@ -127,8 +149,12 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
       if (pendingReload.current) {
         clearTimeout(pendingReload.current);
       }
+      if (signedUrlRetryTimer.current) {
+        clearTimeout(signedUrlRetryTimer.current);
+        signedUrlRetryTimer.current = null;
+      }
     };
-  }, [fortuneId, loadMedia]);
+  }, [fortuneId, loadMedia, media]);
 
   // Update cache buster when photoUpdatedAt prop changes (from parent)
   useEffect(() => {
@@ -137,11 +163,85 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
       setCacheBuster(photoUpdatedAt);
       // Force reload if version changed
       if (photoUpdatedAt !== lastLoadedVersion.current) {
-        clearSignedUrlCache();
+        if (media?.bucket && media?.path) {
+          clearSignedUrlCacheFor(media.bucket, media.path);
+        }
         loadMedia(true);
       }
     }
-  }, [photoUpdatedAt, fortuneId, loadMedia]);
+  }, [photoUpdatedAt, fortuneId, loadMedia, media]);
+
+  // If we have media but the signed URL is not available yet (e.g. object not found / eventual consistency),
+  // retry a few times with exponential backoff. This prevents infinite refresh loops and request spam.
+  useEffect(() => {
+    if (!media) {
+      signedUrlRetryCount.current = 0;
+      signedUrlRetryKey.current = null;
+      if (signedUrlRetryTimer.current) {
+        clearTimeout(signedUrlRetryTimer.current);
+        signedUrlRetryTimer.current = null;
+      }
+      return;
+    }
+
+    const key = `${media.bucket}:${media.path}:${media.version}`;
+
+    // Reset retries when media changes
+    if (signedUrlRetryKey.current !== key) {
+      signedUrlRetryKey.current = key;
+      signedUrlRetryCount.current = 0;
+      if (signedUrlRetryTimer.current) {
+        clearTimeout(signedUrlRetryTimer.current);
+        signedUrlRetryTimer.current = null;
+      }
+    }
+
+    // If signedUrl is available, stop retrying
+    if (signedUrl) {
+      signedUrlRetryCount.current = 0;
+      if (signedUrlRetryTimer.current) {
+        clearTimeout(signedUrlRetryTimer.current);
+        signedUrlRetryTimer.current = null;
+      }
+      return;
+    }
+
+    // Already scheduled
+    if (signedUrlRetryTimer.current) return;
+
+    // Max retries
+    const maxRetries = 3;
+    if (signedUrlRetryCount.current >= maxRetries) {
+      console.warn('[FORTUNE-PHOTO] Signed URL unavailable after max retries; will wait for next update event', {
+        fortuneId,
+        bucket: media.bucket,
+        path: media.path,
+        version: media.version,
+      });
+      return;
+    }
+
+    const attempt = signedUrlRetryCount.current + 1;
+    const delay = 600 * Math.pow(2, signedUrlRetryCount.current); // 600ms, 1200ms, 2400ms
+
+    console.log('[FORTUNE-PHOTO] Scheduling signed URL retry', { fortuneId, attempt, delay });
+
+    signedUrlRetryTimer.current = setTimeout(() => {
+      signedUrlRetryTimer.current = null;
+      signedUrlRetryCount.current = attempt;
+
+      // Force a re-render and clear signed URL cache so `useSignedUrl` re-attempts
+      clearSignedUrlCacheFor(media.bucket, media.path);
+      setCacheBuster(Date.now().toString());
+    }, delay);
+
+    return () => {
+      if (signedUrlRetryTimer.current) {
+        clearTimeout(signedUrlRetryTimer.current);
+        signedUrlRetryTimer.current = null;
+      }
+    };
+  }, [media, signedUrl, fortuneId]);
 
   if (loading && !media) {
     return (
@@ -184,7 +284,12 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
       className={`object-cover rounded border border-border/50 ${className}`}
       style={{ aspectRatio: '16/9' }}
       onError={() => {
+        // If the signed URL is present but the image fails to load, mark error.
+        // Do NOT spam retries here; signed URL retries are handled by the effect above.
         setError(true);
+
+        // Clear immediate signed URL (if any) so we fall back to hook on next render
+        immediateSignedUrlRef.current = null;
       }}
     />
   );

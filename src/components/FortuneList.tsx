@@ -136,6 +136,30 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
   // because HomeTab already listens for it and passes updated fortunes via props.
   // Adding another listener here would cause duplicate fetches.
 
+  // Listen for photo updates so we can force FortunePhoto to refresh without refetching the whole list.
+  // Expected event: window.dispatchEvent(new CustomEvent('fortunePhotoUpdated', { detail: { fortuneId, updatedAt } }))
+  useEffect(() => {
+    const onPhotoUpdated = (e: Event) => {
+      const ce = e as CustomEvent<{ fortuneId?: string; updatedAt?: string }>;
+      const fortuneId = ce.detail?.fortuneId;
+      if (!fortuneId) return;
+
+      // Use provided updatedAt if available; otherwise use a fresh timestamp.
+      const updatedAt = ce.detail?.updatedAt ?? new Date().toISOString();
+
+      setPhotoUpdatedAts(prev => {
+        const next = new Map(prev);
+        next.set(fortuneId, updatedAt);
+        return next;
+      });
+    };
+
+    window.addEventListener('fortunePhotoUpdated', onPhotoUpdated);
+    return () => {
+      window.removeEventListener('fortunePhotoUpdated', onPhotoUpdated);
+    };
+  }, []);
+
   const handleEditFortune = (fortune: Fortune) => {
     setEditingFortune(fortune);
     setIsEditModalOpen(true);
