@@ -254,7 +254,7 @@ export const FortuneModal = ({
     }
   };
 
-  const pollForPhotoCompletion = useCallback(async (path: string, bucket: string, maxAttempts: number = 3) => {
+  const pollForPhotoCompletion = useCallback((path: string, bucket: string, maxAttempts: number = 3): (() => void) => {
     const targetFortuneId = fortune?.id || '';
     let attempts = 0;
     let isCancelled = false;
@@ -328,7 +328,7 @@ export const FortuneModal = ({
       }
     }, 2000); // Poll every 2 seconds
 
-    // Return cleanup function
+    // Return cleanup function synchronously
     return () => {
       isCancelled = true;
       clearInterval(pollInterval);

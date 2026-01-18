@@ -32,13 +32,12 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
       setError(false);
       setLoading(true);
       
-      // Force a fresh fetch by clearing any local state first
       const mediaData = await getFortuneMedia(fortuneId);
       console.log('[FORTUNE-PHOTO] loadMedia result:', { fortuneId, mediaData: mediaData ? { path: mediaData.path, updated_at: mediaData.updated_at } : null });
       
       if (mediaData?.path && mediaData?.bucket) {
-        // Use updated_at as version for cache-busting - add timestamp for extra uniqueness
-        const version = `${mediaData.updated_at || mediaData.created_at || ''}_${Date.now()}`;
+        // Use only updated_at for cache-busting - NO Date.now() to avoid infinite loops
+        const version = mediaData.updated_at || mediaData.created_at || '';
         setMedia({ bucket: mediaData.bucket, path: mediaData.path, version });
       } else {
         setMedia(null);
@@ -57,31 +56,37 @@ export const FortunePhoto: React.FC<FortunePhotoProps> = ({ fortuneId, className
   }, [loadMedia]);
 
   // Listen for fortune updates to refetch media when photo changes
+  // Use a ref to track if we've already handled an update to prevent cascading refreshes
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | null = null;
+    let isHandling = false;
     
     const handleFortuneUpdate = () => {
-      console.log('[FORTUNE-PHOTO] fortunesUpdated event received - clearing cache and refetching', { fortuneId });
-      // Clear any pending timeout
+      // Prevent handling if already in progress
+      if (isHandling) return;
+      isHandling = true;
+      
+      console.log('[FORTUNE-PHOTO] fortunesUpdated event received', { fortuneId });
+      
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
-      // Clear ALL signed URL cache to ensure fresh URLs
+      
       clearSignedUrlCache();
-      // Clear current media first to force re-render
       setMedia(null);
       setLoading(true);
-      // Small delay to ensure DB has propagated the update
+      
+      // Debounce to prevent multiple rapid refreshes
       timeoutId = setTimeout(() => {
         loadMedia();
         timeoutId = null;
+        isHandling = false;
       }, 500);
     };
 
     window.addEventListener("fortunesUpdated", handleFortuneUpdate);
     return () => {
       window.removeEventListener("fortunesUpdated", handleFortuneUpdate);
-      // Cleanup timeout on unmount
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
