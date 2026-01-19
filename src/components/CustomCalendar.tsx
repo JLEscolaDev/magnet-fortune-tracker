@@ -109,7 +109,7 @@ export const CustomCalendar = ({ fortunes, onDateClick, selectedDate, onDateSele
           
           return (
             <button
-              key={date.toISOString()}
+              key={`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`}
               onClick={() => handleDateClick(date)}
               className={`
                 relative h-12 w-full flex flex-col items-center justify-center text-sm font-medium

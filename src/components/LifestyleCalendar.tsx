@@ -110,7 +110,7 @@ export const LifestyleCalendar = ({ entries, onDateClick, selectedDate }: Lifest
           
           return (
             <button
-              key={date.toISOString()}
+              key={`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`}
               onClick={() => handleDateClick(date)}
               className={`
                 relative h-10 w-full flex items-center justify-center text-xs font-medium

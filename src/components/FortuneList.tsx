@@ -144,8 +144,10 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
       const fortuneId = ce.detail?.fortuneId;
       if (!fortuneId) return;
 
-      // Use provided updatedAt if available; otherwise use a fresh timestamp.
-      const updatedAt = ce.detail?.updatedAt ?? new Date().toISOString();
+      // Only update if updatedAt is provided; do not generate a fallback timestamp.
+      // Missing updatedAt means the photo wasn't actually updated, so we shouldn't trigger a refresh.
+      const updatedAt = ce.detail?.updatedAt;
+      if (!updatedAt) return;
 
       setPhotoUpdatedAts(prev => {
         const next = new Map(prev);
@@ -270,7 +272,7 @@ export const FortuneList = ({ fortunes, title = "Today's Fortunes", onFortunesUp
                     <FortunePhoto
                       fortuneId={fortune.id}
                       className="w-full max-w-xs"
-                      photoUpdatedAt={photoUpdatedAts.get(fortune.id)}
+                      version={photoUpdatedAts.get(fortune.id) ?? undefined}
                     />
                   </div>
                   <div className="flex items-center gap-2">

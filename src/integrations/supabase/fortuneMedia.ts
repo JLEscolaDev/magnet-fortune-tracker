@@ -16,23 +16,17 @@ export interface FortuneMedia {
 
 const SIGNED_URL_EXPIRY = 300; // 5 minutes
 
-// Storage paths in DB must be bucket-relative, but legacy rows may include `photos/` prefix or full URLs.
-// Normalize everything to a bucket-relative path that Supabase Storage expects.
 const normalizeStoragePath = (bucket: string, rawPath: string): string => {
   let p = String(rawPath ?? '').trim();
   if (!p) return '';
 
-  // Remove leading slashes
   while (p.startsWith('/')) p = p.slice(1);
 
-  // Strip query/hash
   const q = p.indexOf('?');
   if (q !== -1) p = p.slice(0, q);
   const h = p.indexOf('#');
   if (h !== -1) p = p.slice(0, h);
 
-  // If a full URL is passed, extract the part after `/object/<bucket>/` or `/object/public/<bucket>/`
-  // Example: https://.../storage/v1/object/public/photos/<path>
   const marker1 = `/object/${bucket}/`;
   const marker2 = `/object/public/${bucket}/`;
   const idx1 = p.indexOf(marker1);
@@ -40,17 +34,12 @@ const normalizeStoragePath = (bucket: string, rawPath: string): string => {
   if (idx1 !== -1) p = p.slice(idx1 + marker1.length);
   else if (idx2 !== -1) p = p.slice(idx2 + marker2.length);
 
-  // Handle weird `bucket:path` format
   if (p.startsWith(`${bucket}:`)) p = p.replace(`${bucket}:`, `${bucket}/`);
 
-  // Strip bucket prefix if present (legacy DB rows sometimes store `photos/<path>`)
   if (p.startsWith(`${bucket}/`)) p = p.slice(bucket.length + 1);
 
-  // Final cleanup
   while (p.startsWith('/')) p = p.slice(1);
 
-  // Defensive guard: avoid returning just a userId or an obviously invalid path
-  // We expect at least one `/` (userId/filename) and a filename with an extension.
   const hasSlash = p.includes('/');
   const hasDot = p.split('/').pop()?.includes('.') ?? false;
   if (!hasSlash || !hasDot) return '';
@@ -83,49 +72,111 @@ export const createSignedUrl = async (
   bucket: string = 'photos',
   fortuneId?: string
 ): Promise<string | null> => {
-  try {
-    // Prefer edge function signing when we know the fortune id.
-    // This avoids calling Storage signing endpoints from the client, which can return 400/"Object not found" in some setups.
-    if (fortuneId) {
-      const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
-        body: {
-          action: 'SIGN_ONLY',
-          fortune_id: fortuneId,
-          ttlSec: SIGNED_URL_EXPIRY,
-        },
-      });
-
-      if (error) {
-        console.error('Error creating signed URL via edge function:', { fortuneId, error });
-        return null;
-      }
-
-      return (data as { signedUrl?: string | null } | null)?.signedUrl ?? null;
-    }
-
-    const normalizedPath = normalizeStoragePath(bucket, path);
-    if (!normalizedPath) {
-      console.error('Error creating signed URL: invalid/empty path', { bucket, path, normalizedPath });
-      return null;
-    }
-
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(normalizedPath, SIGNED_URL_EXPIRY);
-
-    if (error) {
-      console.error('Error creating signed URL:', { bucket, path, normalizedPath, error });
-      return null;
-    }
-
-    return data.signedUrl;
-  } catch (error) {
-    console.error('Error creating signed URL:', error);
+  const normalizedPath = normalizeStoragePath(bucket, path);
+  if (!normalizedPath) {
+    console.error('[FORTUNE-PHOTO] Invalid/empty path for signed URL', { bucket, path, normalizedPath });
     return null;
   }
+
+  const MAX_RETRIES = 2;
+  const backoffDelays = [300, 600]; // ms for 2 retries
+  let lastError: unknown = null;
+
+  console.log('[FORTUNE-PHOTO] Starting createSignedUrl', {
+    bucket,
+    path: normalizedPath,
+    fortuneId: fortuneId || '(none)',
+  });
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(normalizedPath, SIGNED_URL_EXPIRY);
+
+      if (error) {
+        lastError = error;
+        const errorMessage = error.message || String(error);
+        const isTransientNotFound =
+          errorMessage.includes('Object not found') ||
+          errorMessage.includes('not found') ||
+          errorMessage.includes('404');
+
+        if (isTransientNotFound && attempt < MAX_RETRIES) {
+          const backoffMs = backoffDelays[attempt];
+          console.log('[FORTUNE-PHOTO] Transient error, retry scheduled', {
+            bucket,
+            path: normalizedPath,
+            attempt: attempt + 1,
+            maxRetries: MAX_RETRIES,
+            backoffMs,
+            error: errorMessage,
+          });
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+          continue;
+        }
+
+        throw error;
+      }
+
+      const url = data?.signedUrl ?? null;
+      console.log('[FORTUNE-PHOTO] createSignedUrl success', {
+        bucket,
+        path: normalizedPath,
+        attempt: attempt + 1,
+        hasUrl: !!url,
+      });
+      return url;
+    } catch (err) {
+      lastError = err;
+      const errorMessage = err instanceof Error ? err.message : String(err);
+
+      const isTransient =
+        errorMessage.includes('Object not found') ||
+        errorMessage.includes('not found') ||
+        errorMessage.includes('404');
+
+      if (!isTransient || attempt >= MAX_RETRIES) {
+        if (attempt >= MAX_RETRIES) {
+          console.error('[FORTUNE-PHOTO] createSignedUrl final give-up', {
+            bucket,
+            path: normalizedPath,
+            totalAttempts: MAX_RETRIES + 1,
+            error: errorMessage,
+          });
+        } else {
+          console.error('[FORTUNE-PHOTO] createSignedUrl failure (no retry)', {
+            bucket,
+            path: normalizedPath,
+            attempt: attempt + 1,
+            error: errorMessage,
+          });
+        }
+        break;
+      }
+
+      const backoffMs = backoffDelays[attempt];
+      console.log('[FORTUNE-PHOTO] createSignedUrl retry scheduled', {
+        bucket,
+        path: normalizedPath,
+        attempt: attempt + 1,
+        maxRetries: MAX_RETRIES,
+        backoffMs,
+        error: errorMessage,
+      });
+      await new Promise(resolve => setTimeout(resolve, backoffMs));
+    }
+  }
+
+  console.error('[FORTUNE-PHOTO] createSignedUrl final give-up after all retries', {
+    bucket,
+    path: normalizedPath,
+    totalAttempts: MAX_RETRIES + 1,
+    lastError: lastError instanceof Error ? lastError.message : String(lastError),
+  });
+  return null;
 };
 
-// Simple cache for signed URLs with TTL
 const signedUrlCache = new Map<string, { url: string; expiry: number }>();
 
 export const getCachedSignedUrl = async (
@@ -138,19 +189,18 @@ export const getCachedSignedUrl = async (
   const normalizedPath = normalizeStoragePath(b, path);
 
   if (!normalizedPath) {
-    console.error('getCachedSignedUrl: invalid/empty normalized path', { bucket: b, path });
+    console.error('[FORTUNE-PHOTO] getCachedSignedUrl: invalid/empty normalized path', { bucket: b, path });
     return null;
   }
 
+  // Stable cache key: no version, no fallback timestamps
   const cacheKey = `${b}:${normalizedPath}`;
   const cached = signedUrlCache.get(cacheKey);
 
-  // Return cached URL if still valid (with 30s buffer)
   if (cached && cached.expiry > now + 30000) {
     return cached.url;
   }
 
-  // Create new signed URL (pass raw path; createSignedUrl will normalize again defensively)
   const signedUrl = await createSignedUrl(path, b, fortuneId);
   if (signedUrl) {
     signedUrlCache.set(cacheKey, {
@@ -162,13 +212,10 @@ export const getCachedSignedUrl = async (
   return signedUrl;
 };
 
-// Function to save fortune media record
 export const saveFortuneMedia = async (
   mediaData: Omit<FortuneMedia, 'id' | 'created_at' | 'updated_at'>
 ): Promise<FortuneMedia | null> => {
   try {
-    // Read current media first so we can invalidate the right cache entry.
-    // NOTE: Without `onConflict`, upsert would INSERT new rows because `id` isn't provided.
     const existing = await getFortuneMedia(mediaData.fortune_id);
 
     const b = mediaData.bucket || 'photos';
@@ -182,7 +229,6 @@ export const saveFortuneMedia = async (
       return null;
     }
 
-    // Always store bucket-relative path in DB.
     const toWrite = {
       ...mediaData,
       bucket: b,
@@ -200,7 +246,6 @@ export const saveFortuneMedia = async (
       return null;
     }
 
-    // Invalidate cache for old + new path to prevent showing the previous image.
     try {
       if (existing) {
         const oldBucket = existing.bucket || 'photos';
@@ -212,8 +257,6 @@ export const saveFortuneMedia = async (
       const newNormalized = normalizeStoragePath(newBucket, data.path);
       if (newNormalized) signedUrlCache.delete(`${newBucket}:${newNormalized}`);
 
-      // Also clear any remaining cache entries for safety (small map, cheap).
-      // This prevents stale signed URLs when path contracts change.
       signedUrlCache.clear();
     } catch (e) {
       console.warn('saveFortuneMedia: cache invalidation failed (ignored)', e);
@@ -240,7 +283,6 @@ export const deleteFortuneMedia = async (fortuneId: string): Promise<boolean> =>
       return false;
     }
 
-    // Invalidate cache so the UI doesn't keep rendering the previous signed URL.
     try {
       if (existing) {
         const b = existing.bucket || 'photos';

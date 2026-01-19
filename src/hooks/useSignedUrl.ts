@@ -11,13 +11,9 @@ interface InFlightRequest {
   timestamp: number;
 }
 
-// Cache for signed URLs with expiry (keyed by bucket:path:version)
 const urlCache = new Map<string, SignedUrlCache>();
-
-// Track in-flight requests to dedupe concurrent calls (keyed by bucket:path:version)
 const inFlightRequests = new Map<string, InFlightRequest>();
 
-// Clean up old in-flight requests (older than 30 seconds)
 const cleanupInFlight = () => {
   const now = Date.now();
   for (const [key, request] of inFlightRequests.entries()) {
@@ -29,8 +25,6 @@ const cleanupInFlight = () => {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Normalize a storage path to be bucket-relative.
-// If callers accidentally pass "photos/<path>" (or "/photos/<path>"), strip the bucket prefix.
 function normalizeStoragePath(bucket: string, path: string): string {
   if (!path) return path;
   const p = path.startsWith('/') ? path.slice(1) : path;
@@ -46,7 +40,6 @@ const createSignedUrlViaEdgeWithRetry = async (
   ttlSec: number,
   requestKey: string
 ): Promise<string | null> => {
-  // Check if there's already an in-flight request for this exact key
   const existing = inFlightRequests.get(requestKey);
   if (existing) {
     return existing.promise;
@@ -54,9 +47,12 @@ const createSignedUrlViaEdgeWithRetry = async (
 
   const promise = (async (): Promise<string | null> => {
     let lastError: unknown;
-    const backoffDelays = [300, 600, 1200]; // ms
+    const MAX_RETRIES = 2;
+    const backoffDelays = [300, 600]; // ms for 2 retries
 
-    for (let attempt = 0; attempt < 3; attempt++) {
+    console.log('[FORTUNE-PHOTO] Starting edge function fetch', { fortuneId, requestKey, ttlSec });
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
           body: {
@@ -72,20 +68,38 @@ const createSignedUrlViaEdgeWithRetry = async (
         }
 
         const signedUrl = (data as { signedUrl?: string | null } | null)?.signedUrl ?? null;
+        console.log('[FORTUNE-PHOTO] Edge function success', {
+          requestKey,
+          attempt: attempt + 1,
+          hasUrl: !!signedUrl,
+        });
         return signedUrl;
       } catch (err) {
         lastError = err;
-        if (attempt < 2) {
-          await sleep(backoffDelays[attempt]);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+
+        if (attempt < MAX_RETRIES) {
+          const backoffMs = backoffDelays[attempt];
+          console.log('[FORTUNE-PHOTO] Edge function retry scheduled', {
+            requestKey,
+            attempt: attempt + 1,
+            maxRetries: MAX_RETRIES,
+            backoffMs,
+            error: errorMessage,
+          });
+          await sleep(backoffMs);
         }
       }
     }
 
-    console.error(`Failed to create signed URL via edge for ${requestKey} after 3 attempts:`, lastError);
+    console.error('[FORTUNE-PHOTO] Edge function final give-up', {
+      requestKey,
+      totalAttempts: MAX_RETRIES + 1,
+      lastError: lastError instanceof Error ? lastError.message : String(lastError),
+    });
     return null;
   })();
 
-  // Store the promise to dedupe concurrent requests
   inFlightRequests.set(requestKey, {
     promise,
     timestamp: Date.now(),
@@ -94,7 +108,6 @@ const createSignedUrlViaEdgeWithRetry = async (
   try {
     return await promise;
   } finally {
-    // Clean up this request and old ones
     inFlightRequests.delete(requestKey);
     cleanupInFlight();
   }
@@ -106,7 +119,6 @@ const createSignedUrlWithRetry = async (
   ttlSec: number,
   requestKey: string
 ): Promise<string | null> => {
-  // Check if there's already an in-flight request for this exact key
   const existing = inFlightRequests.get(requestKey);
   if (existing) {
     return existing.promise;
@@ -114,11 +126,14 @@ const createSignedUrlWithRetry = async (
 
   const promise = (async (): Promise<string | null> => {
     let lastError: unknown;
-    const backoffDelays = [300, 600, 1200]; // ms
+    const MAX_RETRIES = 2;
+    const backoffDelays = [300, 600]; // ms for 2 retries
 
     const path = normalizeStoragePath(bucket, rawPath);
 
-    for (let attempt = 0; attempt < 3; attempt++) {
+    console.log('[FORTUNE-PHOTO] Starting storage fetch', { bucket, path, requestKey, ttlSec });
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         const { data, error } = await supabase.storage
           .from(bucket)
@@ -127,31 +142,81 @@ const createSignedUrlWithRetry = async (
         if (error) {
           lastError = error;
 
-          // If it's a "Object not found" error, retry with backoff (eventual consistency)
-          if (error.message?.includes('Object not found') || error.message?.includes('not found')) {
-            if (attempt < 2) {
-              await sleep(backoffDelays[attempt]);
-              continue;
-            }
+          const errorMessage = error.message || String(error);
+          const isTransientNotFound =
+            errorMessage.includes('Object not found') ||
+            errorMessage.includes('not found') ||
+            errorMessage.includes('404');
+
+          if (isTransientNotFound && attempt < MAX_RETRIES) {
+            const backoffMs = backoffDelays[attempt];
+            console.log('[FORTUNE-PHOTO] Transient error, retry scheduled', {
+              requestKey,
+              attempt: attempt + 1,
+              maxRetries: MAX_RETRIES,
+              backoffMs,
+              error: errorMessage,
+            });
+            await sleep(backoffMs);
+            continue;
           }
 
           throw error;
         }
 
-        return data?.signedUrl ?? null;
+        const url = data?.signedUrl ?? null;
+        console.log('[FORTUNE-PHOTO] Storage success', {
+          requestKey,
+          attempt: attempt + 1,
+          hasUrl: !!url,
+        });
+        return url;
       } catch (err) {
         lastError = err;
-        if (attempt < 2) {
-          await sleep(backoffDelays[attempt]);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+
+        const isTransient =
+          errorMessage.includes('Object not found') ||
+          errorMessage.includes('not found') ||
+          errorMessage.includes('404');
+
+        if (!isTransient || attempt >= MAX_RETRIES) {
+          if (attempt >= MAX_RETRIES) {
+            console.error('[FORTUNE-PHOTO] Storage final give-up', {
+              requestKey,
+              totalAttempts: MAX_RETRIES + 1,
+              error: errorMessage,
+            });
+          } else {
+            console.error('[FORTUNE-PHOTO] Storage failure (no retry)', {
+              requestKey,
+              attempt: attempt + 1,
+              error: errorMessage,
+            });
+          }
+          break;
         }
+
+        const backoffMs = backoffDelays[attempt];
+        console.log('[FORTUNE-PHOTO] Storage retry scheduled', {
+          requestKey,
+          attempt: attempt + 1,
+          maxRetries: MAX_RETRIES,
+          backoffMs,
+          error: errorMessage,
+        });
+        await sleep(backoffMs);
       }
     }
 
-    console.error(`Failed to create signed URL for ${requestKey} after 3 attempts:`, lastError);
+    console.error('[FORTUNE-PHOTO] Storage final give-up after all retries', {
+      requestKey,
+      totalAttempts: MAX_RETRIES + 1,
+      lastError: lastError instanceof Error ? lastError.message : String(lastError),
+    });
     return null;
   })();
 
-  // Store the promise to dedupe concurrent requests
   inFlightRequests.set(requestKey, {
     promise,
     timestamp: Date.now()
@@ -160,7 +225,6 @@ const createSignedUrlWithRetry = async (
   try {
     return await promise;
   } finally {
-    // Clean up this request and old ones
     inFlightRequests.delete(requestKey);
     cleanupInFlight();
   }
@@ -191,15 +255,14 @@ export function useSignedUrl(
 
     const path = normalizeStoragePath(bucket, rawPath);
 
-    // Always key cache + in-flight by versioned key (when provided)
+    // Stable cache key: only include version if provided (not null/undefined)
+    // If version is missing, use stable key without version to avoid retries
     const cacheKey = version ? `${bucket}:${path}:${version}` : `${bucket}:${path}`;
 
     // When version changes, clear ALL old cache entries for this bucket:path
-    // This ensures we always get fresh URLs after photo updates.
     if (version) {
       const keysToDelete: string[] = [];
       for (const [k] of urlCache.entries()) {
-        // Match both versioned and unversioned historical keys for this object
         if (k === `${bucket}:${path}` || k.startsWith(`${bucket}:${path}:`)) {
           if (k !== cacheKey) keysToDelete.push(k);
         }
@@ -214,7 +277,6 @@ export function useSignedUrl(
       return;
     }
 
-    // Clear any existing signed URL while loading to prevent stale display
     setSignedUrl(null);
 
     let cancelled = false;
@@ -228,7 +290,6 @@ export function useSignedUrl(
         if (cancelled || !isMountedRef.current) return;
 
         if (url) {
-          // Cache the result with a 5s guard-band
           const expiresAt = Date.now() + (ttlSec * 1000) - 5000;
           urlCache.set(cacheKey, { signedUrl: url, expiresAt });
         }
@@ -237,7 +298,7 @@ export function useSignedUrl(
       })
       .catch(error => {
         if (cancelled || !isMountedRef.current) return;
-        console.error('Error getting signed URL:', error);
+        console.error('[FORTUNE-PHOTO] Hook error:', error);
         setSignedUrl(null);
       });
 
@@ -249,13 +310,11 @@ export function useSignedUrl(
   return signedUrl;
 }
 
-// Export function to clear all cached URLs (useful after photo updates)
 export function clearSignedUrlCache() {
   urlCache.clear();
   inFlightRequests.clear();
 }
 
-// Optional helper: clear cache entries for a specific object (bucket + path)
 export function clearSignedUrlCacheFor(bucket: string, rawPath: string) {
   const path = normalizeStoragePath(bucket, rawPath);
   const keysToDelete: string[] = [];

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { CustomCalendar } from '@/components/CustomCalendar';
 import { StatisticsDetailModal } from '@/components/StatisticsDetailModal';
 import { AchievementsDetailModal } from '@/components/AchievementsDetailModal';
@@ -239,7 +239,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
   }, [addError]);
 
   // Check if user is a beta tester (registered before 2026)
-  const checkBetaTesterStatus = async () => {
+  const checkBetaTesterStatus = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -258,17 +258,24 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
     } catch (error) {
       console.error('Error checking beta tester status:', error);
     }
-  };
+  }, []);
 
   // Only fetch on initial mount or explicit refresh trigger (user action)
   useEffect(() => {
     const force = refreshTrigger > 0;
     fetchFortunes(force);
     checkBetaTesterStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshTrigger]);
+  }, [refreshTrigger, fetchFortunes, checkBetaTesterStatus]);
   
   // Filter existing fortunes when selectedDate changes (no new fetch needed)
+  // Use stable date string to avoid re-filtering when Date object reference changes
+  const selectedDateKey = selectedDate?.toDateString() ?? null;
+  // Create stable string representation of fortunes for dependency tracking
+  // We track fortune IDs to detect actual changes
+  const fortunesKey = useMemo(() => {
+    return fortunes.map(f => f.id).join(',');
+  }, [fortunes]);
+  
   useEffect(() => {
     if (selectedDate && fortunes.length > 0) {
       const dateFortunes = fortunes.filter(fortune =>
@@ -278,7 +285,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
     } else {
       setSelectedDateFortunes([]);
     }
-  }, [selectedDate, fortunes]);
+  }, [selectedDateKey, fortunesKey, selectedDate, fortunes]);
 
   const getFortunesByCategory = () => {
     const categories = ['Wealth', 'Health', 'Love', 'Opportunity', 'Tasks', 'Other'];
@@ -299,6 +306,11 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
       setShowDateModal(true);
     }
   };
+
+  const handleDateDetailsFortunesUpdated = useCallback(() => {
+    fetchFortunes(true);
+    onGlobalRefresh?.();
+  }, [fetchFortunes, onGlobalRefresh]);
 
   const calculateAchievements = () => {
     return mockAchievements.map(achievement => {
@@ -489,10 +501,7 @@ export const InsightsTab = ({ refreshTrigger, onGlobalRefresh, selectedFortuneDa
         onClose={() => setShowDateModal(false)}
         date={selectedDate}
         fortunes={selectedDateFortunes}
-        onFortunesUpdated={() => {
-          fetchFortunes();
-          onGlobalRefresh?.();
-        }}
+        onFortunesUpdated={handleDateDetailsFortunesUpdated}
       />
     </div>
   );

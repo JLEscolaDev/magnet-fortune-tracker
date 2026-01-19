@@ -106,10 +106,14 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
     );
   }
 
-  const handleLevelUp = () => {
+  const handleLevelUp = useCallback(() => {
     // Refetch recent fortunes (user action - level up)
     fetchRecentFortunes(true);
-  };
+  }, [fetchRecentFortunes]);
+
+  const handleFortunesUpdated = useCallback(() => {
+    fetchRecentFortunes(true);
+  }, [fetchRecentFortunes]);
 
   return (
     <div className="space-y-6 p-6 pb-24 md:pb-6">
@@ -128,7 +132,7 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
       <FortuneList 
         fortunes={recentFortunes} 
         title="Today's Fortunes"
-        onFortunesUpdated={() => fetchRecentFortunes(true)}
+        onFortunesUpdated={handleFortunesUpdated}
       />
       <TaskBoard />
     </div>
