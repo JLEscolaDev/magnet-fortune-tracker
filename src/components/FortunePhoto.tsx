@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSignedUrl } from '@/hooks/useSignedUrl';
+import { getFortuneMedia, type FortuneMedia } from '@/integrations/supabase/fortuneMedia';
 
 /**
  * FortunePhoto (WEB React component)
@@ -9,6 +10,7 @@ import { useSignedUrl } from '@/hooks/useSignedUrl';
  * - Always obtain a signed GET URL via the `finalize-fortune-photo` Edge Function (action: SIGN_ONLY).
  *
  * This component delegates signing + caching to `useSignedUrl`.
+ * If no path is provided, it fetches the media info from the database.
  */
 
 type FortunePhotoProps = {
@@ -30,20 +32,63 @@ export function FortunePhoto({
   alt,
   ttlSec = 300,
 }: FortunePhotoProps) {
-  const b = useMemo(() => (bucket ?? 'photos') as string, [bucket]);
-  const p = useMemo(() => (path ?? undefined) as string | undefined, [path]);
-  const v = useMemo(() => (version ?? undefined) as string | undefined, [version]);
+  // State to hold media info fetched from DB when path is not provided
+  const [mediaInfo, setMediaInfo] = useState<FortuneMedia | null>(null);
+  const [loading, setLoading] = useState(!path);
 
-  const signedUrl = useSignedUrl(b, p, ttlSec, v, fortuneId);
+  // Fetch media info from DB if path is not provided
+  useEffect(() => {
+    if (path) {
+      // Path is provided directly, no need to fetch
+      setLoading(false);
+      return;
+    }
 
-  // If we don't have a path, we can't render anything.
-  if (!p) {
+    let cancelled = false;
+    
+    const fetchMedia = async () => {
+      try {
+        const media = await getFortuneMedia(fortuneId);
+        if (!cancelled) {
+          setMediaInfo(media);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('[FortunePhoto] Error fetching media:', error);
+        if (!cancelled) {
+          setMediaInfo(null);
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchMedia();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fortuneId, path]);
+
+  // Use provided props or fetched media info
+  const effectiveBucket = useMemo(() => (bucket ?? mediaInfo?.bucket ?? 'photos') as string, [bucket, mediaInfo?.bucket]);
+  const effectivePath = useMemo(() => (path ?? mediaInfo?.path ?? undefined) as string | undefined, [path, mediaInfo?.path]);
+  const effectiveVersion = useMemo(() => (version ?? mediaInfo?.updatedAt ?? undefined) as string | undefined, [version, mediaInfo?.updatedAt]);
+
+  const signedUrl = useSignedUrl(effectiveBucket, effectivePath, ttlSec, effectiveVersion, fortuneId);
+
+  // If still loading media info, show placeholder
+  if (loading) {
+    return <div className={className} aria-busy="true" />;
+  }
+
+  // If we don't have a path, we can't render anything (no media exists).
+  if (!effectivePath) {
     return null;
   }
 
-  // While loading (or if signing fails), show a lightweight placeholder to avoid layout jumps.
+  // While loading signed URL, show a lightweight placeholder to avoid layout jumps.
   if (!signedUrl) {
-    return <div className={className} aria-busy="true" />;
+    return <div className={className} aria-busy="true" style={{ minHeight: '100px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }} />;
   }
 
   return (
@@ -53,6 +98,7 @@ export function FortunePhoto({
       alt={alt ?? 'Fortune photo'}
       loading="lazy"
       decoding="async"
+      style={{ borderRadius: '8px' }}
     />
   );
 }
