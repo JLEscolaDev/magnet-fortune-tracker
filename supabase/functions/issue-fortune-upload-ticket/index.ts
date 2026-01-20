@@ -4,7 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
 // BUILD_TAG for deployment drift detection
-const BUILD_TAG = '2026-01-18-signed-upsert';
+const BUILD_TAG = '2026-01-20-token-fix';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
