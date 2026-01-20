@@ -85,12 +85,20 @@ export function useSignedUrl(
         const safeTtlMs = Math.max(5_000, ttlSec * 1000 - 5_000);
         signedUrlCache.set(key, { url, expiresAt: nowMs() + safeTtlMs });
       } else {
+        // No URL returned - file likely doesn't exist (orphaned record)
+        // This is expected for deleted/failed uploads - just clear cache
         signedUrlCache.delete(key);
       }
 
       setSignedUrl(url);
 
       return url;
+    }).catch(() => {
+      // Silently handle errors - these are expected for orphaned records
+      inflightRef.current = null;
+      signedUrlCache.delete(key);
+      setSignedUrl(null);
+      return null;
     });
 
     inflightRef.current = p;

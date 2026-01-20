@@ -173,17 +173,13 @@ export async function createSignedUrlViaEdgeWithRetry(
     }
   }
 
-  // Keep console noise low in production, but useful in dev.
-  if (import.meta.env?.DEV) {
-    // eslint-disable-next-line no-console
-    console.warn('[FORTUNE-PHOTO] Failed to sign via Edge after retries', {
+  // Silently return null for missing files - these are expected for orphaned records
+  // Only log in dev mode for debugging
+  if (import.meta.env?.DEV && import.meta.env?.VITE_DEBUG_PHOTOS) {
+    console.debug('[FORTUNE-PHOTO] File not found (orphaned record):', {
       bucket,
-      path,
-      normalizedPath,
-      ttlSec,
-      version,
+      path: normalizedPath,
       fortuneId,
-      lastError,
     });
   }
 
