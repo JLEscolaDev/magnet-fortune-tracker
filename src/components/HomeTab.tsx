@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { LuxuryAvatarSection } from './LuxuryAvatarSection';
 import { FortuneList } from './FortuneList';
 import { DailyQuote } from './DailyQuote';
@@ -20,6 +20,11 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
   const { isStepCompleted, showTutorial, isLoading: tutorialLoading } = useTutorial();
   const [recentFortunes, setRecentFortunes] = useState<FortuneRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Track if initial fetch has been done to prevent re-fetching on every render
+  const initialFetchDoneRef = useRef(false);
+  // Track last refresh trigger to avoid re-fetching on same value
+  const lastRefreshTriggerRef = useRef(refreshTrigger);
 
   const fetchRecentFortunes = useCallback(async (force = false) => {
     try {
@@ -36,33 +41,65 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
     }
   }, []);
 
+  // Stable ref for fetchRecentFortunes
+  const fetchRef = useRef(fetchRecentFortunes);
+  fetchRef.current = fetchRecentFortunes;
+
   // All useCallback hooks MUST be before any early returns
   const handleLevelUp = useCallback(() => {
-    fetchRecentFortunes(true);
-  }, [fetchRecentFortunes]);
+    fetchRef.current(true);
+  }, []);
 
   const handleFortunesUpdated = useCallback(() => {
-    fetchRecentFortunes(true);
-  }, [fetchRecentFortunes]);
+    fetchRef.current(true);
+  }, []);
 
-  // Only fetch on initial mount or explicit refresh trigger (user action)
+  // Initial fetch - only once on mount
   useEffect(() => {
-    const force = refreshTrigger > 0;
-    fetchRecentFortunes(force);
-  }, [refreshTrigger, fetchRecentFortunes]);
+    if (!initialFetchDoneRef.current) {
+      initialFetchDoneRef.current = true;
+      fetchRef.current(false);
+    }
+  }, []);
+
+  // Handle refresh trigger changes (user action)
+  useEffect(() => {
+    // Only fetch if refreshTrigger actually changed and is > 0
+    if (refreshTrigger > 0 && refreshTrigger !== lastRefreshTriggerRef.current) {
+      lastRefreshTriggerRef.current = refreshTrigger;
+      fetchRef.current(true);
+    }
+  }, [refreshTrigger]);
 
   // Listen for fortune updates to refresh Today's Fortunes list
+  // Use debounce to prevent rapid-fire updates
+  const eventDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
     const handleFortuneUpdate = () => {
+      // Debounce: ignore if we just handled an event in the last 2 seconds
+      if (eventDebounceRef.current) {
+        console.log('[HOME-TAB] fortunesUpdated event debounced (ignored)');
+        return;
+      }
+      
       console.log('[HOME-TAB] fortunesUpdated event received - refreshing Today\'s Fortunes list');
-      fetchRecentFortunes(true);
+      fetchRef.current(true);
+      
+      // Set debounce flag for 2 seconds
+      eventDebounceRef.current = setTimeout(() => {
+        eventDebounceRef.current = null;
+      }, 2000);
     };
 
     window.addEventListener("fortunesUpdated", handleFortuneUpdate);
     return () => {
       window.removeEventListener("fortunesUpdated", handleFortuneUpdate);
+      if (eventDebounceRef.current) {
+        clearTimeout(eventDebounceRef.current);
+      }
     };
-  }, [fetchRecentFortunes]);
+  }, []);
 
   // Show home tutorial on first visit
   useEffect(() => {

@@ -17,6 +17,13 @@ interface LuxuryAvatarSectionProps {
   onOpenPricing?: () => void;
 }
 
+// Module-level guard to prevent level update loops across component remounts
+const levelUpdateState = {
+  inProgress: false,
+  lastUpdatedLevel: 0,
+  lastUpdatedUserId: null as string | null,
+};
+
 export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPricing }: LuxuryAvatarSectionProps) => {
   const [isLevelingUp, setIsLevelingUp] = useState(false);
   const [isBetaTester, setIsBetaTester] = useState(false);
@@ -33,8 +40,6 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPr
   const { avatar, loading } = useAvatar(currentLevel);
 
   // Check if user leveled up and update profile
-  // Use useRef to track if update is in progress to prevent loops
-  const levelUpdateInProgressRef = useRef(false);
   // Stable ref for onLevelUp callback to prevent dependency loop
   const onLevelUpRef = useRef(onLevelUp);
   onLevelUpRef.current = onLevelUp;
@@ -43,8 +48,17 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPr
     if (!avatar || !profile?.user_id) return;
     
     const currentProfileLevel = profile.level || 1;
-    if (currentProfileLevel < currentLevel && !levelUpdateInProgressRef.current) {
-      levelUpdateInProgressRef.current = true;
+    
+    // Module-level guard to prevent loops across remounts
+    // Skip if already processing, or if we've already updated to this level for this user
+    const alreadyUpdatedThisLevel = 
+      levelUpdateState.lastUpdatedUserId === profile.user_id && 
+      levelUpdateState.lastUpdatedLevel >= currentLevel;
+    
+    if (currentProfileLevel < currentLevel && !levelUpdateState.inProgress && !alreadyUpdatedThisLevel) {
+      levelUpdateState.inProgress = true;
+      levelUpdateState.lastUpdatedUserId = profile.user_id;
+      levelUpdateState.lastUpdatedLevel = currentLevel;
       
       if (animationsEnabled) {
         setIsLevelingUp(true);
@@ -63,18 +77,18 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPr
           
           if (result.error) {
             console.error('Error updating profile level:', result.error);
-            levelUpdateInProgressRef.current = false;
+            levelUpdateState.inProgress = false;
           } else {
             // Profile update successful - call stable ref
             onLevelUpRef.current?.();
-            // Reset flag after a delay to allow state to settle
+            // Reset inProgress flag after a delay to allow state to settle
             setTimeout(() => {
-              levelUpdateInProgressRef.current = false;
-            }, 1000);
+              levelUpdateState.inProgress = false;
+            }, 2000); // Increased to 2 seconds
           }
         } catch (error) {
           console.error('Error updating profile level:', error);
-          levelUpdateInProgressRef.current = false;
+          levelUpdateState.inProgress = false;
         }
       };
       updateProfile();
