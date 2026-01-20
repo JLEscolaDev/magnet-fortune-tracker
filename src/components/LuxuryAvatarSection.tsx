@@ -35,6 +35,9 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPr
   // Check if user leveled up and update profile
   // Use useRef to track if update is in progress to prevent loops
   const levelUpdateInProgressRef = useRef(false);
+  // Stable ref for onLevelUp callback to prevent dependency loop
+  const onLevelUpRef = useRef(onLevelUp);
+  onLevelUpRef.current = onLevelUp;
   
   useEffect(() => {
     if (!avatar || !profile?.user_id) return;
@@ -62,9 +65,8 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPr
             console.error('Error updating profile level:', result.error);
             levelUpdateInProgressRef.current = false;
           } else {
-            // Profile update successful - this will trigger a re-render
-            // but levelUpdateInProgressRef prevents loop
-            onLevelUp?.();
+            // Profile update successful - call stable ref
+            onLevelUpRef.current?.();
             // Reset flag after a delay to allow state to settle
             setTimeout(() => {
               levelUpdateInProgressRef.current = false;
@@ -83,7 +85,7 @@ export const LuxuryAvatarSection = ({ profile, fortuneCount, onLevelUp, onOpenPr
         return () => clearTimeout(timeoutId);
       }
     }
-  }, [avatar, currentLevel, profile?.level, profile?.user_id, onLevelUp, animationsEnabled]);
+  }, [avatar, currentLevel, profile?.level, profile?.user_id, animationsEnabled]);
 
   // Check if user is a beta tester (registered before 2026)
   useEffect(() => {
