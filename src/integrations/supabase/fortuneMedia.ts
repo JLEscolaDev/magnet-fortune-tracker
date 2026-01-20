@@ -16,21 +16,25 @@ export type FortuneMedia = {
   bucket: string;
   path: string;
   version?: string | null;
+  updatedAt?: string | null;
 };
 
 /**
- * getFortuneMedia
+ * normalizeFortuneMedia
  *
  * Normalizes the media info coming from DB/UI into a stable shape.
  * This exists because multiple call sites pass slightly different payloads.
  */
-export function getFortuneMedia(
+export function normalizeFortuneMedia(
   input:
     | {
         fortuneId?: string | null;
+        fortune_id?: string | null;
         bucket?: string | null;
         path?: string | null;
         version?: string | null;
+        updated_at?: string | null;
+        updatedAt?: string | null;
       }
     | null
     | undefined,
@@ -42,11 +46,44 @@ export function getFortuneMedia(
   if (!rawPath) return null;
 
   return {
-    fortuneId: input.fortuneId ?? null,
+    fortuneId: input.fortuneId ?? input.fortune_id ?? null,
     bucket,
     path: normalizePath(bucket, rawPath),
     version: input.version ?? null,
+    updatedAt: input.updatedAt ?? input.updated_at ?? null,
   };
+}
+
+/**
+ * getFortuneMedia
+ *
+ * Fetches media record from the database for a given fortune ID.
+ * Returns null if no media exists.
+ */
+export async function getFortuneMedia(
+  fortuneId: string,
+): Promise<FortuneMedia | null> {
+  try {
+    const { data, error } = await supabase
+      .from('fortune_media')
+      .select('fortune_id, bucket, path, updated_at')
+      .eq('fortune_id', fortuneId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return normalizeFortuneMedia({
+      fortune_id: data.fortune_id,
+      bucket: data.bucket,
+      path: data.path,
+      updated_at: data.updated_at,
+    });
+  } catch (e) {
+    console.error('[FORTUNE_MEDIA] Error fetching media:', e);
+    return null;
+  }
 }
 
 type CreateSignedUrlParams = {

@@ -311,17 +311,17 @@ export const FortuneModal = ({
               const mediaData = await getFortuneMedia(targetFortuneId);
               if (mediaData) {
                 console.log('[PHOTO-POLL] DB_UPDATE_CONFIRMED - Triggering refresh', {
-                  fortuneId: mediaData.fortune_id,
+                  fortuneId: mediaData.fortuneId,
                   bucket: mediaData.bucket,
                   path: mediaData.path,
-                  updated_at: mediaData.updated_at
+                  updatedAt: mediaData.updatedAt
                 });
                 
                 // Get signed URL for immediate use (always via Edge)
                 const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
                   body: {
                     action: 'SIGN_ONLY',
-                    fortune_id: mediaData.fortune_id,
+                    fortune_id: mediaData.fortuneId,
                     ttlSec: 300,
                   },
                 });
@@ -333,14 +333,14 @@ export const FortuneModal = ({
                 // Dispatch specific photo update event with media info
                 const photoUpdateEvent = new CustomEvent("fortunePhotoUpdated", {
                   detail: {
-                    fortuneId: mediaData.fortune_id,
-                    updated_at: mediaData.updated_at,
+                    fortuneId: mediaData.fortuneId,
+                    updatedAt: mediaData.updatedAt,
                     signedUrl: signedUrl || undefined
                   }
                 });
                 console.log('[PHOTO-POLL] Dispatching fortunePhotoUpdated event after polling', {
-                  fortuneId: mediaData.fortune_id,
-                  updated_at: mediaData.updated_at
+                  fortuneId: mediaData.fortuneId,
+                  updatedAt: mediaData.updatedAt
                 });
                 window.dispatchEvent(photoUpdateEvent);
                 
