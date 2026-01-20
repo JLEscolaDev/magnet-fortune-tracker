@@ -209,13 +209,13 @@ serve(async (req) => {
 
     console.log('issue-fortune-upload-ticket: TICKET_OK', { path: bucketRelativePath, BUILD_TAG });
 
-    // Minimal response (avoid large payloads that iOS can't parse)
+    // Minimal response with token for SDK uploadToSignedUrl()
     const responseObject = {
       bucket: 'photos',
       path: bucketRelativePath,
       url: data.signedUrl,
-      uploadMethod: 'POST_MULTIPART',
-      formFieldName: 'file',
+      token: data.token,  // Required for supabase.storage.uploadToSignedUrl()
+      uploadMethod: 'PUT',
       buildTag: BUILD_TAG
     };
 
