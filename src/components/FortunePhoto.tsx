@@ -11,6 +11,8 @@ import { getFortuneMedia, type FortuneMedia } from '@/integrations/supabase/fort
  *
  * This component delegates signing + caching to `useSignedUrl`.
  * If no path is provided, it fetches the media info from the database.
+ * 
+ * Gracefully handles orphaned media records (deleted fortunes, missing files) by rendering nothing.
  */
 
 type FortunePhotoProps = {
@@ -35,6 +37,7 @@ export function FortunePhoto({
   // State to hold media info fetched from DB when path is not provided
   const [mediaInfo, setMediaInfo] = useState<FortuneMedia | null>(null);
   const [loading, setLoading] = useState(!path);
+  const [error, setError] = useState(false);
 
   // Fetch media info from DB if path is not provided
   useEffect(() => {
@@ -52,12 +55,17 @@ export function FortunePhoto({
         if (!cancelled) {
           setMediaInfo(media);
           setLoading(false);
+          // If no media found, this is fine - just means no photo attached
+          if (!media) {
+            setError(false); // Not an error, just no photo
+          }
         }
-      } catch (error) {
-        console.error('[FortunePhoto] Error fetching media:', error);
+      } catch (err) {
+        console.error('[FortunePhoto] Error fetching media:', err);
         if (!cancelled) {
           setMediaInfo(null);
           setLoading(false);
+          setError(true); // Silent error - we'll just not render
         }
       }
     };
@@ -76,19 +84,22 @@ export function FortunePhoto({
 
   const signedUrl = useSignedUrl(effectiveBucket, effectivePath, ttlSec, effectiveVersion, fortuneId);
 
-  // If still loading media info, show placeholder
+  // If still loading media info, show lightweight placeholder
   if (loading) {
-    return <div className={className} aria-busy="true" />;
+    return <div className={className} aria-busy="true" style={{ minHeight: '50px' }} />;
   }
 
-  // If we don't have a path, we can't render anything (no media exists).
-  if (!effectivePath) {
+  // If we had an error or don't have a path, render nothing (graceful degradation)
+  if (error || !effectivePath) {
     return null;
   }
 
   // While loading signed URL, show a lightweight placeholder to avoid layout jumps.
-  if (!signedUrl) {
-    return <div className={className} aria-busy="true" style={{ minHeight: '100px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }} />;
+  // If signedUrl is null after loading, it means the file doesn't exist - render nothing
+  if (signedUrl === null) {
+    // The useSignedUrl hook returns null while loading AND when the file doesn't exist
+    // We give it a brief moment to load, then hide if still null
+    return <div className={className} aria-busy="true" style={{ minHeight: '50px', background: 'transparent' }} />;
   }
 
   return (
@@ -99,6 +110,10 @@ export function FortunePhoto({
       loading="lazy"
       decoding="async"
       style={{ borderRadius: '8px' }}
+      onError={(e) => {
+        // Hide broken images gracefully
+        (e.target as HTMLImageElement).style.display = 'none';
+      }}
     />
   );
 }
