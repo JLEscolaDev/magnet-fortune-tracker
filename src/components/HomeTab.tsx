@@ -36,20 +36,26 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
     }
   }, []);
 
+  // All useCallback hooks MUST be before any early returns
+  const handleLevelUp = useCallback(() => {
+    fetchRecentFortunes(true);
+  }, [fetchRecentFortunes]);
+
+  const handleFortunesUpdated = useCallback(() => {
+    fetchRecentFortunes(true);
+  }, [fetchRecentFortunes]);
+
   // Only fetch on initial mount or explicit refresh trigger (user action)
   useEffect(() => {
-    // On initial mount, fetch without force (will respect debounce)
-    // On refreshTrigger change, force fetch (user explicitly requested refresh)
     const force = refreshTrigger > 0;
     fetchRecentFortunes(force);
   }, [refreshTrigger, fetchRecentFortunes]);
 
   // Listen for fortune updates to refresh Today's Fortunes list
-  // Use force=true for explicit user actions (fortune added/updated/deleted)
   useEffect(() => {
     const handleFortuneUpdate = () => {
       console.log('[HOME-TAB] fortunesUpdated event received - refreshing Today\'s Fortunes list');
-      fetchRecentFortunes(true); // Force refresh on user action
+      fetchRecentFortunes(true);
     };
 
     window.addEventListener("fortunesUpdated", handleFortuneUpdate);
@@ -63,12 +69,13 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
     if (!loading && !appLoading && !tutorialLoading && !isStepCompleted('home')) {
       const timer = setTimeout(() => {
         showTutorial('home');
-      }, 1000); // Small delay to let the UI settle
+      }, 1000);
       
       return () => clearTimeout(timer);
     }
   }, [loading, appLoading, tutorialLoading, isStepCompleted, showTutorial]);
 
+  // Early returns AFTER all hooks
   if (loading || appLoading) {
     return (
       <div className="space-y-6 p-6">
@@ -105,15 +112,6 @@ export const HomeTab = ({ refreshTrigger, onOpenPricing }: HomeTabProps) => {
       </div>
     );
   }
-
-  const handleLevelUp = useCallback(() => {
-    // Refetch recent fortunes (user action - level up)
-    fetchRecentFortunes(true);
-  }, [fetchRecentFortunes]);
-
-  const handleFortunesUpdated = useCallback(() => {
-    fetchRecentFortunes(true);
-  }, [fetchRecentFortunes]);
 
   return (
     <div className="space-y-6 p-6 pb-24 md:pb-6">
