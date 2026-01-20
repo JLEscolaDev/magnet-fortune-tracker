@@ -236,10 +236,12 @@ serve(async (req) => {
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-      // mediaRow.path is already bucket-relative (canonical)
+      // Normalize path to ensure it's bucket-relative (no bucket prefix)
+      const normalizedPath = stripBucketPrefix(mediaRow.bucket, mediaRow.path);
+      
       const { data: sData, error: sErr } = await serviceClient.storage
         .from(mediaRow.bucket)
-        .createSignedUrl(mediaRow.path, ttl);
+        .createSignedUrl(normalizedPath, ttl);
 
       if (sErr || !sData?.signedUrl) {
         console.error('finalize-fortune-photo: SIGN_ONLY failed to sign', {
