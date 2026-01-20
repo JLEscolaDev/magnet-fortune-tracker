@@ -1,4 +1,4 @@
-
+/// <reference lib="deno.ns" />
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
