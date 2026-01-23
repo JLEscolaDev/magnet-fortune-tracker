@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
 // BUILD_TAG for deployment drift detection
 // Update this timestamp when deploying to production
-const BUILD_TAG = '2026-01-18-sign-only-fix';
+const BUILD_TAG = '2026-01-23-graceful-notfound';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -244,6 +244,30 @@ serve(async (req) => {
         .createSignedUrl(normalizedPath, ttl);
 
       if (sErr || !sData?.signedUrl) {
+        // Check if this is an "Object not found" error - file wasn't persisted
+        const errMessage = (sErr as { message?: string } | null)?.message || '';
+        const isNotFound = errMessage.includes('Object not found') || errMessage.includes('not found');
+        
+        if (isNotFound) {
+          // File doesn't exist in storage - return null signedUrl instead of error
+          // This happens when iOS uploader used wrong method (POST multipart instead of PUT)
+          console.warn('finalize-fortune-photo: SIGN_ONLY file not found in storage, returning null', {
+            fortune_id,
+            bucket: mediaRow.bucket,
+            path: mediaRow.path,
+          });
+          return new Response(JSON.stringify({
+            signedUrl: null,
+            media: null,
+            fileNotFound: true,
+            buildTag: BUILD_TAG,
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        // Other errors - return 500
         console.error('finalize-fortune-photo: SIGN_ONLY failed to sign', {
           fortune_id,
           bucket: mediaRow.bucket,
