@@ -18,8 +18,9 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useAuth } from '@/auth/AuthProvider';
 import { getFortuneMedia, type FortuneMedia } from '@/integrations/supabase/fortuneMedia';
 import { useSignedUrl } from '@/hooks/useSignedUrl';
-import type { NativeUploaderOptions, NativeUploaderResult } from '@/types/native';
+import type { NativeUploaderOptions, NativeUploaderResult, NativePhotoPickerResult } from '@/types/native';
 import { useIsNativePlatform } from '@/hooks/useIsNativePlatform';
+import { processAndUpload } from '@/lib/nativeUploader';
 
 interface FortuneModalProps {
   isOpen: boolean;
@@ -412,11 +413,23 @@ export const FortuneModal = ({
       return;
     }
 
-    if (!window.NativeUploader || !isHighTier) {
-      console.log('[PHOTO] No uploader or not high tier:', {
-        hasUploader: !!window.NativeUploader,
-        isHighTier,
+    // Check for available uploaders
+    const hasNewPicker = window.NativePhotoPickerAvailable && window.NativePhotoPicker;
+    const hasLegacyUploader = window.NativeUploaderAvailable && window.NativeUploader;
+
+    if (!hasNewPicker && !hasLegacyUploader) {
+      console.log('[PHOTO] No uploader available');
+      toast({
+        title: "Photo upload unavailable",
+        description: "Please update the app to the latest version.",
+        variant: "destructive",
       });
+      ticketRequested.current = false;
+      return;
+    }
+
+    if (!isHighTier) {
+      console.log('[PHOTO] Not high tier');
       toast({
         title: "Pro subscription required",
         description: "Photo attachments require a Pro or Lifetime subscription.",
@@ -452,7 +465,7 @@ export const FortuneModal = ({
           return;
         }
         
-        // Use temporary ID for mock uploader
+        // Use temporary ID for create mode
         targetFortuneId = `temp-${Date.now()}`;
         console.log('[PHOTO] Using temporary ID for create mode:', targetFortuneId);
       } else {
@@ -460,49 +473,100 @@ export const FortuneModal = ({
         console.log('[PHOTO] Edit mode - using fortune ID:', targetFortuneId);
       }
 
-      // Call native uploader
-      console.log('[PHOTO] Calling native uploader...');
-      const options: NativeUploaderOptions = {
-        supabaseUrl: 'https://pegiensgnptpdnfopnoj.supabase.co',
-        accessToken,
-        userId: user.id,
-        fortuneId: targetFortuneId
-      };
+      let result: NativeUploaderResult;
 
-      const result: NativeUploaderResult = await window.NativeUploader.pickAndUploadFortunePhoto(options);
-      console.log('[PHOTO] Upload result:', result);
+      // ========== NEW: Use simplified picker if available ==========
+      if (hasNewPicker) {
+        console.log('[PHOTO] Using new NativePhotoPicker (simplified flow)');
+        
+        // Step 1: Pick photo (native handles gallery/camera only)
+        const pickerResult: NativePhotoPickerResult = await window.NativePhotoPicker!.pickPhoto();
+        
+        if (pickerResult.cancelled) {
+          console.log('[PHOTO] User cancelled photo selection');
+          ticketRequested.current = false;
+          setPhotoAttaching(false);
+          return;
+        }
 
+        console.log('[PHOTO] Photo picked:', {
+          mimeType: pickerResult.mimeType,
+          bytesLength: pickerResult.bytes.length,
+          width: pickerResult.width,
+          height: pickerResult.height
+        });
+
+        // Step 2: Create Blob from bytes
+        const extension = pickerResult.mimeType === 'image/png' ? 'png' : 'jpg';
+        // Create a new Uint8Array copy to ensure we have a regular ArrayBuffer
+        const bytesCopy = new Uint8Array(pickerResult.bytes);
+        const blob = new Blob([bytesCopy.buffer as ArrayBuffer], { type: pickerResult.mimeType });
+        const file = new File(
+          [blob], 
+          `photo-${Date.now()}.${extension}`,
+          { type: pickerResult.mimeType }
+        );
+
+        // Step 3: Use shared Lovable uploader (processAndUpload uses uploadToSignedUrl)
+        const uploadOptions: NativeUploaderOptions = {
+          supabaseUrl: 'https://pegiensgnptpdnfopnoj.supabase.co',
+          accessToken,
+          userId: user.id,
+          fortuneId: targetFortuneId
+        };
+
+        // Wrap in promise to match existing flow
+        result = await new Promise<NativeUploaderResult>((resolve) => {
+          processAndUpload(uploadOptions, file, resolve);
+        });
+
+        console.log('[PHOTO] Upload result from processAndUpload:', result);
+
+      } else if (hasLegacyUploader) {
+        // ========== LEGACY: Use old uploader (iOS injected JavaScript) ==========
+        console.log('[PHOTO] Using legacy NativeUploader (full flow in native)');
+        
+        const options: NativeUploaderOptions = {
+          supabaseUrl: 'https://pegiensgnptpdnfopnoj.supabase.co',
+          accessToken,
+          userId: user.id,
+          fortuneId: targetFortuneId
+        };
+
+        result = await window.NativeUploader!.pickAndUploadFortunePhoto(options);
+        console.log('[PHOTO] Upload result from NativeUploader:', result);
+      } else {
+        throw new Error('No photo uploader available');
+      }
+
+      // Handle result (same for both paths)
       if (result.cancelled) {
         console.log('[PHOTO] User cancelled upload');
         ticketRequested.current = false;
-        return; // User cancelled, no action needed
+        return;
       }
 
       // Handle pending photo (needs polling) or immediate result
       if (result.pending) {
         console.log('[PHOTO] Upload is pending, will poll for completion');
         setFortunePhoto('pending');
-        // Store pending upload info for later submission
         setPendingPhotoUpload({
-          fortuneId: '', // Will be filled when fortune is created
+          fortuneId: '',
           path: result.path || '',
           bucket: result.bucket || 'photos'
         });
         
-        // Start polling for signed URL and store cleanup function
         const cleanup = pollForPhotoCompletion(result.path || '', result.bucket || 'photos');
         if (cleanup) {
-          // Clean up any existing polling
           if (pollCleanupRef.current) {
             pollCleanupRef.current();
           }
           pollCleanupRef.current = cleanup;
         }
       } else {
-        // Immediate result with signed URL - store the upload info for later
         setFortunePhoto(result.signedUrl);
         setPendingPhotoUpload({
-          fortuneId: '', // Will be filled when fortune is created
+          fortuneId: '',
           path: result.path || '',
           bucket: result.bucket || 'photos'
         });
@@ -513,8 +577,7 @@ export const FortuneModal = ({
         description: result.pending ? "Photo is processing..." : "Your photo has been successfully uploaded.",
       });
 
-      // Trigger refresh of fortunes list so Today's Fortunes shows updated image
-      // Only refresh after DB confirms update (when not pending and we have media info)
+      // Trigger refresh of fortunes list
       if (!result.pending && result.media) {
         console.log('[PHOTO-UPLOAD] DB_UPDATE_CONFIRMED - Triggering refresh', {
           fortuneId: result.media.fortune_id,
@@ -524,25 +587,19 @@ export const FortuneModal = ({
           replaced: result.replaced
         });
         
-        // Dispatch specific photo update event with media info - this triggers immediate refresh
         const photoUpdateEvent = new CustomEvent("fortunePhotoUpdated", {
           detail: {
             fortuneId: result.media.fortune_id,
             updated_at: result.media.updated_at,
-            signedUrl: result.signedUrl // Pass signed URL for immediate use
+            signedUrl: result.signedUrl
           }
         });
-        console.log('[PHOTO-UPLOAD] Dispatching fortunePhotoUpdated event', {
-          fortuneId: result.media.fortune_id,
-          updated_at: result.media.updated_at
-        });
+        console.log('[PHOTO-UPLOAD] Dispatching fortunePhotoUpdated event');
         window.dispatchEvent(photoUpdateEvent);
         
-        // Also dispatch general event for backward compatibility
         console.log('[PHOTO-UPLOAD] Dispatching fortunesUpdated event');
         window.dispatchEvent(new Event("fortunesUpdated"));
         
-        // Explicitly trigger parent refresh callback
         onFortuneUpdated?.();
       } else if (result.pending) {
         console.log('[PHOTO-UPLOAD] Upload pending - refresh will be triggered after polling completes');

@@ -30,10 +30,41 @@ export interface NativeUploader {
   pickAndUploadFortunePhoto: (options: NativeUploaderOptions) => Promise<NativeUploaderResult>;
 }
 
+// ============ NEW: Simplified Photo Picker Interface ============
+// This is the new simplified interface for iOS/Android native photo pickers.
+// The native code only handles photo selection and returns image bytes.
+// All upload logic is handled by Lovable's shared TypeScript code.
+
+export interface NativePhotoPickerResult {
+  /** Raw image bytes as Uint8Array */
+  bytes: Uint8Array;
+  /** MIME type of the image (e.g., 'image/jpeg', 'image/png') */
+  mimeType: string;
+  /** Image width in pixels (optional) */
+  width?: number;
+  /** Image height in pixels (optional) */
+  height?: number;
+  /** True if user cancelled the photo selection */
+  cancelled?: boolean;
+}
+
+export interface NativePhotoPicker {
+  /**
+   * Opens native photo picker and returns selected image bytes.
+   * Does NOT perform any upload - that's handled by Lovable code.
+   */
+  pickPhoto: () => Promise<NativePhotoPickerResult>;
+}
+
 declare global {
   interface Window {
+    // Legacy uploader (iOS injected JavaScript - handles full upload flow)
     NativeUploaderAvailable?: boolean;
     NativeUploader?: NativeUploader;
+    
+    // NEW: Simplified photo picker (native code only picks photo, Lovable handles upload)
+    NativePhotoPickerAvailable?: boolean;
+    NativePhotoPicker?: NativePhotoPicker;
   }
 }
 
