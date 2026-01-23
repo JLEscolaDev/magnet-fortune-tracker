@@ -40,3 +40,6 @@ verify_jwt = false
 
 [functions.finalize-fortune-photo]
 verify_jwt = false
+
+[functions.upload-fortune-photo]
+verify_jwt = false
