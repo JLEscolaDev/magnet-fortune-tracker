@@ -16,25 +16,21 @@ export type FortuneMedia = {
   bucket: string;
   path: string;
   version?: string | null;
-  updatedAt?: string | null;
 };
 
 /**
- * normalizeFortuneMedia
+ * getFortuneMedia
  *
  * Normalizes the media info coming from DB/UI into a stable shape.
  * This exists because multiple call sites pass slightly different payloads.
  */
-export function normalizeFortuneMedia(
+export function getFortuneMedia(
   input:
     | {
         fortuneId?: string | null;
-        fortune_id?: string | null;
         bucket?: string | null;
         path?: string | null;
         version?: string | null;
-        updated_at?: string | null;
-        updatedAt?: string | null;
       }
     | null
     | undefined,
@@ -46,44 +42,11 @@ export function normalizeFortuneMedia(
   if (!rawPath) return null;
 
   return {
-    fortuneId: input.fortuneId ?? input.fortune_id ?? null,
+    fortuneId: input.fortuneId ?? null,
     bucket,
     path: normalizePath(bucket, rawPath),
     version: input.version ?? null,
-    updatedAt: input.updatedAt ?? input.updated_at ?? null,
   };
-}
-
-/**
- * getFortuneMedia
- *
- * Fetches media record from the database for a given fortune ID.
- * Returns null if no media exists.
- */
-export async function getFortuneMedia(
-  fortuneId: string,
-): Promise<FortuneMedia | null> {
-  try {
-    const { data, error } = await supabase
-      .from('fortune_media')
-      .select('fortune_id, bucket, path, updated_at')
-      .eq('fortune_id', fortuneId)
-      .maybeSingle();
-
-    if (error || !data) {
-      return null;
-    }
-
-    return normalizeFortuneMedia({
-      fortune_id: data.fortune_id,
-      bucket: data.bucket,
-      path: data.path,
-      updated_at: data.updated_at,
-    });
-  } catch (e) {
-    console.error('[FORTUNE_MEDIA] Error fetching media:', e);
-    return null;
-  }
 }
 
 type CreateSignedUrlParams = {
@@ -173,15 +136,20 @@ export async function createSignedUrlViaEdgeWithRetry(
     }
   }
 
-  // Silently return null for missing files - these are expected for orphaned records
-  // Only log in dev mode for debugging
-  if (import.meta.env?.DEV && import.meta.env?.VITE_DEBUG_PHOTOS) {
-    console.debug('[FORTUNE-PHOTO] File not found (orphaned record):', {
+  // Keep console noise low in production, but useful in dev.
+  if (import.meta.env?.DEV) {
+    // eslint-disable-next-line no-console
+    console.warn('[FORTUNE-PHOTO] Failed to sign via Edge after retries', {
       bucket,
-      path: normalizedPath,
+      path,
+      normalizedPath,
+      ttlSec,
+      version,
       fortuneId,
+      lastError,
     });
   }
 
   return null;
 }
+// Note: exports are provided via `export function ...` and `export type ...` above.

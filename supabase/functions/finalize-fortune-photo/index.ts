@@ -383,37 +383,39 @@ serve(async (req) => {
       });
     }
 
-    // Verify upload actually exists by listing the folder
+    // Create service role client once (used for soft verification + signing)
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-    const pathParts = bucketRelativePath.split('/');
-    const folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : ''; // Get folder path (empty if root)
-    const fileName = pathParts[pathParts.length - 1]; // Get file name
+    // Verify upload existence (SOFT check)
+    // IMPORTANT: Storage can be eventually consistent right after upload.
+    // DO NOT fail the request based on list() results.
+    let uploadVerified = false;
 
-    console.log('finalize-fortune-photo: Verifying upload exists - bucket:', bucket, 'folderPath:', folderPath || '(root)', 'fileName:', fileName);
-    const { data: files, error: listError } = await serviceClient.storage
-      .from(bucket)
-      .list(folderPath || undefined, {
-        limit: 100,
-        search: fileName
+    try {
+      const pathParts = bucketRelativePath.split('/');
+      const folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : '';
+      const fileName = pathParts[pathParts.length - 1];
+
+      console.log('finalize-fortune-photo: Soft verify upload via list()', {
+        bucket,
+        folderPath: folderPath || '(root)',
+        fileName,
       });
 
-    if (listError) {
-      console.error('finalize-fortune-photo: Failed to list folder:', listError);
-      // Continue anyway - might be a permission issue, but log warning
-      console.warn('finalize-fortune-photo: Continuing without upload verification due to list error');
-    } else {
-      const fileExists = files?.some(file => file.name === fileName);
-      if (!fileExists) {
-        console.error('finalize-fortune-photo: UPLOAD_NOT_PERSISTED - File not found after upload - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
-        return new Response(JSON.stringify({
-          error: 'UPLOAD_NOT_PERSISTED',
-          message: 'The uploaded file was not found in storage. Upload may have failed or used incorrect method.'
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      const { data: files, error: listError } = await serviceClient.storage
+        .from(bucket)
+        .list(folderPath || undefined, {
+          limit: 100,
+          search: fileName,
         });
+
+      if (listError) {
+        console.warn('finalize-fortune-photo: Soft verify list() error (ignored)', { listError });
+      } else {
+        uploadVerified = !!files?.some((f) => f.name === fileName);
+        console.log('finalize-fortune-photo: Soft verify result', { uploadVerified });
       }
-      console.log('finalize-fortune-photo: UPLOAD_VERIFIED - File exists in storage - bucket:', bucket, 'bucketRelativePath:', bucketRelativePath);
+    } catch (e) {
+      console.warn('finalize-fortune-photo: Soft verify exception (ignored)', { e });
     }
 
     // Create signed GET URL for immediate use
@@ -460,14 +462,41 @@ serve(async (req) => {
 
     if (!signedUrlData) {
       const msg = (lastSignedUrlError as { message?: string } | null)?.message || 'Failed to create signed URL';
+      const isNotFound = msg.includes('Object not found') || msg.includes('not found');
+
       console.error('finalize-fortune-photo: Failed to create signed URL', {
         bucket,
         bucketRelativePath,
-        error: lastSignedUrlError
+        error: lastSignedUrlError,
+        isNotFound,
       });
+
+      // If the object is not visible yet (eventual consistency) or truly missing,
+      // return a graceful 200 so clients can retry SIGN_ONLY / re-fetch later.
+      if (isNotFound) {
+        return new Response(JSON.stringify({
+          signedUrl: null,
+          replaced,
+          media: {
+            fortune_id: fortune_id,
+            bucket: updatedMedia.bucket,
+            path: updatedMedia.path,
+            updated_at: updatedMedia.updated_at,
+          },
+          fileNotFound: true,
+          uploadVerified,
+          buildTag: BUILD_TAG,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Other errors remain 500
       return new Response(JSON.stringify({
         error: msg,
-        retriable: msg.includes('Object not found') || msg.includes('not found'),
+        retriable: false,
+        buildTag: BUILD_TAG,
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -487,6 +516,7 @@ serve(async (req) => {
         path: updatedMedia.path,
         updated_at: updatedMedia.updated_at
       },
+      uploadVerified,
       // BUILD_TAG for deployment drift detection
       buildTag: BUILD_TAG
     }), {
