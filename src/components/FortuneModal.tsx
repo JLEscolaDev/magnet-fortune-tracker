@@ -590,7 +590,7 @@ export const FortuneModal = ({
         const photoUpdateEvent = new CustomEvent("fortunePhotoUpdated", {
           detail: {
             fortuneId: result.media.fortune_id,
-            updated_at: result.media.updated_at,
+            updatedAt: result.media.updated_at,
             signedUrl: result.signedUrl
           }
         });
