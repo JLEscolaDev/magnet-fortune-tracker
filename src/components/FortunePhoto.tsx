@@ -1,49 +1,53 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createSignedUrlViaEdgeWithRetry, getFortuneMedia, type FortuneMedia } from '@/integrations/supabase/fortuneMedia';
+import { supabase } from '@/integrations/supabase/client';
 
 export type FortunePhotoProps = {
   fortuneId: string;
-  media:
-    | {
-        bucket?: string | null;
-        path?: string | null;
-        version?: string | null;
-      }
-    | null
-    | undefined;
+  /**
+   * Optional cache-busting version (usually fortune_media.updated_at)
+   * Changing this forces the hook to re-fetch a new signed URL.
+   */
+  version?: string;
   alt?: string;
   className?: string;
   ttlSec?: number;
   onSignedUrl?: (url: string | null) => void;
 };
 
-export function useSignedUrl(input: FortuneMedia | null, ttlSec: number = 300): string | null {
+function useSignedUrlByFortuneId(fortuneId: string, version?: string, ttlSec: number = 300): string | null {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
 
   const key = useMemo(() => {
-    if (!input) return null;
-    // include version in the key so cache invalidates when updated_at/version changes
-    return `${input.bucket}|${input.path}|${input.version ?? ''}|${input.fortuneId ?? ''}`;
-  }, [input]);
+    if (!fortuneId) return null;
+    return `${fortuneId}|${version ?? ''}|${ttlSec}`;
+  }, [fortuneId, version, ttlSec]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
-      if (!input || !key) {
+      if (!fortuneId || !key) {
         setSignedUrl(null);
         return;
       }
 
-      const url = await createSignedUrlViaEdgeWithRetry({
-        bucket: input.bucket,
-        path: input.path,
-        ttlSec,
-        version: input.version ?? null,
-        fortuneId: input.fortuneId ?? null,
+      const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
+        body: {
+          action: 'SIGN_ONLY',
+          fortune_id: fortuneId,
+          ttlSec,
+        },
       });
 
       if (cancelled) return;
+
+      if (error) {
+        console.error('[FORTUNE_PHOTO] SIGN_ONLY error:', error);
+        setSignedUrl(null);
+        return;
+      }
+
+      const url = (data as { signedUrl?: string | null } | null)?.signedUrl ?? null;
       setSignedUrl(url);
     }
 
@@ -51,30 +55,21 @@ export function useSignedUrl(input: FortuneMedia | null, ttlSec: number = 300): 
     return () => {
       cancelled = true;
     };
-  }, [input, key, ttlSec]);
+  }, [fortuneId, key, ttlSec]);
 
   return signedUrl;
 }
 
 export function FortunePhoto(props: FortunePhotoProps) {
-  const { fortuneId, media, alt = 'Fortune photo', className, ttlSec = 300, onSignedUrl } = props;
+  const { fortuneId, version, alt = 'Fortune photo', className, ttlSec = 300, onSignedUrl } = props;
 
-  const normalized = useMemo(() => {
-    return getFortuneMedia({
-      fortuneId,
-      bucket: media?.bucket ?? 'photos',
-      path: media?.path ?? null,
-      version: media?.version ?? null,
-    });
-  }, [fortuneId, media?.bucket, media?.path, media?.version]);
-
-  const signedUrl = useSignedUrl(normalized, ttlSec);
+  const signedUrl = useSignedUrlByFortuneId(fortuneId, version, ttlSec);
 
   useEffect(() => {
     onSignedUrl?.(signedUrl);
   }, [signedUrl, onSignedUrl]);
 
-  if (!normalized || !signedUrl) return null;
+  if (!signedUrl) return null;
 
   return (
     <img

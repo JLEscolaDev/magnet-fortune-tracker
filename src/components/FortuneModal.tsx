@@ -240,12 +240,6 @@ export const FortuneModal = ({
 
   const loadFortunePhoto = async (fortuneId: string) => {
     try {
-      const media = await getFortuneMedia(fortuneId);
-      if (!media) {
-        setFortunePhoto(null);
-        return;
-      }
-
       // IMPORTANT: Always sign via Edge (SIGN_ONLY) to avoid Storage 400/Object not found issues.
       const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
         body: {
@@ -268,6 +262,50 @@ export const FortuneModal = ({
       setFortunePhoto(null);
     }
   };
+
+  // After a successful photo upload/finalize, trigger UI refresh everywhere the photo is rendered.
+  // This is robust even when the native uploader doesn't return `media` metadata.
+  const dispatchPhotoRefreshEvents = useCallback(async (fortuneId: string, signedUrl?: string | null) => {
+    try {
+      // Fetch latest media to obtain updated_at (used as version for cache busting)
+      const mediaData = await getFortuneMedia(fortuneId);
+      const updatedAt = mediaData?.updatedAt;
+
+      // If we weren't given a signed URL, try to sign now (always via Edge)
+      let finalSignedUrl: string | null | undefined = signedUrl ?? undefined;
+      if (!finalSignedUrl && mediaData) {
+        const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
+          body: {
+            action: 'SIGN_ONLY',
+            fortune_id: fortuneId,
+            ttlSec: 300,
+          },
+        });
+
+        if (!error) {
+          finalSignedUrl = (data as { signedUrl?: string | null } | null)?.signedUrl ?? null;
+        }
+      }
+
+      if (updatedAt) {
+        window.dispatchEvent(new CustomEvent('fortunePhotoUpdated', {
+          detail: {
+            fortuneId,
+            updatedAt,
+            signedUrl: finalSignedUrl || undefined,
+          },
+        }));
+      }
+
+      // Backward compatible refresh signal
+      window.dispatchEvent(new Event('fortunesUpdated'));
+      onFortuneUpdated?.();
+    } catch (err) {
+      console.error('[FORTUNE_MODAL] dispatchPhotoRefreshEvents failed:', err);
+      window.dispatchEvent(new Event('fortunesUpdated'));
+      onFortuneUpdated?.();
+    }
+  }, [onFortuneUpdated]);
 
   const pollForPhotoCompletion = useCallback((path: string, bucket: string, maxAttempts: number = 3): (() => void) => {
     const targetFortuneId = fortune?.id || '';
@@ -577,34 +615,17 @@ export const FortuneModal = ({
         description: result.pending ? "Photo is processing..." : "Your photo has been successfully uploaded.",
       });
 
-      // Trigger refresh of fortunes list
-      if (!result.pending && result.media) {
-        console.log('[PHOTO-UPLOAD] DB_UPDATE_CONFIRMED - Triggering refresh', {
-          fortuneId: result.media.fortune_id,
-          bucket: result.media.bucket,
-          path: result.media.path,
-          updated_at: result.media.updated_at,
-          replaced: result.replaced
-        });
-        
-        const photoUpdateEvent = new CustomEvent("fortunePhotoUpdated", {
-          detail: {
-            fortuneId: result.media.fortune_id,
-            updatedAt: result.media.updated_at,
-            signedUrl: result.signedUrl
-          }
-        });
-        console.log('[PHOTO-UPLOAD] Dispatching fortunePhotoUpdated event');
-        window.dispatchEvent(photoUpdateEvent);
-        
-        console.log('[PHOTO-UPLOAD] Dispatching fortunesUpdated event');
-        window.dispatchEvent(new Event("fortunesUpdated"));
-        
-        onFortuneUpdated?.();
-      } else if (result.pending) {
-        console.log('[PHOTO-UPLOAD] Upload pending - refresh will be triggered after polling completes');
+      // Trigger refresh of fortunes list + force FortunePhoto cache-busting version update
+      if (!result.pending) {
+        // Update modal preview immediately (if we have a signed URL)
+        if (result.signedUrl && result.signedUrl !== 'pending') {
+          setFortunePhoto(result.signedUrl);
+        }
+
+        // Always dispatch refresh events (robust even if `result.media` is missing)
+        await dispatchPhotoRefreshEvents(targetFortuneId, result.signedUrl ?? null);
       } else {
-        console.warn('[PHOTO-UPLOAD] No media info in response - refresh may not work correctly');
+        console.log('[PHOTO-UPLOAD] Upload pending - refresh will be triggered after polling completes');
       }
 
     } catch (error) {
