@@ -94,6 +94,43 @@ const shootConfetti = () => {
   }
 };
 
+async function convertWebpToJpegIfNeeded(file: File): Promise<File> {
+  if (file.type !== 'image/webp') return file;
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = new (window as any).Image();
+    img.crossOrigin = 'anonymous';
+
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Failed to decode WEBP image'));
+      img.src = objectUrl;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width || 1;
+    canvas.height = img.height || 1;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D context not available');
+
+    ctx.drawImage(img, 0, 0);
+
+    const jpegBlob: Blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('Failed to convert WEBP to JPEG'))),
+        'image/jpeg',
+        0.92
+      );
+    });
+
+    return new File([jpegBlob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export const FortuneModal = ({ 
   isOpen, 
   onClose, 
@@ -115,6 +152,8 @@ export const FortuneModal = ({
   const [bigWinsCount, setBigWinsCount] = useState<number>(0);
   const [photoAttaching, setPhotoAttaching] = useState(false);
   const [fortunePhoto, setFortunePhoto] = useState<string | null>(null);
+  const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
+  const [pendingPhotoPreviewUrl, setPendingPhotoPreviewUrl] = useState<string | null>(null);
   const [persistedFortuneId, setPersistedFortuneId] = useState<string | null>(null);
   const [pendingPhotoUpload, setPendingPhotoUpload] = useState<{
     fortuneId: string;
@@ -123,6 +162,7 @@ export const FortuneModal = ({
   } | null>(null);
   const pollCleanupRef = useRef<(() => void) | null>(null);
   const ticketRequested = useRef(false);
+  const userSelectedPhotoRef = useRef(false);
   const { toast } = useToast();
   const { user, accessToken } = useAuth();
   const freePlanStatus = useFreePlanLimits();
@@ -209,6 +249,15 @@ export const FortuneModal = ({
     };
   }, []);
 
+  // Cleanup local preview object URL
+  useEffect(() => {
+    return () => {
+      if (pendingPhotoPreviewUrl && pendingPhotoPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(pendingPhotoPreviewUrl);
+      }
+    };
+  }, [pendingPhotoPreviewUrl]);
+
   // Populate form when editing - wait for categories to load
   useEffect(() => {
     if (isEditMode && fortune && isOpen && categories.length > 0) {
@@ -220,9 +269,13 @@ export const FortuneModal = ({
       setCategory(fortune.category as FortuneCategory || '');
       setFortuneValue(fortune.fortune_value ? String(fortune.fortune_value) : '');
       setImpactLevel(fortune.impact_level || 'small_step');
-      
+      // Prevent async photo load from overwriting local preview
+      userSelectedPhotoRef.current = false;
       // Load existing photo if available
       loadFortunePhoto(fortune.id);
+      // Clear any local (unsaved) photo selection when opening edit mode
+      setPendingPhotoFile(null);
+      setPendingPhotoPreviewUrl(null);
     } else if (!isEditMode && isOpen) {
       // Reset form for create mode
       setText('');
@@ -231,6 +284,8 @@ export const FortuneModal = ({
       setImpactLevel('small_step');
       setPersistedFortuneId(null);
       setFortunePhoto(null);
+      setPendingPhotoFile(null);
+      setPendingPhotoPreviewUrl(null);
     }
   }, [isEditMode, fortune, isOpen, categories]);
 
@@ -240,6 +295,11 @@ export const FortuneModal = ({
 
   const loadFortunePhoto = async (fortuneId: string) => {
     try {
+      // If the user has selected a new photo in this session, do NOT overwrite the preview
+      if (userSelectedPhotoRef.current || pendingPhotoPreviewUrl || pendingPhotoFile) {
+        return;
+      }
+
       // IMPORTANT: Always sign via Edge (SIGN_ONLY) to avoid Storage 400/Object not found issues.
       const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
         body: {
@@ -252,6 +312,11 @@ export const FortuneModal = ({
       if (error) {
         console.error('[FORTUNE_MODAL] Error signing fortune photo via edge:', error);
         setFortunePhoto(null);
+        return;
+      }
+
+      // If a selection happened while we were awaiting, do not overwrite
+      if (userSelectedPhotoRef.current || pendingPhotoPreviewUrl || pendingPhotoFile) {
         return;
       }
 
@@ -306,6 +371,33 @@ export const FortuneModal = ({
       onFortuneUpdated?.();
     }
   }, [onFortuneUpdated]);
+
+  // Await a signed URL for a fortune photo via Edge (SIGN_ONLY). Used to block the Save flow
+  // so the modal only closes once the upload is truly available.
+  const waitForSignedPhotoUrl = useCallback(async (fortuneId: string, maxAttempts: number = 6, delayMs: number = 750) => {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const { data, error } = await supabase.functions.invoke('finalize-fortune-photo', {
+        body: {
+          action: 'SIGN_ONLY',
+          fortune_id: fortuneId,
+          ttlSec: 300,
+        },
+      });
+
+      if (!error) {
+        const signedUrl = (data as { signedUrl?: string | null } | null)?.signedUrl ?? null;
+        if (signedUrl) {
+          return signedUrl;
+        }
+      }
+
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
+
+    return null;
+  }, []);
 
   const pollForPhotoCompletion = useCallback((path: string, bucket: string, maxAttempts: number = 3): (() => void) => {
     const targetFortuneId = fortune?.id || '';
@@ -425,23 +517,22 @@ export const FortuneModal = ({
       isCancelled = true;
       clearInterval(pollInterval);
     };
-  }, [fortune?.id, onFortuneUpdated, toast]);
+  }, [fortune?.id, onFortuneUpdated, onClose, toast]);
 
   const handleAttachPhoto = async () => {
     // Prevent multiple simultaneous requests
     if (ticketRequested.current) {
-      console.log('[PHOTO] Upload already in progress, ignoring duplicate request');
+      console.log('[PHOTO] Picker already in progress, ignoring duplicate request');
       return;
     }
 
-    // Lock immediately to avoid double taps / repeated UI events creating parallel requests
+    // Lock immediately to avoid double taps / repeated UI events
     ticketRequested.current = true;
 
-    console.log('[PHOTO] Starting photo attach process...');
+    console.log('[PHOTO] Starting photo pick (preview-only, upload on Save)...');
 
-    // Block upload entirely on web - only allow on native
+    // Block on web - only allow on native
     if (!isNative) {
-      console.log('[PHOTO] Upload blocked - not running in native platform');
       toast({
         title: "Mobile app required",
         description: "Photo attachments can only be added from the mobile app.",
@@ -451,23 +542,8 @@ export const FortuneModal = ({
       return;
     }
 
-    // Check for available uploaders
-    const hasNewPicker = window.NativePhotoPickerAvailable && window.NativePhotoPicker;
-    const hasLegacyUploader = window.NativeUploaderAvailable && window.NativeUploader;
-
-    if (!hasNewPicker && !hasLegacyUploader) {
-      console.log('[PHOTO] No uploader available');
-      toast({
-        title: "Photo upload unavailable",
-        description: "Please update the app to the latest version.",
-        variant: "destructive",
-      });
-      ticketRequested.current = false;
-      return;
-    }
-
+    // Must be Pro/Lifetime
     if (!isHighTier) {
-      console.log('[PHOTO] Not high tier');
       toast({
         title: "Pro subscription required",
         description: "Photo attachments require a Pro or Lifetime subscription.",
@@ -477,167 +553,323 @@ export const FortuneModal = ({
       return;
     }
 
+    // Only allow attaching photos in edit mode (existing fortune)
+    if (!isEditMode || !fortune?.id) {
+      toast({
+        title: "Save first",
+        description: "Save this fortune first, then edit it to add a photo.",
+        variant: "destructive",
+      });
+      ticketRequested.current = false;
+      return;
+    }
+
+    // Prefer the new picker (preview-only flow). Legacy uploader cannot defer upload.
+    // NOTE: Do NOT rely only on the "Available" flags; some builds may not inject them.
+    const hasNewPicker = typeof window.NativePhotoPicker?.pickPhoto === 'function';
+    const hasLegacyUploader = typeof window.NativeUploader?.upload === 'function';
+
+    // Fallback: some iOS builds may not inject window.NativePhotoPicker yet, but Capacitor Camera exists.
+    const hasCapacitorCamera = typeof (window as any).Capacitor !== 'undefined'
+      && !!(window as any).Capacitor?.Plugins?.Camera
+      && typeof (window as any).Capacitor.Plugins.Camera.getPhoto === 'function';
+
+    const pickPhotoFallback = async (): Promise<NativePhotoPickerResult> => {
+      const Cap = (window as any).Capacitor;
+      const Camera = Cap?.Plugins?.Camera;
+      if (!Camera?.getPhoto) {
+        throw new Error('Camera plugin not available');
+      }
+
+      const cameraResult = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        source: 'PHOTOS',
+        resultType: 'Base64',
+        correctOrientation: true,
+      });
+
+      if (!cameraResult) {
+        return { cancelled: true } as NativePhotoPickerResult;
+      }
+
+      const base64 = (cameraResult as any).base64String as string | undefined;
+      const format = ((cameraResult as any).format as string | undefined)?.toLowerCase();
+
+      const inferMime = (): string => {
+        if (format === 'png') return 'image/png';
+        if (format === 'webp') return 'image/webp';
+        return 'image/jpeg';
+      };
+
+      if (base64 && base64.length > 0) {
+        const binary = atob(base64);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+
+        const mimeType = inferMime();
+
+        // Try to resolve dimensions from plugin if present
+        let width = cameraResult.width || 0;
+        let height = cameraResult.height || 0;
+
+        return {
+          cancelled: false,
+          bytes,
+          mimeType,
+          width,
+          height,
+        } as NativePhotoPickerResult;
+      }
+
+      // Fallback (older behavior): use webPath/path and fetch
+      const webPath = cameraResult.webPath || cameraResult.path || '';
+      if (!webPath) {
+        return { cancelled: true } as NativePhotoPickerResult;
+      }
+
+      const fileResp = await fetch(webPath);
+      const blob = await fileResp.blob();
+      const mimeType = (blob.type || inferMime() || 'image/jpeg') as string;
+      const buf = await blob.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+
+      // Try to resolve dimensions
+      let width = cameraResult.width || 0;
+      let height = cameraResult.height || 0;
+      if (!width || !height) {
+        await new Promise<void>((resolve) => {
+          const img = new (window as any).Image();
+          img.onload = () => {
+            width = img.width || 0;
+            height = img.height || 0;
+            resolve();
+          };
+          img.onerror = () => resolve();
+          img.src = webPath;
+          setTimeout(() => resolve(), 3000);
+        });
+      }
+
+      return {
+        cancelled: false,
+        bytes,
+        mimeType,
+        width,
+        height,
+      } as NativePhotoPickerResult;
+    };
+
+    // If we have neither the new picker nor a Capacitor Camera fallback, we can't proceed.
+    if (!hasNewPicker && !hasCapacitorCamera && !hasLegacyUploader) {
+      toast({
+        title: "Photo upload unavailable",
+        description: "Please update the app to the latest version.",
+        variant: "destructive",
+      });
+      ticketRequested.current = false;
+      return;
+    }
+
+    // If only legacy uploader exists (no new picker and no Capacitor fallback), we cannot support "upload on Save" reliably.
+    if (!hasNewPicker && !hasCapacitorCamera && hasLegacyUploader) {
+      toast({
+        title: "Update required",
+        description: "Please update the app. Your current version uploads immediately and can't wait for Save.",
+        variant: "destructive",
+      });
+      ticketRequested.current = false;
+      return;
+    }
+
     setPhotoAttaching(true);
-    console.log('[PHOTO] Set photoAttaching to true');
-    
+
     try {
-      console.log('[PHOTO] Auth check:', { hasToken: !!accessToken, hasUser: !!user });
-      
       if (!accessToken || !user) {
         throw new Error('Authentication required');
       }
-      
-      let targetFortuneId: string;
-      // For create flow: require form data but don't save yet
-      if (!isEditMode) {
-        console.log('[PHOTO] Create mode - checking form data...');
-        if (!text.trim() || !category) {
-          console.log('[PHOTO] Missing required form data:', { hasText: !!text.trim(), hasCategory: !!category });
-          setPhotoAttaching(false);
-          ticketRequested.current = false;
-          toast({
-            title: "Complete fortune details first",
-            description: "Please add text and select a category before attaching a photo.",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        // Use temporary ID for create mode
-        targetFortuneId = `temp-${Date.now()}`;
-        console.log('[PHOTO] Using temporary ID for create mode:', targetFortuneId);
-      } else {
-        targetFortuneId = fortune?.id || '';
-        console.log('[PHOTO] Edit mode - using fortune ID:', targetFortuneId);
-      }
 
-      let result: NativeUploaderResult;
+      console.log('[PHOTO] Using NativePhotoPicker for preview-only selection');
 
-      // ========== NEW: Use simplified picker if available ==========
-      if (hasNewPicker) {
-        console.log('[PHOTO] Using new NativePhotoPicker (simplified flow)');
-        
-        // Step 1: Pick photo (native handles gallery/camera only)
-        const pickerResult: NativePhotoPickerResult = await window.NativePhotoPicker!.pickPhoto();
-        
-        if (pickerResult.cancelled) {
-          console.log('[PHOTO] User cancelled photo selection');
-          ticketRequested.current = false;
-          setPhotoAttaching(false);
-          return;
-        }
+      const pickerResult: NativePhotoPickerResult = hasNewPicker
+        ? await window.NativePhotoPicker!.pickPhoto()
+        : await pickPhotoFallback();
 
-        console.log('[PHOTO] Photo picked:', {
-          mimeType: pickerResult.mimeType,
-          bytesLength: pickerResult.bytes.length,
-          width: pickerResult.width,
-          height: pickerResult.height
-        });
+      const anyResult = pickerResult as any;
 
-        // Step 2: Create Blob from bytes
-        const extension = pickerResult.mimeType === 'image/png' ? 'png' : 'jpg';
-        // Create a new Uint8Array copy to ensure we have a regular ArrayBuffer
-        const bytesCopy = new Uint8Array(pickerResult.bytes);
-        const blob = new Blob([bytesCopy.buffer as ArrayBuffer], { type: pickerResult.mimeType });
-        const file = new File(
-          [blob], 
-          `photo-${Date.now()}.${extension}`,
-          { type: pickerResult.mimeType }
-        );
+      // Some native bridges return bytes, others return Capacitor Camera-style base64String,
+      // and others return webPath/path. Accept any of them.
+      const rawBytes: Uint8Array | undefined = anyResult?.bytes;
+      const hasBytes = !!rawBytes && rawBytes.length > 0;
 
-        // Step 3: Use shared Lovable uploader (processAndUpload uses uploadToSignedUrl)
-        const uploadOptions: NativeUploaderOptions = {
-          supabaseUrl: 'https://pegiensgnptpdnfopnoj.supabase.co',
-          accessToken,
-          userId: user.id,
-          fortuneId: targetFortuneId
-        };
+      const base64String: string | undefined = typeof anyResult?.base64String === 'string' && anyResult.base64String.length
+        ? anyResult.base64String
+        : (typeof anyResult?.base64 === 'string' && anyResult.base64.length ? anyResult.base64 : undefined);
+      const hasBase64 = !!base64String;
 
-        // Wrap in promise to match existing flow
-        result = await new Promise<NativeUploaderResult>((resolve) => {
-          processAndUpload(uploadOptions, file, resolve);
-        });
+      const webPath: string | undefined = (typeof anyResult?.webPath === 'string' && anyResult.webPath.length)
+        ? anyResult.webPath
+        : (typeof anyResult?.path === 'string' && anyResult.path.length)
+          ? anyResult.path
+          : undefined;
 
-        console.log('[PHOTO] Upload result from processAndUpload:', result);
+      const hasWebPath = !!webPath;
 
-      } else if (hasLegacyUploader) {
-        // ========== LEGACY: Use old uploader (iOS injected JavaScript) ==========
-        console.log('[PHOTO] Using legacy NativeUploader (full flow in native)');
-        
-        const options: NativeUploaderOptions = {
-          supabaseUrl: 'https://pegiensgnptpdnfopnoj.supabase.co',
-          accessToken,
-          userId: user.id,
-          fortuneId: targetFortuneId
-        };
+      // Treat as cancellation ONLY if we have no usable payload AND the bridge explicitly says cancelled.
+      // Some iOS/Capacitor builds return `saved:false` even when a photo was chosen (it only means "not saved to gallery").
+      const cancelledFlag = anyResult?.cancelled === true;
+      const savedFlag = typeof anyResult?.saved === 'boolean' ? anyResult.saved : undefined;
 
-        result = await window.NativeUploader!.pickAndUploadFortunePhoto(options);
-        console.log('[PHOTO] Upload result from NativeUploader:', result);
-      } else {
-        throw new Error('No photo uploader available');
-      }
+      // `saved:false` from Capacitor Camera does NOT mean user cancelled; it means "not saved to gallery".
+      const hasUsablePayload = hasBytes || hasBase64 || hasWebPath;
 
-      // Handle result (same for both paths)
-      if (result.cancelled) {
-        console.log('[PHOTO] User cancelled upload');
-        ticketRequested.current = false;
+      if (cancelledFlag && !hasUsablePayload) {
+        console.log('[PHOTO] User cancelled photo selection');
         return;
       }
 
-      // Handle pending photo (needs polling) or immediate result
-      if (result.pending) {
-        console.log('[PHOTO] Upload is pending, will poll for completion');
-        setFortunePhoto('pending');
-        setPendingPhotoUpload({
-          fortuneId: '',
-          path: result.path || '',
-          bucket: result.bucket || 'photos'
+      // If we got here with no payload, the native bridge is not returning bytes/webPath.
+      // This is NOT a user cancel; it's a bridge bug/misconfiguration.
+      if (!hasUsablePayload) {
+        console.error('[PHOTO] Native picker returned no image payload', {
+          cancelledFlag,
+          savedFlag,
+          keys: Object.keys(anyResult || {}),
+          sample: anyResult,
         });
-        
-        const cleanup = pollForPhotoCompletion(result.path || '', result.bucket || 'photos');
-        if (cleanup) {
-          if (pollCleanupRef.current) {
-            pollCleanupRef.current();
-          }
-          pollCleanupRef.current = cleanup;
-        }
-      } else {
-        setFortunePhoto(result.signedUrl);
-        setPendingPhotoUpload({
-          fortuneId: '',
-          path: result.path || '',
-          bucket: result.bucket || 'photos'
+        toast({
+          title: 'Photo selection failed',
+          description: 'Native picker returned no image data (bytes/webPath missing). Please update the native bridge.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if ((cancelledFlag || savedFlag === false) && hasUsablePayload) {
+        console.warn('[PHOTO] Native picker reported cancelled/saved=false but returned data. Continuing.', {
+          cancelledFlag,
+          savedFlag,
+          usedBytes: hasBytes,
+          usedWebPath: hasWebPath,
         });
       }
 
+      // Build a File for preview + later upload.
+      // Priority: bytes -> base64 -> webPath fetch fallback.
+      let mimeType: string = (anyResult?.mimeType || anyResult?.format || '').toString();
+      if (!mimeType) {
+        // Capacitor Camera sometimes returns `format` like "jpeg"/"png"
+        const fmt = (anyResult?.format || '').toString().toLowerCase();
+        if (fmt === 'png') mimeType = 'image/png';
+        else if (fmt === 'webp') mimeType = 'image/webp';
+        else mimeType = 'image/jpeg';
+      }
+
+      let file: File;
+
+      if (hasBytes) {
+        const inferredExt = mimeType === 'image/png'
+          ? 'png'
+          : mimeType === 'image/webp'
+            ? 'webp'
+            : 'jpg';
+
+        const bytesCopy = new Uint8Array(rawBytes);
+        const blob = new Blob([bytesCopy.buffer as ArrayBuffer], { type: mimeType });
+        const rawFile = new File(
+          [blob],
+          `photo-${Date.now()}.${inferredExt}`,
+          { type: mimeType }
+        );
+
+        // iOS WebViews can fail to render WEBP; convert to JPEG for preview + upload
+        file = await convertWebpToJpegIfNeeded(rawFile);
+      } else if (hasBase64) {
+        const binary = atob(base64String!);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+
+        const inferredExt = mimeType === 'image/png'
+          ? 'png'
+          : mimeType === 'image/webp'
+            ? 'webp'
+            : 'jpg';
+
+        const blob = new Blob([bytes], { type: mimeType || 'image/jpeg' });
+        const rawFile = new File(
+          [blob],
+          `photo-${Date.now()}.${inferredExt}`,
+          { type: mimeType || 'image/jpeg' }
+        );
+
+        file = await convertWebpToJpegIfNeeded(rawFile);
+        mimeType = file.type;
+      } else if (hasWebPath) {
+        // Fetch the file from the webPath/path and create a File
+        const resp = await fetch(webPath!);
+        const blob = await resp.blob();
+        const fetchedMime = (blob.type || mimeType || 'image/jpeg');
+
+        const inferredExt = fetchedMime === 'image/png'
+          ? 'png'
+          : fetchedMime === 'image/webp'
+            ? 'webp'
+            : 'jpg';
+
+        const rawFile = new File(
+          [blob],
+          `photo-${Date.now()}.${inferredExt}`,
+          { type: fetchedMime }
+        );
+
+        file = await convertWebpToJpegIfNeeded(rawFile);
+        mimeType = file.type;
+      } else {
+        throw new Error('No image data returned from native picker');
+      }
+
+      // Replace previous preview URL if any
+      if (pendingPhotoPreviewUrl && pendingPhotoPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(pendingPhotoPreviewUrl);
+      }
+
+      const previewUrl = URL.createObjectURL(file);
+      userSelectedPhotoRef.current = true;
+
+      // Store for upload on Save
+      setPendingPhotoFile(file);
+      setPendingPhotoPreviewUrl(previewUrl);
+
+      // Show preview immediately in the modal
+      setFortunePhoto(previewUrl);
+
       toast({
-        title: result.replaced ? "Photo updated" : "Photo attached", 
-        description: result.pending ? "Photo is processing..." : "Your photo has been successfully uploaded.",
+        title: 'Photo selected',
+        description: 'Preview updated. Tap Update Fortune to upload and save.',
       });
 
-      // Trigger refresh of fortunes list + force FortunePhoto cache-busting version update
-      if (!result.pending) {
-        // Update modal preview immediately (if we have a signed URL)
-        if (result.signedUrl && result.signedUrl !== 'pending') {
-          setFortunePhoto(result.signedUrl);
-        }
-
-        // Always dispatch refresh events (robust even if `result.media` is missing)
-        await dispatchPhotoRefreshEvents(targetFortuneId, result.signedUrl ?? null);
-      } else {
-        console.log('[PHOTO-UPLOAD] Upload pending - refresh will be triggered after polling completes');
-      }
-
+      console.log('[PHOTO] Photo selected for later upload', {
+        fortuneId: fortune.id,
+        mimeType: file.type,
+        size: file.size,
+        usedBytes: hasBytes,
+        usedWebPath: hasWebPath,
+      });
     } catch (error) {
-      console.error('[PHOTO] Error attaching photo:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to attach photo. Please try again.";
+      console.error('[PHOTO] Error picking photo:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to pick photo. Please try again.";
       toast({
-        title: "Upload failed",
+        title: "Photo selection failed",
         description: errorMessage,
         variant: "destructive",
       });
     } finally {
-      console.log('[PHOTO] Resetting photoAttaching to false and ticketRequested flag');
       setPhotoAttaching(false);
       ticketRequested.current = false;
     }
@@ -725,6 +957,55 @@ export const FortuneModal = ({
       }
 
       if (isEditMode && fortune) {
+        // If the user selected a new photo in this edit session, upload it now (only on native)
+        // IMPORTANT: Do not close the modal until the uploaded file is actually available.
+        if (isNative && isHighTier && pendingPhotoFile) {
+          if (!accessToken || !user) {
+            throw new Error('Authentication required');
+          }
+
+          const uploadOptions: NativeUploaderOptions = {
+            supabaseUrl: 'https://pegiensgnptpdnfopnoj.supabase.co',
+            accessToken,
+            userId: user.id,
+            fortuneId: fortune.id,
+          };
+
+          setFortunePhoto('pending');
+
+          const uploadResult = await new Promise<NativeUploaderResult>((resolve) => {
+            processAndUpload(uploadOptions, pendingPhotoFile, resolve);
+          });
+
+          if (uploadResult.cancelled) {
+            throw new Error('Photo upload cancelled');
+          }
+
+          // If uploader couldn't return a signed URL immediately, wait until Edge can sign it.
+          let finalSignedUrl: string | null = null;
+
+          if (uploadResult.signedUrl && uploadResult.signedUrl !== 'pending') {
+            finalSignedUrl = uploadResult.signedUrl;
+          } else {
+            finalSignedUrl = await waitForSignedPhotoUrl(fortune.id, 8, 750);
+          }
+
+          if (!finalSignedUrl) {
+            throw new Error('Photo upload failed to finalize. Please try again.');
+          }
+
+          setFortunePhoto(finalSignedUrl);
+          userSelectedPhotoRef.current = false;
+          await dispatchPhotoRefreshEvents(fortune.id, finalSignedUrl);
+
+          // Clear local pending selection after successful upload
+          if (pendingPhotoPreviewUrl && pendingPhotoPreviewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(pendingPhotoPreviewUrl);
+          }
+          setPendingPhotoFile(null);
+          setPendingPhotoPreviewUrl(null);
+          setPendingPhotoUpload(null);
+        }
         // Update existing fortune
         const updateData: { text: string; category: string; fortune_value?: number | null; impact_level?: string } = {
           text: sanitizedText,
@@ -756,44 +1037,6 @@ export const FortuneModal = ({
       } else {
         // Create new fortune 
         const result = await addFortune(sanitizedText, validatedCategory, validatedValue || 0, selectedDate, impactLevel);
-
-        // If there's a photo attached, save the media record with the real fortune ID
-        if (fortunePhoto && fortunePhoto !== 'pending' && result.fortuneId) {
-          console.log('[FORTUNE] Saving photo for new fortune:', result.fortuneId);
-          
-          // Extract storage path from signed URL or use stored photo data
-          if (pendingPhotoUpload) {
-            const mediaData = {
-              fortune_id: result.fortuneId,
-              user_id: user!.id,
-              bucket: pendingPhotoUpload.bucket,
-              path: pendingPhotoUpload.path,
-              mime_type: 'image/jpeg', // Default - could be improved
-              width: null,
-              height: null,
-              size_bytes: null
-            };
-            
-            try {
-              const { error: mediaError } = await supabase
-                .from('fortune_media')
-                .upsert(mediaData);
-                
-              if (mediaError) {
-                console.error('[FORTUNE] Error saving media record:', mediaError);
-                toast({
-                  title: "Photo saved partially",
-                  description: "Fortune created but photo link may be lost. Please re-attach if needed.",
-                  variant: "destructive",
-                });
-              } else {
-                console.log('[FORTUNE] Media record saved successfully');
-              }
-            } catch (error) {
-              console.error('[FORTUNE] Media save error:', error);
-            }
-          }
-        }
 
         // Celebration for first action of day
         if (result.streakInfo?.firstOfDay) {
@@ -858,6 +1101,8 @@ export const FortuneModal = ({
       setPersistedFortuneId(null);
       setFortunePhoto(null);
       setPendingPhotoUpload(null);
+      setPendingPhotoFile(null);
+      setPendingPhotoPreviewUrl(null);
       onClose();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -878,6 +1123,9 @@ export const FortuneModal = ({
   if (!isOpen) return null;
 
   const restrictionMessage = freePlanStatus.restrictionMessage;
+
+  // Always show the local preview if present
+  const displayPhotoUrl = pendingPhotoPreviewUrl || (fortunePhoto && fortunePhoto !== 'pending' ? fortunePhoto : null);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -986,30 +1234,51 @@ export const FortuneModal = ({
                 <Camera size={16} className="text-primary" />
                 Photo
               </label>
-              
+              {/* Always show the local preview if present */}
+              {/*
+                displayPhotoUrl: pendingPhotoPreviewUrl || (fortunePhoto && fortunePhoto !== 'pending' ? fortunePhoto : null)
+              */}
               {/* Display existing photo (both native and web) */}
-              {fortunePhoto && fortunePhoto !== 'pending' && (
+              {displayPhotoUrl && (
                 <div className="relative">
                   <img 
-                    src={fortunePhoto} 
+                    src={displayPhotoUrl} 
                     alt="Fortune attachment" 
                     className="w-full h-48 object-cover rounded border border-border/50"
                   />
-                  {/* Only show delete button on native */}
+                  {/* Only show delete/change buttons on native */}
                   {isNative && isHighTier && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => setFortunePhoto(null)}
-                    >
-                      <X size={14} />
-                    </Button>
+                    <div className="absolute top-2 right-2 flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="bg-background/70 backdrop-blur"
+                        onClick={handleAttachPhoto}
+                        disabled={photoAttaching}
+                      >
+                        Change
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          userSelectedPhotoRef.current = false;
+                          if (pendingPhotoPreviewUrl && pendingPhotoPreviewUrl.startsWith('blob:')) {
+                            URL.revokeObjectURL(pendingPhotoPreviewUrl);
+                          }
+                          setPendingPhotoFile(null);
+                          setPendingPhotoPreviewUrl(null);
+                          setFortunePhoto(null);
+                        }}
+                      >
+                        <X size={14} />
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}
-              
               {/* Show pending state while photo is processing */}
               {fortunePhoto === 'pending' && (
                 <div className="relative w-full h-48 bg-muted/50 rounded border border-border/50 flex items-center justify-center">
@@ -1019,9 +1288,8 @@ export const FortuneModal = ({
                   </div>
                 </div>
               )}
-              
               {/* Native: Show upload button if no photo (or pending) and user has access */}
-              {isNative && isHighTier && !fortunePhoto && !photoAttaching && (
+              {isNative && isHighTier && !displayPhotoUrl && !photoAttaching && (
                 <Button
                   type="button"
                   variant="outline"
@@ -1035,7 +1303,6 @@ export const FortuneModal = ({
                   </span>
                 </Button>
               )}
-              
               {/* Show uploading state */}
               {isNative && isHighTier && photoAttaching && (
                 <div className="w-full h-32 border-dashed border-2 border-primary/50 rounded flex flex-col items-center justify-center gap-2 bg-muted/30">
@@ -1043,9 +1310,8 @@ export const FortuneModal = ({
                   <span className="text-sm text-muted-foreground">Uploading...</span>
                 </div>
               )}
-
               {/* Native: Show upgrade prompt for non-high tier users */}
-              {isNative && !isHighTier && !fortunePhoto && (
+              {isNative && !isHighTier && !displayPhotoUrl && (
                 <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-lg p-3">
                   <div className="flex items-center gap-2">
                     <Camera size={16} className="text-warning" />
@@ -1055,9 +1321,8 @@ export const FortuneModal = ({
                   </div>
                 </div>
               )}
-              
               {/* Web: Show informative callout when no photo exists */}
-              {!isNative && !fortunePhoto && (
+              {!isNative && !displayPhotoUrl && (
                 <div className="bg-muted/30 border border-muted/50 rounded-lg p-3">
                   <div className="flex items-start gap-2">
                     <DeviceMobile size={18} className="text-muted-foreground mt-0.5 flex-shrink-0" />
