@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { listLifestyleEntries, upsertLifestyleEntry } from '@/lib/edge-functions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/auth/AuthProvider';
 import { Card } from '@/components/ui/card';
@@ -82,6 +83,7 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
       date: format(selectedDate, 'yyyy-MM-dd'),
       mood: null,
       dream_quality: 3,
+      energy_level: 3,
       sexual_appetite: 3,
       room_temperature: 3,
       moods: [],
@@ -100,29 +102,36 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
     setLoading(true);
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const { data: { user } } = await supabase.auth.getUser();
 
+      // We already have the authenticated user from AuthProvider.
+      // Avoid an extra network round-trip to auth.getUser().
       if (!user) {
         setLoading(false);
         return;
       }
 
-      const { data: existingEntry, error } = await supabase
-        .from('lifestyle_entries')
-        .select('*')
-        .eq('date', dateStr)
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const { data: fnData, error: fnError } = await listLifestyleEntries({
+        from: dateStr,
+        to: dateStr,
+        limit: 1,
+      });
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
+      if (fnError) {
+        throw new Error(fnError);
       }
+
+      const entries = Array.isArray((fnData as any)?.entries) ? (fnData as any).entries : [];
+      console.debug('[Lifestyle] loadExistingData', {
+        date: dateStr,
+        entryCount: entries.length,
+      });
+
+      const existingEntry = entries.length > 0 ? entries[0] : null;
 
       if (existingEntry) {
         // Parse mood data from notes field
         let parsedMoodData = { moods: [], mood_causes: [], pain_types: [] };
         let cleanNotes = existingEntry.notes || '';
-        const cleanMeals = '';
         
         if (existingEntry.notes && existingEntry.notes.includes('[MOOD_DATA]')) {
           const moodDataMatch = existingEntry.notes.match(/\[MOOD_DATA\](.*?)\[\/MOOD_DATA\]/);
@@ -277,26 +286,41 @@ export const KnowMyselfWizard = ({ selectedDate, onClose }: KnowMyselfWizardProp
         notes: combinedNotes
       };
 
-      const { error } = await supabase
-        .from('lifestyle_entries')
-        .upsert(entryData, { 
-          onConflict: 'user_id,date',
-          ignoreDuplicates: false 
-        });
+      const { data: upsertData, error: upsertError } = await upsertLifestyleEntry({
+        // user_id is derived server-side from the JWT
+        date: entryData.date,
+        mood: entryData.mood,
+        dream_quality: entryData.dream_quality,
+        dream_description: entryData.dream_description,
+        meals: entryData.meals,
+        alcohol_consumption: entryData.alcohol_consumption,
+        sickness_level: entryData.sickness_level,
+        exercise_type: entryData.exercise_type,
+        exercise_duration: entryData.exercise_duration,
+        energy_level: entryData.energy_level,
+        sexual_appetite: entryData.sexual_appetite,
+        room_temperature: entryData.room_temperature,
+        notes: entryData.notes,
+        // Note: sexual_performance is not present in the wizard payload currently
+      });
 
-      if (error) {
-        // Check for constraint violation
-        if (error.code === '23514' || error.message.includes('mood') || error.message.includes('constraint')) {
+      if (upsertError) {
+        const msg = upsertError;
+        // Mirror the previous constraint handling behavior
+        if (msg.includes('mood') || msg.includes('constraint') || msg.includes('23514')) {
           toast({
             title: "Value out of range",
             description: "Mood must be 1–5. Please check your selection.",
-            variant: "destructive"
+            variant: "destructive",
           });
-          setCurrentStep(0); // Go back to mood step
+          setCurrentStep(0);
           return;
         }
-        throw error;
+        throw new Error(msg);
       }
+
+      // Optional: if you want to ensure something came back
+      void upsertData;
 
       // Emit event to sync with other components
       window.dispatchEvent(new CustomEvent('lifestyleDataUpdated'));

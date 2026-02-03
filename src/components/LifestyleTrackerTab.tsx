@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Calendar, Edit } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { format, addDays, subDays } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
-import { KnowMyselfWizard } from './knowmyself/KnowMyselfWizard';
+import { listLifestyleEntries } from '@/lib/edge-functions';
 import { LifestyleCalendar } from './LifestyleCalendar';
 import { KnowMyselfModal } from './modals/KnowMyselfModal';
 import { useAuth } from '@/auth/AuthProvider';
@@ -29,14 +27,41 @@ export const LifestyleTrackerTab = () => {
     try {
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('lifestyle_entries')
-        .select('id, date, mood, created_at')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false });
+      const { data, error } = await listLifestyleEntries({
+        // Keep it simple for now: load latest entries. You can add { from, to } later to reduce payload.
+        limit: 500,
+      });
 
-      if (error) throw error;
-      setEntries(data || []);
+      if (error) {
+        throw new Error(error);
+      }
+
+      const rows = (data as any)?.entries;
+      if (!Array.isArray(rows)) {
+        console.debug('[Lifestyle] listLifestyleEntries returned unexpected shape', {
+          hasEntries: !!rows,
+          type: typeof rows,
+        });
+      }
+      const normalized: LifestyleEntry[] = Array.isArray(rows)
+        ? rows.map((row: any) => ({
+            id: row.id,
+            date: row.date,
+            mood: row.mood ?? null,
+            created_at: row.created_at,
+          }))
+        : [];
+
+      // Defensive sort (date desc)
+      normalized.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+      console.debug('[Lifestyle] listLifestyleEntries loaded', {
+        count: normalized.length,
+        firstDate: normalized[0]?.date ?? null,
+        lastDate: normalized[normalized.length - 1]?.date ?? null,
+      });
+
+      setEntries(normalized);
     } catch (error) {
       console.error('Error loading entries:', error);
     } finally {

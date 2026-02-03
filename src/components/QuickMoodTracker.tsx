@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ThumbsUp, ThumbsDown, Undo } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { listLifestyleEntries, upsertLifestyleEntry } from '@/lib/edge-functions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/auth/AuthProvider';
 import confetti from 'canvas-confetti';
@@ -24,30 +25,33 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
       if (!user) return;
 
       const today = format(new Date(), 'yyyy-MM-dd');
-      const { data, error } = await supabase
-        .from('lifestyle_entries')
-        .select('mood')
-        .eq('user_id', user.id)
-        .eq('date', today)
-        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      const { data, error } = await listLifestyleEntries({
+        from: today,
+        to: today,
+        limit: 1,
+      });
+
+      if (error) {
         console.error('Error loading today mood:', error);
         return;
       }
 
-      // Map detailed moods to quick buttons
-      // good = good, very_good
-      // bad = bad, very_bad 
-      // neutral and others = null (no button selected)
-      if (data?.mood) {
-        if (data.mood === 'good' || data.mood === 'very_good') {
+      const entries = (data as any)?.entries ?? [];
+
+      const firstRow = Array.isArray(entries) && entries.length > 0 ? (entries as any)[0] : null;
+      const moodValue = firstRow?.mood ?? null;
+
+      if (moodValue) {
+        if (moodValue === 'good' || moodValue === 'very_good') {
           setSelectedMood('good');
-        } else if (data.mood === 'bad' || data.mood === 'very_bad') {
+        } else if (moodValue === 'bad' || moodValue === 'very_bad') {
           setSelectedMood('bad');
         } else {
           setSelectedMood(null); // neutral or other detailed entries
         }
+      } else {
+        setSelectedMood(null);
       }
     } catch (error) {
       console.error('Error in loadTodayMood:', error);
@@ -79,16 +83,35 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
     setLoading(true);
     const optimisticMood = mood;
     const previousMood = selectedMood;
-    
+
     // Optimistic update
     setSelectedMood(optimisticMood);
 
     try {
-      const { data, error } = await supabase.rpc('set_daily_mood', {
-        mood_value: mood
-      });
+      if (!user) {
+        setSelectedMood(previousMood);
+        setLoading(false);
+        return;
+      }
+      const today = format(new Date(), 'yyyy-MM-dd');
+      // Upsert mood via Edge Function
+      const { error: upsertError } = await upsertLifestyleEntry({ date: today, mood });
+      if (upsertError) throw upsertError;
 
-      if (error) throw error;
+      // After upsert, track daily action
+      let result: { firstOfDay?: boolean; currentStreak?: number; longestStreak?: number } = {};
+      try {
+        const { data: streakData, error: streakError } = await supabase.rpc('track_daily_action', {
+          source_type: 'mood',
+          event_ts: new Date().toISOString(),
+        });
+        if (streakError) {
+          console.error('[RPC] track_daily_action error:', streakError);
+        }
+        result = streakData as any || {};
+      } catch (streakError) {
+        console.error('Error tracking daily action:', streakError);
+      }
 
       // Emit event to sync with other components
       window.dispatchEvent(new CustomEvent('lifestyleDataUpdated'));
@@ -100,11 +123,8 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
         });
       }
 
-      // Parse the JSON response
-      const result = data as { firstOfDay: boolean; currentStreak: number; longestStreak: number };
-
       // Celebration for first action of day
-      if (result.firstOfDay) {
+      if (result?.firstOfDay) {
         // Emit analytics
         if (typeof window !== 'undefined' && window.gtag) {
           window.gtag('event', 'first_action_of_day', {
@@ -173,36 +193,23 @@ export const QuickMoodTracker = ({ className = '' }: QuickMoodTrackerProps) => {
 
     setLoading(true);
     const undoMood = selectedMood;
-    
+
     // Optimistic update
     setSelectedMood(previousMood);
 
     try {
-      if (!user) return;
-
-      const today = format(new Date(), 'yyyy-MM-dd');
-      
-      if (previousMood === null) {
-        // Clear mood entirely
-        const { error } = await supabase
-          .from('lifestyle_entries')
-          .update({ 
-            mood: null, 
-            mood_set_at: null,
-            updated_at: new Date().toISOString() 
-          })
-          .eq('user_id', user.id)
-          .eq('date', today);
-
-        if (error) throw error;
-      } else {
-        // Revert to previous mood
-        const { data, error } = await supabase.rpc('set_daily_mood', {
-          mood_value: previousMood
-        });
-
-        if (error) throw error;
+      if (!user) {
+        setSelectedMood(undoMood);
+        setLoading(false);
+        return;
       }
+      const today = format(new Date(), 'yyyy-MM-dd');
+      // Always use Edge Function to upsert previousMood (may be null)
+      const { error: upsertError } = await upsertLifestyleEntry({
+        date: today,
+        mood: previousMood,
+      });
+      if (upsertError) throw upsertError;
 
       // Emit event to sync with other components
       window.dispatchEvent(new CustomEvent('lifestyleDataUpdated'));

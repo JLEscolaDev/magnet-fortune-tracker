@@ -31,9 +31,8 @@ export const LifestyleCalendar = ({ entries, onDateClick, selectedDate }: Lifest
   const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
   
   const getEntryForDate = (date: Date) => {
-    return entries.find(entry => 
-      isSameDay(new Date(entry.date), date)
-    );
+    const dayKey = format(date, 'yyyy-MM-dd');
+    return entries.find(entry => entry.date === dayKey);
   };
 
   const getMoodColor = (mood: string | null) => {

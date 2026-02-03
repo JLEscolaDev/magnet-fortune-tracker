@@ -5,53 +5,150 @@ export interface EdgeFunctionResponse<T = unknown> {
   error?: string;
 }
 
+/**
+ * Generic Edge Function caller.
+ *
+ * IMPORTANT:
+ * - Uses `supabase.functions.invoke` so we do NOT hardcode the Supabase project URL.
+ * - Optionally injects Authorization header from the current session.
+ */
 export const callEdge = async <T = unknown>(
   functionName: string,
   body: Record<string, unknown> = {},
   requireAuth: boolean = true
 ): Promise<EdgeFunctionResponse<T>> => {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
+    const headers: Record<string, string> = {};
 
-    if (requireAuth) {
-      // Get current session token
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('No authentication token available');
-      }
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
 
-      headers['Authorization'] = `Bearer ${session.access_token}`;
-    } else {
-      // For optional auth, try to include token if available
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
+    if (requireAuth && !token) {
+      throw new Error('No authentication token available');
     }
 
-    const response = await fetch(
-      `https://pegiensgnptpdnfopnoj.supabase.co/functions/v1/${functionName}`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      }
-    );
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || 'Request failed');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
-    return { data: result };
+    const safeBody = (body ?? {}) as Record<string, unknown>;
+
+    const { data, error } = await supabase.functions.invoke(functionName, {
+      body: safeBody,
+      headers,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Request failed');
+    }
+
+    return { data: data as T };
   } catch (error) {
     console.error(`Error calling edge function ${functionName}:`, error);
-    return { 
-      error: error instanceof Error ? error.message : 'Unknown error occurred' 
+    return {
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
     };
   }
+};
+
+// -------------------------
+// Lifestyle Entries helpers
+// -------------------------
+
+export interface LifestyleEntryRow {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  dream_quality?: number | null;
+  dream_description?: string | null;
+  meals?: string | null;
+  alcohol_consumption?: number | null;
+  mood?: string | null;
+  sickness_level?: number | null;
+  exercise_type?: string | null;
+  exercise_duration?: number | null;
+  sexual_appetite?: number | null;
+  sexual_performance?: number | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at?: string;
+  mood_set_at?: string | null;
+  room_temperature?: number | null;
+  energy_level?: number | null;
+}
+
+export interface LifestyleEntryListResponse {
+  entries: LifestyleEntryRow[];
+}
+
+export interface LifestyleEntryListParams {
+  from?: string; // YYYY-MM-DD
+  to?: string; // YYYY-MM-DD
+  limit?: number;
+}
+
+export const listLifestyleEntries = async (
+  params: LifestyleEntryListParams = {}
+): Promise<EdgeFunctionResponse<LifestyleEntryListResponse>> => {
+  const res = await callEdge<any>('lifestyle-entry-list', params, true);
+
+  if (res.error) {
+    return { error: res.error };
+  }
+
+  const data = res.data;
+
+  // Preferred shape: { entries: LifestyleEntryRow[] }
+  if (data && typeof data === 'object' && 'entries' in data) {
+    return { data: data as LifestyleEntryListResponse };
+  }
+
+  // Backward/alternative shape: LifestyleEntryRow[]
+  if (Array.isArray(data)) {
+    return { data: { entries: data as LifestyleEntryRow[] } };
+  }
+
+  return { error: 'Invalid response from lifestyle-entry-list' };
+};
+
+export interface LifestyleEntryUpsertInput {
+  date: string; // YYYY-MM-DD
+  notes?: string | null;
+  dream_description?: string | null;
+  meals?: string | null;
+  dream_quality?: number | null;
+  alcohol_consumption?: number | null;
+  mood?: string | null;
+  sickness_level?: number | null;
+  exercise_type?: string | null;
+  exercise_duration?: number | null;
+  sexual_appetite?: number | null;
+  sexual_performance?: number | null;
+  energy_level?: number | null;
+  room_temperature?: number | null;
+  mood_set_at?: string | null;
+}
+
+export interface LifestyleEntryUpsertResponse {
+  entry: LifestyleEntryRow;
+}
+
+export const upsertLifestyleEntry = async (
+  input: LifestyleEntryUpsertInput
+): Promise<EdgeFunctionResponse<LifestyleEntryUpsertResponse>> => {
+  const res = await callEdge<any>('lifestyle-entry-upsert', input, true);
+
+  if (res.error) {
+    return { error: res.error };
+  }
+
+  const data = res.data;
+
+  // Preferred shape: { entry: LifestyleEntryRow }
+  if (data && typeof data === 'object' && 'entry' in data) {
+    return { data: data as LifestyleEntryUpsertResponse };
+  }
+
+  // Backward/alternative shape: LifestyleEntryRow
+  return { data: { entry: data as LifestyleEntryRow } };
 };
