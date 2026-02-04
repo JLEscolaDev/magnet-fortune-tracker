@@ -152,3 +152,107 @@ export const upsertLifestyleEntry = async (
   // Backward/alternative shape: LifestyleEntryRow
   return { data: { entry: data as LifestyleEntryRow } };
 };
+
+// -------------------------
+// Reports helpers
+// -------------------------
+
+export type ReportType = 'weekly' | 'quarterly' | 'annual';
+
+export interface ReportListItem {
+  id: string;
+  report_type: ReportType;
+  period_start: string; // YYYY-MM-DD
+  period_end: string; // YYYY-MM-DD
+  title: string;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+  year?: number | null;
+}
+
+export interface ReportRow extends ReportListItem {
+  content: string;
+  error_message?: string | null;
+}
+
+export interface ReportListResponse {
+  reports: ReportListItem[];
+}
+
+export interface ReportGetResponse {
+  report: ReportRow;
+}
+
+export interface ReportGenerateResponse {
+  report: ReportRow;
+}
+
+export interface ReportListParams {
+  year?: number;
+}
+
+export interface ReportGenerateInput {
+  report_type: ReportType;
+  year?: number;
+  weekStart?: string;
+  quarter?: 1 | 2 | 3 | 4;
+}
+
+export const listReports = async (
+  params: ReportListParams = {}
+): Promise<EdgeFunctionResponse<ReportListResponse>> => {
+  const res = await callEdge<any>('report-list', params, true);
+
+  if (res.error) {
+    return { error: res.error };
+  }
+
+  const data = res.data;
+
+  if (data && typeof data === 'object' && 'reports' in data) {
+    return { data: data as ReportListResponse };
+  }
+
+  if (Array.isArray(data)) {
+    return { data: { reports: data as ReportListItem[] } };
+  }
+
+  return { error: 'Invalid response from report-list' };
+};
+
+export const getReport = async (
+  report_id: string
+): Promise<EdgeFunctionResponse<ReportGetResponse>> => {
+  const res = await callEdge<any>('report-get', { report_id }, true);
+
+  if (res.error) {
+    return { error: res.error };
+  }
+
+  const data = res.data;
+
+  if (data && typeof data === 'object' && 'report' in data) {
+    return { data: data as ReportGetResponse };
+  }
+
+  return { data: { report: data as ReportRow } };
+};
+
+export const generateReport = async (
+  input: ReportGenerateInput
+): Promise<EdgeFunctionResponse<ReportGenerateResponse>> => {
+  const res = await callEdge<any>('report-generate', input, true);
+
+  if (res.error) {
+    return { error: res.error };
+  }
+
+  const data = res.data;
+
+  if (data && typeof data === 'object' && 'report' in data) {
+    return { data: data as ReportGenerateResponse };
+  }
+
+  return { data: { report: data as ReportRow } };
+};

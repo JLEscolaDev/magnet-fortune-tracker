@@ -29,7 +29,7 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
   const [showPricingDialog, setShowPricingDialog] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
   const { toast } = useToast();
-  const { isActive, subscription } = useSubscription();
+  const { isActive, subscription, isHighTier } = useSubscription();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [fallbackProfile, setFallbackProfile] = useState<{ display_name?: string | null; level?: number | null; created_at?: string | null } | null>(null);
   const [isBetaTester, setIsBetaTester] = useState(false);
@@ -111,11 +111,8 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
     }
   };
 
-  const handleGenerateReports = () => {
-    toast({
-      title: "Generating Reports",
-      description: "Your progress reports are being generated...",
-    });
+  const handleOpenReports = () => {
+    window.location.href = '/reports';
   };
 
   const handleManageBilling = async () => {
@@ -231,15 +228,15 @@ export const SettingsPage = ({ onBack }: SettingsPageProps) => {
 
             </div>
             <div className="space-y-3">
-            {isActive ? (
+            {isHighTier ? (
               <>
                 <Button 
                   variant="outline" 
-                  onClick={handleGenerateReports}
+                  onClick={handleOpenReports}
                   className="w-full justify-center"
                 >
                   <ChartLine size={16} className="mr-2" />
-                  Generate Progress Reports
+                  Open Reports
                 </Button>
               </>
             ) : (

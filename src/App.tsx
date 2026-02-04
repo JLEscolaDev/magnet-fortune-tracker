@@ -9,6 +9,7 @@ import { AuthProvider } from "@/auth/AuthProvider";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { PricingPage } from "./components/billing/PricingPage";
+import ReportsPage from "./pages/ReportsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +34,7 @@ const AppRoutes = () => (
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/reports" element={<ReportsPage />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
