@@ -60,6 +60,10 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Documentation
+
+- Reports system: `docs/REPORTS_SYSTEM.md`
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/2595371f-9977-4cf4-86ce-ec317d0c8ab5) and click on Share -> Publish.

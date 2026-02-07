@@ -33,13 +33,39 @@ export const callEdge = async <T = unknown>(
 
     const safeBody = (body ?? {}) as Record<string, unknown>;
 
-    const { data, error } = await supabase.functions.invoke(functionName, {
+    const { data, error, response } = await supabase.functions.invoke(functionName, {
       body: safeBody,
       headers,
     });
 
     if (error) {
-      throw new Error(error.message || 'Request failed');
+      let message = error.message || 'Request failed';
+      if (response) {
+        try {
+          const clone = response.clone();
+          const contentType = clone.headers.get('Content-Type') || '';
+          const rawText = await clone.text();
+          const trimmed = rawText.slice(0, 2000);
+          if (contentType.includes('application/json')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              if (parsed?.error) {
+                message = String(parsed.error);
+              }
+              if (parsed?.stage) {
+                message = `${message} (stage: ${parsed.stage})`;
+              }
+            } catch {
+              // ignore JSON parse errors
+            }
+          } else if (trimmed) {
+            message = `${message} (${trimmed})`;
+          }
+        } catch {
+          // ignore response parsing errors
+        }
+      }
+      throw new Error(message);
     }
 
     return { data: data as T };
@@ -197,6 +223,7 @@ export interface ReportGenerateInput {
   year?: number;
   weekStart?: string;
   quarter?: 1 | 2 | 3 | 4;
+  force?: boolean;
 }
 
 export const listReports = async (
